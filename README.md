@@ -1,26 +1,35 @@
-# RunQuest
+# 런퀘스트
 
-Flutter prototype for a personalized social running app.
+개인 맞춤형 순환 러닝 코스를 추천하고, 기록과 업적을 공유할 수 있는 플러터 기반 러닝 앱 프로토타입입니다.
 
-## Concept
+## 앱 개요
 
-RunQuest creates loop running courses from five simple choices:
+런퀘스트는 사용자가 처음에 다섯 가지 항목만 선택하면 출발 위치를 기준으로 러닝 코스를 추천합니다.
 
-- Distance
-- Slope
-- Running flow
-- Environment
-- Safety priority
+- 거리
+- 경사
+- 러닝 흐름
+- 환경
+- 안전 우선순위
 
-The prototype includes route presets, course scoring, achievement/profile sharing, rankings, and an admin console for suspicious record review, warnings, suspensions, and proof-request notifications. The UI direction is minimal, trustworthy, and information-first.
+기본 거리는 3킬로미터, 5킬로미터, 7킬로미터, 10킬로미터를 지원하며, 모든 코스는 출발 위치로 돌아오는 순환 코스를 기준으로 설계합니다.
 
-## Run
+## 주요 기능
+
+- 야간 안전런, 페이스런, 업힐런, 힐링런, 10킬로미터 기록 도전 프리셋
+- 보안등, 폐쇄회로 텔레비전, 공원, 하천, 신호등, 경사 정보를 반영한 코스 점수
+- 사용자 프로필, 업적, 통계, 기록 공유
+- 비공개, 친구 공개, 전체 공개 프로필 설정
+- 친구 및 전체 사용자 랭킹
+- 기록 이상 징후 검토, 경고, 정지, 증명 요청 알림을 위한 관리자 화면
+
+## 실행 방법
 
 ```sh
 flutter run
 ```
 
-## Test
+## 테스트 방법
 
 ```sh
 flutter test
