@@ -1,4 +1,4 @@
-package com.example.runquest
+package com.runspot.runquest
 
 import io.flutter.embedding.android.FlutterActivity
 

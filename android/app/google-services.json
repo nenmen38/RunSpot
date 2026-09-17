@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "106740515830",
+    "project_id": "capstone-running",
+    "storage_bucket": "capstone-running.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:106740515830:android:77ec57666f4d8564da3dd7",
+        "android_client_info": {
+          "package_name": "com.runspot.runquest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGTJX5RF2eTIl4te0DEagF1CjOKh7d3hE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

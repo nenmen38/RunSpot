@@ -1,9 +1,55 @@
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+import 'firebase_options.dart';
+
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const _supabasePublishableKey = String.fromEnvironment(
+  'SUPABASE_PUBLISHABLE_KEY',
+);
+const _authRedirectUrl = 'runspot://login-callback';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await Supabase.initialize(
+    url: _supabaseUrl,
+    publishableKey: _supabasePublishableKey,
+  );
+  await _configureFirebaseMessagingForDebug();
   runApp(const RunQuestApp());
+}
+
+Future<void> _configureFirebaseMessagingForDebug() async {
+  final messaging = FirebaseMessaging.instance;
+
+  await messaging.requestPermission();
+
+  if (!kDebugMode) {
+    return;
+  }
+
+  try {
+    final token = await messaging.getToken();
+    // ignore: prefer_interpolation_to_compose_strings
+    debugPrint('FCM token: ' + (token ?? 'null'));
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+      // ignore: prefer_interpolation_to_compose_strings
+      debugPrint('FCM token refreshed: ' + token);
+    });
+  } catch (error) {
+    // ignore: prefer_interpolation_to_compose_strings
+    debugPrint('FCM token error: ' + error.toString());
+  }
 }
 
 class RunQuestApp extends StatelessWidget {
@@ -52,7 +98,258 @@ class RunQuestApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const MobileAppViewport(child: RunQuestShell()),
+      home: const MobileAppViewport(child: AuthGate()),
+    );
+  }
+}
+
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  late final StreamSubscription<AuthState> _authSubscription;
+  late bool _signedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    final auth = Supabase.instance.client.auth;
+    _signedIn = auth.currentSession != null;
+    _authSubscription = auth.onAuthStateChange.listen((state) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _signedIn = state.session != null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _signedIn ? const RunQuestShell() : const AuthScreen();
+  }
+}
+
+class AuthScreen extends StatefulWidget {
+  const AuthScreen({super.key});
+
+  @override
+  State<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<AuthScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSignUp = false;
+  bool _loading = false;
+  String? _message;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signInWithOAuth(OAuthProvider provider) async {
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
+
+    try {
+      await Supabase.instance.client.auth.signInWithOAuth(
+        provider,
+        redirectTo: _authRedirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+    } on AuthException catch (error) {
+      setState(() => _message = error.message);
+    } catch (_) {
+      setState(() => _message = '소셜 로그인 처리 중 오류가 발생했습니다.');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _submit() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _message = '이메일과 비밀번호를 모두 입력해 주세요.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setState(() => _message = '비밀번호는 6자 이상이어야 합니다.');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
+
+    try {
+      final auth = Supabase.instance.client.auth;
+      if (_isSignUp) {
+        final response = await auth.signUp(email: email, password: password);
+        if (response.session == null) {
+          setState(() => _message = '가입 확인 메일을 확인해 주세요.');
+        }
+      } else {
+        await auth.signInWithPassword(email: email, password: password);
+      }
+    } on AuthException catch (error) {
+      setState(() => _message = error.message);
+    } catch (_) {
+      setState(() => _message = '로그인 처리 중 오류가 발생했습니다.');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = _isSignUp ? '회원가입' : '로그인';
+    final actionLabel = _isSignUp ? '회원가입' : '이메일로 로그인';
+    final switchLabel = _isSignUp ? '이미 계정이 있어요' : '새 계정 만들기';
+
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Spacer(),
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: AppColors.blue,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.directions_run,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text('RunSpot', style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 6),
+              Text(
+                '러닝 조건을 확인하고 주변 러너와 함께 달려요.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 24),
+              Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: const InputDecoration(
+                        labelText: '이메일',
+                        prefixIcon: Icon(Icons.mail_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      autofillHints: const [AutofillHints.password],
+                      decoration: const InputDecoration(
+                        labelText: '비밀번호',
+                        prefixIcon: Icon(Icons.lock_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (_) => _loading ? null : _submit(),
+                    ),
+                    if (_message != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _message!,
+                        style: TextStyle(
+                          color: _message!.contains('확인')
+                              ? AppColors.green
+                              : AppColors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(actionLabel),
+                    ),
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () => setState(() {
+                                _isSignUp = !_isSignUp;
+                                _message = null;
+                              }),
+                      child: Text(switchLabel),
+                    ),
+                    const Divider(height: 24),
+                    OutlinedButton.icon(
+                      onPressed: _loading
+                          ? null
+                          : () => _signInWithOAuth(OAuthProvider.google),
+                      icon: const Icon(Icons.g_mobiledata),
+                      label: const Text('Google로 계속하기'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _loading
+                          ? null
+                          : () => _signInWithOAuth(OAuthProvider.kakao),
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      label: const Text('Kakao로 계속하기'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '소셜 로그인은 브라우저 인증 후 앱으로 돌아옵니다.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -666,6 +963,15 @@ class ProfileScreen extends StatelessWidget {
                       if (option != '모두공개') const SizedBox(width: 6),
                     ],
                   ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Supabase.instance.client.auth.signOut(),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('로그아웃'),
+                  ),
                 ),
               ],
             ),

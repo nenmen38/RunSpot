@@ -1,12 +1,19 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:runquest/main.dart';
 
+Widget testApp() {
+  return MaterialApp(
+    theme: ThemeData(useMaterial3: true),
+    home: const MobileAppViewport(child: RunQuestShell()),
+  );
+}
+
 void main() {
   testWidgets('RunQuest shows the mobile app shell', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
-    await tester.pumpWidget(const RunQuestApp());
+    await tester.pumpWidget(testApp());
 
     expect(find.text('오늘은\n어디로 달릴까요?'), findsOneWidget);
     expect(find.text('코스 다시 만들기'), findsOneWidget);
@@ -25,7 +32,7 @@ void main() {
 
   testWidgets('RunQuest stays phone-sized on desktop web', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
-    await tester.pumpWidget(const RunQuestApp());
+    await tester.pumpWidget(testApp());
 
     final viewport = tester.getSize(find.byType(RunQuestShell));
 
@@ -40,7 +47,7 @@ void main() {
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(900, 500));
-    await tester.pumpWidget(const RunQuestApp());
+    await tester.pumpWidget(testApp());
 
     final viewport = tester.getSize(find.byType(RunQuestShell));
 
