@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'firebase_options.dart';
+import 'auth/privacy_controls.dart';
 
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabasePublishableKey = String.fromEnvironment(
@@ -531,7 +532,6 @@ class _RunQuestShellState extends State<RunQuestShell> {
   String _flow = '페이스 유지';
   String _environment = '공원/하천';
   String _safety = '골목길 회피';
-  String _visibility = '친구공개';
   int _rankingMode = 0;
   late RoutePlan _plan;
   ReviewCase _review = const ReviewCase(
@@ -671,10 +671,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         rankingMode: _rankingMode,
         onModeChanged: (value) => setState(() => _rankingMode = value),
       ),
-      ProfileScreen(
-        visibility: _visibility,
-        onVisibilityChanged: (value) => setState(() => _visibility = value),
-      ),
+      const ProfileScreen(),
       AdminScreen(review: _review, onAction: _setReviewStatus),
     ];
 
@@ -895,14 +892,7 @@ class SocialScreen extends StatelessWidget {
 }
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({
-    required this.visibility,
-    required this.onVisibilityChanged,
-    super.key,
-  });
-
-  final String visibility;
-  final ValueChanged<String> onVisibilityChanged;
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -950,20 +940,7 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    for (final option in const ['비공개', '친구공개', '모두공개']) ...[
-                      Expanded(
-                        child: TinyTab(
-                          label: option,
-                          selected: visibility == option,
-                          onTap: () => onVisibilityChanged(option),
-                        ),
-                      ),
-                      if (option != '모두공개') const SizedBox(width: 6),
-                    ],
-                  ],
-                ),
+                const PrivacyControls(),
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
