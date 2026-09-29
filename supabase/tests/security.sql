@@ -20,8 +20,13 @@ insert into auth.users(id) values
 ('00000000-0000-0000-0000-000000000001'),
 ('00000000-0000-0000-0000-000000000002'),
 ('00000000-0000-0000-0000-000000000003');
+insert into public.registration_terms(id,version,title,body,published_at,is_current)
+values ('90000000-0000-0000-0000-000000000001','test-security','테스트 전용','검증용 본문',now(),true);
+select runspot_private.finish_registration(id,
+  '90000000-0000-0000-0000-000000000001') from auth.users;
 update auth.users set phone='8210' || right(replace(id::text,'-',''),8), phone_confirmed_at=now()
 where id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003');
+update public.profiles set nickname=case when right(id::text,1)='1' then '테스트러너' else 'runner_' || right(id::text,1) end;
 update public.profiles set visibility='public';
 insert into public.runs(id,user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
 values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001',
@@ -44,8 +49,8 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
 select pg_temp.assert_true((select count(*)=1 from public.runs),'본인 러닝 조회');
 select pg_temp.assert_true((select count(*)=1 from public.posts),'본인 게시물 조회');
-update public.profiles set nickname='테스트러너' where id=auth.uid();
-select pg_temp.assert_true((select nickname='테스트러너' from public.profiles where id=auth.uid()),'본인 닉네임 변경');
+select pg_temp.assert_true(pg_temp.denied('update public.profiles set nickname=''다른이름'' where id=auth.uid()'),'닉네임 직접 수정 차단');
+select pg_temp.assert_true((select nickname='테스트러너' from public.profiles where id=auth.uid()),'본인 닉네임 조회');
 select pg_temp.assert_true(pg_temp.denied('update public.profiles set id=gen_random_uuid()'),'소유자 변경 차단');
 select pg_temp.assert_true(pg_temp.denied('update public.runs set distance_m=100000'),'기록 변조 차단');
 select pg_temp.assert_true(pg_temp.denied('insert into public.runs default values'),'기록 직접 생성 차단');
@@ -56,7 +61,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002'
 select pg_temp.assert_true((select count(*)=0 from public.runs),'타인 러닝 원본 차단');
 select pg_temp.assert_true((select count(*)=0 from public.posts),'친구 아닌 사용자 차단');
 select pg_temp.assert_true((select count(*)=0 from public.run_share_paths),'경로 우회 조회 차단');
-update public.profiles set nickname='침입' where id='00000000-0000-0000-0000-000000000001';
+select pg_temp.assert_true(pg_temp.denied('update public.profiles set nickname=''침입'' where id=''00000000-0000-0000-0000-000000000001'''),'타인 닉네임 직접 수정 차단');
 select pg_temp.assert_true((select nickname='테스트러너' from public.profiles where id='00000000-0000-0000-0000-000000000001'),'타인 프로필 수정 차단');
 reset role;
 insert into public.friendships(user_low,user_high,requested_by,status) values

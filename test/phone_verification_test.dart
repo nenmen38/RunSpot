@@ -1,6 +1,7 @@
+import 'package:runquest/features/auth/data/phone_verification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:runquest/auth/phone_verification.dart';
+import 'package:runquest/features/auth/phone_verification.dart';
 
 class FakePhoneService implements PhoneVerificationService {
   bool verified = false;

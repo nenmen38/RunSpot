@@ -38,6 +38,8 @@ migrate_working_dir/
 **/.pub-cache/
 **/.pub/
 **/build/
+# 동기화 폴더 밖의 빌드 산출물을 가리키는 연결도 제외합니다.
+/build
 build_ios_tmp/
 **/coverage/
 

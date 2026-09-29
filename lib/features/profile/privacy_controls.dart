@@ -1,7 +1,10 @@
+import 'package:runquest/features/auth/data/nickname_service.dart';
+import 'package:runquest/features/auth/data/phone_verification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'phone_verification.dart';
+import '../auth/phone_verification.dart';
+import '../auth/nickname.dart';
 
 class PrivacyControls extends StatefulWidget {
   const PrivacyControls({super.key});
@@ -14,6 +17,7 @@ class _PrivacyControlsState extends State<PrivacyControls> {
   final _client = Supabase.instance.client;
   String _visibility = 'private';
   bool _verified = false;
+  String? _nickname;
   bool _busy = true;
   String? _error;
 
@@ -32,13 +36,16 @@ class _PrivacyControlsState extends State<PrivacyControls> {
       final verified = await SupabasePhoneVerification(_client).isVerified();
       final profile = await _client
           .from('profiles')
-          .select('visibility')
+          .select('visibility,nickname')
           .eq('id', _client.auth.currentUser!.id)
           .single();
       if (mounted) {
         setState(() {
           _verified = verified;
-          _visibility = verified ? profile['visibility'] as String : 'private';
+          _nickname = profile['nickname'] as String?;
+          _visibility = verified && _nickname != null
+              ? profile['visibility'] as String
+              : 'private';
         });
       }
     } catch (_) {
@@ -49,7 +56,9 @@ class _PrivacyControlsState extends State<PrivacyControls> {
   }
 
   Future<void> _save(String value) async {
-    if (_busy || (!_verified && value != 'private')) return;
+    if (_busy || ((!_verified || _nickname == null) && value != 'private')) {
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -84,6 +93,19 @@ class _PrivacyControlsState extends State<PrivacyControls> {
       ),
     );
     if (mounted) await _load();
+    if (mounted && _verified && _nickname == null && _error == null) {
+      await _editNickname();
+    }
+  }
+
+  Future<void> _editNickname() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            NicknameScreen(service: SupabaseNicknameService(_client)),
+      ),
+    );
+    if (mounted) await _load();
   }
 
   @override
@@ -91,6 +113,22 @@ class _PrivacyControlsState extends State<PrivacyControls> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _verified ? (_nickname ?? '나') : '나',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            if (_verified && !_busy && _error == null)
+              IconButton(
+                onPressed: _editNickname,
+                tooltip: _nickname == null ? '닉네임 등록' : '닉네임 변경',
+                icon: const Icon(Icons.edit_outlined),
+              ),
+          ],
+        ),
         SegmentedButton<String>(
           segments: const [
             ButtonSegment(value: 'private', label: Text('비공개')),
@@ -99,12 +137,15 @@ class _PrivacyControlsState extends State<PrivacyControls> {
           ],
           selected: {_visibility},
           showSelectedIcon: false,
-          onSelectionChanged: _busy || !_verified || _error != null
+          onSelectionChanged:
+              _busy || !_verified || _nickname == null || _error != null
               ? null
               : (values) => _save(values.single),
         ),
         if (!_verified && !_busy && _error == null)
           TextButton(onPressed: _verify, child: const Text('전화번호 인증')),
+        if (_verified && _nickname == null && !_busy && _error == null)
+          TextButton(onPressed: _editNickname, child: const Text('닉네임 등록')),
         if (_error != null) ...[
           Text(_error!),
           TextButton(

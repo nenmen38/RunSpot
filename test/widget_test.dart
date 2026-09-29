@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:runquest/main.dart';
+import 'package:runquest/app/mobile_app_viewport.dart';
+import 'package:runquest/app/run_quest_shell.dart';
 
 Widget testApp() {
   return MaterialApp(
@@ -11,6 +12,32 @@ Widget testApp() {
 }
 
 void main() {
+  testWidgets('프리셋 선택은 탭 전환 후에도 유지됩니다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(testApp());
+    await tester.tap(find.text('코스'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('10K 기록 도전'));
+    await tester.pumpAndSettle();
+    expect(find.text('10K 도심 신호적게'), findsOneWidget);
+    await tester.tap(find.text('홈'));
+    await tester.pumpAndSettle();
+    expect(find.text('10K 도심 신호적게'), findsOneWidget);
+    await tester.tap(find.text('소셜').last);
+    await tester.pumpAndSettle();
+    expect(find.text('친구 랭킹'), findsOneWidget);
+    await tester.tap(find.text('성장'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('관리').last);
+    await tester.pumpAndSettle();
+    expect(find.text('이상 기록'), findsOneWidget);
+    await tester.tap(find.text('홈'));
+    await tester.pumpAndSettle();
+    expect(find.text('10K 도심 신호적게'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('RunQuest shows the mobile app shell', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     await tester.pumpWidget(testApp());
