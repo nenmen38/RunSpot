@@ -1,0 +1,3 @@
+# CLI의 로컬 연결 정보와 임시 파일
+.temp/
+.branches/
