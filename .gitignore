@@ -74,3 +74,4 @@ CLAUDE.md
 **/settings.json
 **/dev.json
 **/*.local.json
+ios/Flutter/LocalDartDefines.xcconfig

@@ -26,8 +26,12 @@
 ## 실행 방법
 
 ```sh
-flutter run
+flutter run --dart-define-from-file=config/dev.json
 ```
+
+`config/dev.json`에는 Supabase URL과 공개 키가 들어 있어야 합니다. 새 환경에서는 `config/example.json`을 복사해 실제 값을 채운 뒤 실행합니다.
+디버그 IO 환경에서는 앱이 `config/dev.json`을 자동으로 보완 로딩하지만, 웹 실행이나 배포 빌드에서는 위 실행 옵션처럼 빌드 설정을 명시해야 합니다.
+Supabase Auth의 Redirect URLs에는 `runspot://login-callback`을 등록해야 이메일 확인과 소셜 로그인이 앱으로 돌아옵니다.
 
 ## 테스트 방법
 
