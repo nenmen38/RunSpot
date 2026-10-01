@@ -20,10 +20,7 @@ insert into auth.users(id) values
 ('00000000-0000-0000-0000-000000000001'),
 ('00000000-0000-0000-0000-000000000002'),
 ('00000000-0000-0000-0000-000000000003');
-insert into public.registration_terms(id,version,title,body,published_at,is_current)
-values ('90000000-0000-0000-0000-000000000001','test-security','테스트 전용','검증용 본문',now(),true);
-select runspot_private.finish_registration(id,
-  '90000000-0000-0000-0000-000000000001') from auth.users;
+select runspot_private.finish_registration(id) from auth.users;
 update auth.users set phone='8210' || right(replace(id::text,'-',''),8), phone_confirmed_at=now()
 where id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003');
 update public.profiles set nickname=case when right(id::text,1)='1' then '테스트러너' else 'runner_' || right(id::text,1) end;

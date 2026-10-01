@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:runquest/features/auth/registration.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/shared/widgets/panel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -17,9 +16,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmationController = TextEditingController();
-  String? _termsId;
-  bool _acceptedTerms = false;
-  bool _testRegistration = false;
   bool _isSignUp = false;
   bool _loading = false;
   String? _message;
@@ -74,15 +70,6 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() => _message = '비밀번호가 일치하지 않습니다.');
         return;
       }
-      final error = validateRegistration(
-        _acceptedTerms,
-        _termsId,
-        testMode: _testRegistration,
-      );
-      if (error != null) {
-        setState(() => _message = error);
-        return;
-      }
     }
 
     setState(() {
@@ -96,7 +83,7 @@ class _AuthScreenState extends State<AuthScreen> {
         final response = await auth.signUp(
           email: email,
           password: password,
-          data: {'registration_terms_id': _termsId},
+          emailRedirectTo: _authRedirectUrl,
         );
         if (mounted && response.session == null) {
           setState(() => _message = '가입 확인 메일을 확인해 주세요.');
@@ -106,14 +93,10 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } on AuthException catch (error) {
       if (mounted) {
-        setState(
-          () => _message = error.code == 'unexpected_failure'
-              ? '가입하지 못했습니다. 현재 약관을 확인해 주세요.'
-              : error.message,
-        );
+        setState(() => _message = _authErrorMessage(error));
       }
-    } catch (_) {
-      if (mounted) setState(() => _message = '로그인 처리 중 오류가 발생했습니다.');
+    } catch (error) {
+      if (mounted) setState(() => _message = _fallbackAuthErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -203,14 +186,6 @@ class _AuthScreenState extends State<AuthScreen> {
                           border: OutlineInputBorder(),
                         ),
                       ),
-                      RegistrationFields(
-                        onTestModeChanged: (enabled) =>
-                            _testRegistration = enabled,
-                        onChanged: (id, accepted) {
-                          _termsId = id;
-                          _acceptedTerms = accepted;
-                        },
-                      ),
                     ],
                     if (_message != null) ...[
                       const SizedBox(height: 10),
@@ -242,9 +217,6 @@ class _AuthScreenState extends State<AuthScreen> {
                           : () => setState(() {
                               _isSignUp = !_isSignUp;
                               _message = null;
-                              _acceptedTerms = false;
-                              _testRegistration = false;
-                              _termsId = null;
                               _passwordConfirmationController.clear();
                             }),
                       child: Text(switchLabel),
@@ -280,3 +252,23 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
+
+String _authErrorMessage(AuthException error) {
+  if (_isMissingSupabaseHostError(error.message)) {
+    return 'Supabase URL 설정이 필요합니다. config/dev.json 값을 확인하거나 실행 옵션을 다시 확인해 주세요.';
+  }
+  if (error.code == 'unexpected_failure') {
+    return '가입하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+  }
+  return error.message;
+}
+
+String _fallbackAuthErrorMessage(Object error) {
+  if (_isMissingSupabaseHostError(error.toString())) {
+    return 'Supabase URL 설정이 필요합니다. config/dev.json 값을 확인하거나 실행 옵션을 다시 확인해 주세요.';
+  }
+  return '로그인 처리 중 오류가 발생했습니다.';
+}
+
+bool _isMissingSupabaseHostError(String message) =>
+    message.contains('No host specified');
