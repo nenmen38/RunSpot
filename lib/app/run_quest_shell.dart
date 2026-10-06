@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:runquest/features/admin/admin_screen.dart';
 import 'package:runquest/features/admin/models/review_case.dart';
-import 'package:runquest/features/course/course_screen.dart';
-import 'package:runquest/features/course/course_controller.dart';
+import 'package:runquest/features/home/data/live_runner_service.dart';
+import 'package:runquest/features/home/data/location_service.dart';
+import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
 import 'package:runquest/features/social/social_screen.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RunQuestShell extends StatefulWidget {
-  const RunQuestShell({super.key});
+  const RunQuestShell({this.mapController, this.mapTileProvider, super.key});
+
+  final LiveMapController? mapController;
+  final TileProvider? mapTileProvider;
 
   @override
   State<RunQuestShell> createState() => _RunQuestShellState();
@@ -17,7 +23,7 @@ class RunQuestShell extends StatefulWidget {
 
 class _RunQuestShellState extends State<RunQuestShell> {
   int _tab = 0;
-  final _course = CourseController();
+  late final LiveMapController _map;
   int _rankingMode = 0;
   ReviewCase _review = const ReviewCase(
     user: 'speed_ghost',
@@ -30,15 +36,17 @@ class _RunQuestShellState extends State<RunQuestShell> {
   @override
   void initState() {
     super.initState();
-    _course.addListener(_onCourseChanged);
+    _map =
+        widget.mapController ??
+        LiveMapController(
+          locationService: DeviceLocationService(),
+          runnerService: SupabaseLiveRunnerService(Supabase.instance.client),
+        );
   }
-
-  void _onCourseChanged() => setState(() {});
 
   @override
   void dispose() {
-    _course.removeListener(_onCourseChanged);
-    _course.dispose();
+    _map.dispose();
     super.dispose();
   }
 
@@ -55,24 +63,6 @@ class _RunQuestShellState extends State<RunQuestShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      HomeScreen(
-        plan: _course.plan,
-        onCourseTap: () => setState(() => _tab = 1),
-      ),
-      CourseScreen(
-        plan: _course.plan,
-        distance: _course.distance,
-        slope: _course.slope,
-        flow: _course.flow,
-        environment: _course.environment,
-        safety: _course.safety,
-        onDistance: (value) => _course.updatePlan(distance: value),
-        onSlope: (value) => _course.updatePlan(slope: value),
-        onFlow: (value) => _course.updatePlan(flow: value),
-        onEnvironment: (value) => _course.updatePlan(environment: value),
-        onSafety: (value) => _course.updatePlan(safety: value),
-        onPresetTap: _course.applyPreset,
-      ),
       SocialScreen(
         rankingMode: _rankingMode,
         onModeChanged: (value) => setState(() => _rankingMode = value),
@@ -83,12 +73,22 @@ class _RunQuestShellState extends State<RunQuestShell> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: pages[_tab],
-          ),
+        child: Stack(
+          children: [
+            Offstage(
+              offstage: _tab != 0,
+              child: HomeScreen(
+                controller: _map,
+                tileProvider: widget.mapTileProvider,
+                onProfileTap: () => setState(() => _tab = 2),
+              ),
+            ),
+            if (_tab != 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+                child: pages[_tab - 1],
+              ),
+          ],
         ),
       ),
       bottomNavigationBar: NavigationBar(
@@ -98,14 +98,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
         onDestinationSelected: (index) => setState(() => _tab = index),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
             label: '홈',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.route_outlined),
-            selectedIcon: Icon(Icons.route),
-            label: '코스',
           ),
           NavigationDestination(
             icon: Icon(Icons.groups_outlined),

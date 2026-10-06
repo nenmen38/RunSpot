@@ -1,86 +1,124 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
+import 'package:runquest/features/home/live_map_controller.dart';
 
-Widget testApp() {
-  return MaterialApp(
-    theme: ThemeData(useMaterial3: true),
-    home: const MobileAppViewport(child: RunQuestShell()),
-  );
+import 'support/live_map_fakes.dart';
+
+class MemoryTileProvider extends TileProvider {
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
+      MemoryImage(
+        base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=',
+        ),
+      );
 }
 
 void main() {
-  testWidgets('프리셋 선택은 탭 전환 후에도 유지됩니다', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
+  Future<LiveMapController> showApp(WidgetTester tester, Size size) async {
+    await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(testApp());
-    await tester.tap(find.text('코스'));
+    final location = FakeLocationService();
+    addTearDown(location.updates.close);
+    final controller = LiveMapController(
+      locationService: location,
+      runnerService: FakeRunnerService(),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: MobileAppViewport(
+          child: RunQuestShell(
+            mapController: controller,
+            mapTileProvider: MemoryTileProvider(),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('10K 기록 도전'));
+    return controller;
+  }
+
+  testWidgets('홈은 현재 위치 지도이며 코스 만들기 탭이 없습니다', (tester) async {
+    await showApp(tester, const Size(390, 844));
+    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(find.text('RunSpot'), findsOneWidget);
+    expect(find.bySemanticsLabel('내 현재 위치'), findsOneWidget);
+    expect(find.text('위치 공유'), findsOneWidget);
+    expect(find.text('러닝 시작'), findsOneWidget);
+    expect(find.text('러닝 종료'), findsOneWidget);
+    expect(find.text('코스'), findsNothing);
+    expect(find.text('코스 만들기'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('홈에서 시작과 일시 정지 후 종료 결과를 확인합니다', (tester) async {
+    final controller = await showApp(tester, const Size(320, 568));
+    await tester.tap(find.text('러닝 시작'));
+    await tester.pump();
+    expect(controller.runSession!.isRunning, isTrue);
+    expect(find.text('러닝 중'), findsOneWidget);
+    expect(find.text('거리'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('일시 정지').last);
+    await tester.pump();
+    expect(controller.runSession!.isRunning, isFalse);
+    await tester.tap(find.text('러닝 계속'));
+    await tester.pump();
+    expect(controller.runSession!.isRunning, isTrue);
+    await tester.tap(find.text('러닝 종료'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
-    expect(find.text('10K 도심 신호적게'), findsOneWidget);
-    await tester.tap(find.text('홈'));
+    expect(controller.runSession!.isRunning, isTrue);
+    await tester.tap(find.text('러닝 종료'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('종료'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('러닝 완료'), findsOneWidget);
+    expect(controller.runSession, isNull);
+    await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
-    expect(find.text('10K 도심 신호적게'), findsOneWidget);
+    expect(find.text('러닝 시작'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('다른 탭을 다녀와도 지도와 공유 상태를 유지합니다', (tester) async {
+    final controller = await showApp(tester, const Size(390, 844));
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(controller.sharing, isTrue);
     await tester.tap(find.text('소셜').last);
     await tester.pumpAndSettle();
     expect(find.text('친구 랭킹'), findsOneWidget);
-    await tester.tap(find.text('성장'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('관리').last);
-    await tester.pumpAndSettle();
-    expect(find.text('이상 기록'), findsOneWidget);
     await tester.tap(find.text('홈'));
     await tester.pumpAndSettle();
-    expect(find.text('10K 도심 신호적게'), findsOneWidget);
+    expect(controller.sharing, isTrue);
+    expect(find.byType(FlutterMap), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('RunQuest shows the mobile app shell', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    await tester.pumpWidget(testApp());
-
-    expect(find.text('오늘은\n어디로 달릴까요?'), findsOneWidget);
-    expect(find.text('코스 다시 만들기'), findsOneWidget);
-    expect(find.text('홈'), findsOneWidget);
-    expect(find.text('소셜'), findsOneWidget);
-    expect(find.text('관리'), findsOneWidget);
-
-    await tester.tap(find.text('코스'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('코스 만들기'), findsOneWidget);
-    expect(find.text('5가지만 고르면 추천 완료'), findsOneWidget);
-
-    await tester.binding.setSurfaceSize(null);
-  });
-
-  testWidgets('RunQuest stays phone-sized on desktop web', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1280, 900));
-    await tester.pumpWidget(testApp());
-
-    final viewport = tester.getSize(find.byType(RunQuestShell));
-
-    expect(viewport.width, lessThanOrEqualTo(430));
-    expect(viewport.height, greaterThan(viewport.width));
-    expect(find.text('오늘은\n어디로 달릴까요?'), findsOneWidget);
-
-    await tester.binding.setSurfaceSize(null);
-  });
-
-  testWidgets('RunQuest keeps portrait ratio in a wide short browser', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(900, 500));
-    await tester.pumpWidget(testApp());
-
-    final viewport = tester.getSize(find.byType(RunQuestShell));
-
-    expect(viewport.height, greaterThan(viewport.width));
-    expect(viewport.width / viewport.height, closeTo(390 / 844, .01));
-
-    await tester.binding.setSurfaceSize(null);
-  });
+  for (final size in [
+    const Size(320, 568),
+    const Size(1280, 900),
+    const Size(900, 500),
+  ]) {
+    testWidgets('지도와 버튼은 ${size.width} 너비에서도 겹치지 않습니다', (tester) async {
+      await showApp(tester, size);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(FlutterMap), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 }

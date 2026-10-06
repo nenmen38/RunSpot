@@ -47,7 +47,7 @@ class ProfileScreen extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           Text(
-                            'Lv.12 코스 탐색가',
+                            'Lv.12 꾸준한 러너',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],

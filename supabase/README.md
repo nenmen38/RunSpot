@@ -14,6 +14,8 @@
 2. `migrations/20260922000200_catalog_seed.sql`: 프리셋 5개, 업적 정의 3개.
 3. `migrations/20260922000300_require_phone_verification.sql`: 전화번호 인증 필수 정책 및 본인 인증 상태 조회 함수.
 4. `migrations/20260922000400_social_access_policy.sql`: 개인 기능 허용, 인증된 사용자 소셜 작성, 양방향 위치 공개 정책.
+5. 가입·닉네임·테스트 가입(005~007), 약관 제거(`20261001000100`) 마이그레이션.
+6. `migrations/20261006000100_live_runner_map.sql`: 본인 위치 갱신·삭제, 주변 러너 지도 조회 및 비공개 실시간 변경 신호.
 
 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
@@ -85,9 +87,13 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20260922000500_registration.sql \
   -f supabase/migrations/20260922000600_verified_nicknames.sql \
   -f supabase/migrations/20260922000700_test_registration.sql \
+  -f supabase/migrations/20261001000100_remove_registration_terms.sql \
+  -f supabase/tests/local_realtime_stub.sql \
+  -f supabase/migrations/20261006000100_live_runner_map.sql \
   -f supabase/tests/test_registration.sql \
   -f supabase/tests/registration.sql \
-  -f supabase/tests/security.sql
+  -f supabase/tests/security.sql \
+  -f supabase/tests/live_runner_map.sql
 ```
 
 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
@@ -140,7 +146,13 @@ update runspot_private.registration_test_settings set enabled_until=null where s
 - 상대방이 비공개이거나 미인증·정지·차단 상태이면 위치를 반환하지 않습니다. 친구 공개 상대는 실제 친구에게만 보입니다.
 - 기본 반경 1km, 최대 5km, 위치 유효시간 2분, 최대 결과 200개를 초기 설정으로 사용합니다.
 - 좌표는 서버가 `runspot_private.live_locations`에 기록해야 합니다. 임의 중심 좌표를 조회 API에 전달할 수 없습니다.
-- 실시간 위치 업로드, 오래된 위치 삭제 작업, 지도 화면, 게시물·댓글 작성 화면은 아직 구현되지 않았습니다. 현재 변경은 권한 및 API 기반입니다.
+- `update_my_live_location(latitude,longitude,accuracy_m)`: 인증·닉네임·공개 설정을 검사한 뒤 현재 사용자 위치만 기록합니다. 사용자 ID와 갱신 시각은 서버가 정하며 3초 이내 중복 갱신과 부정확한 좌표를 거릅니다. 기기 GPS 자체의 위조까지 검증하는 API는 아닙니다.
+- `stop_live_location()`: 현재 사용자 위치만 삭제합니다. 비공개 전환·닉네임 해제 시에도 원본을 삭제합니다.
+- `map_nearby_runners(radius_m)`: 기존 위치 공개 정책을 적용해 닉네임, 거리, 최근 갱신 시각을 함께 반환합니다.
+- `runner-map`은 비공개 실시간 채널입니다. 인증된 사용자에게 좌표와 식별자가 없는 변경 신호만 전달하며 앱은 RPC로 현재 접근 권한을 다시 검사합니다. 클라이언트 방송 전송 권한은 추가하지 않습니다.
+- 새 마이그레이션은 실제 Supabase의 `realtime.messages`, `realtime.send`, `realtime.topic`이 필요합니다. `tests/local_realtime_stub.sql`은 로컬 테스트에만 사용하며 원격 DB에 적용하지 않습니다.
+- 앱은 공유 중 15초마다 갱신하여 만료와 연결 복구를 확인합니다. 백그라운드 공유, 러닝 초대·수락, 오래된 원본의 주기적 삭제 및 게시물·댓글 작성 화면은 별도 작업입니다.
+- 코스 생성 화면은 제거했지만 기존 러닝 기록의 참조를 보존하기 위해 과거 코스 DB 테이블과 기존 마이그레이션은 삭제하지 않습니다.
 - 공유된 과거 경로도 본인 또는 위치 조회 자격을 충족한 사용자만 볼 수 있습니다. 실시간 반경 검색은 `nearby_locations`에 적용합니다.
 
 ## 문자 발송 연결

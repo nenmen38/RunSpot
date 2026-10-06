@@ -22,9 +22,9 @@ class QuickStats extends StatelessWidget {
         SizedBox(width: 8),
         Expanded(
           child: StatCard(
-            label: '완주 코스',
+            label: '완료 러닝',
             value: '18개',
-            icon: Icons.route_outlined,
+            icon: Icons.flag_outlined,
           ),
         ),
       ],
