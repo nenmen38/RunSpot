@@ -1,11 +1,21 @@
 import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
+import 'package:uuid/uuid.dart';
 
 import 'live_runner.dart';
 
 class RunSummary {
-  const RunSummary({required this.distanceMeters, required this.duration});
+  const RunSummary({
+    required this.clientRunId,
+    required this.startedAt,
+    required this.endedAt,
+    required this.distanceMeters,
+    required this.duration,
+  });
+  final String clientRunId;
+  final DateTime startedAt;
+  final DateTime endedAt;
   final double distanceMeters;
   final Duration duration;
 }
@@ -16,10 +26,14 @@ class RunSession {
   }
 
   final _clock = Stopwatch();
+  final _clientRunId = const Uuid().v4();
+  final _startedAt = DateTime.now().toUtc();
+  RunSummary? _summary;
   LocationFix? _previous;
   double _distanceMeters = 0;
 
   bool get isRunning => _clock.isRunning;
+  bool get isFinished => _summary != null;
   Duration get duration => _clock.elapsed;
   double get distanceMeters => _distanceMeters;
 
@@ -61,12 +75,20 @@ class RunSession {
   }
 
   void resume(LocationFix fix) {
+    if (isFinished) return;
     _previous = fix;
     _clock.start();
   }
 
   RunSummary finish() {
     pause();
-    return RunSummary(distanceMeters: _distanceMeters, duration: duration);
+    // 재시도할 때 동일한 식별자와 종료 시각을 사용해 중복 저장을 막습니다.
+    return _summary ??= RunSummary(
+      clientRunId: _clientRunId,
+      startedAt: _startedAt,
+      endedAt: DateTime.now().toUtc(),
+      distanceMeters: _distanceMeters,
+      duration: duration,
+    );
   }
 }

@@ -1,0 +1,64 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../home/models/run_session.dart';
+import '../models/run_record.dart';
+
+abstract interface class RunRecordService {
+  Future<RunRecord> save(RunSummary summary);
+  Future<List<RunRecord>> list({required int offset, required int limit});
+}
+
+class SupabaseRunRecordService implements RunRecordService {
+  SupabaseRunRecordService(this.client)
+    : _ownerId = client.auth.currentUser?.id;
+
+  final SupabaseClient client;
+  final String? _ownerId;
+
+  Session _requireOwner() {
+    final owner = _ownerId;
+    final session = client.auth.currentSession;
+    if (owner == null || session == null || session.user.id != owner) {
+      throw const AuthException('로그인이 필요합니다.');
+    }
+    return session;
+  }
+
+  @override
+  Future<RunRecord> save(RunSummary summary) async {
+    final session = _requireOwner();
+    // 계정 전환 중에도 측정한 계정의 세션으로만 요청을 전송합니다.
+    final row = await client
+        .rpc(
+          'save_my_run',
+          params: {
+            'client_id': summary.clientRunId,
+            'start_time': summary.startedAt.toUtc().toIso8601String(),
+            'end_time': summary.endedAt.toUtc().toIso8601String(),
+            'distance_metres': summary.distanceMeters.round(),
+            'active_seconds': summary.duration.inSeconds,
+          },
+        )
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    _requireOwner();
+    return RunRecord.fromJson(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
+  Future<List<RunRecord>> list({
+    required int offset,
+    required int limit,
+  }) async {
+    final session = _requireOwner();
+    final rows = await client
+        .from('runs')
+        .select('id,client_run_id,started_at,ended_at,distance_m,duration_sec')
+        .eq('user_id', session.user.id)
+        .order('started_at', ascending: false)
+        .order('id', ascending: false)
+        .range(offset, offset + limit - 1)
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    _requireOwner();
+    return rows.map(RunRecord.fromJson).toList();
+  }
+}

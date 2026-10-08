@@ -39,6 +39,11 @@ void main() {
     final summary = session.finish();
     expect(summary.distanceMeters, closeTo(distance + 55.6, 1));
     expect(session.isRunning, isFalse);
+    expect(session.finish(), same(summary));
+    expect(summary.clientRunId, isNotEmpty);
+    expect(summary.endedAt.isAfter(summary.startedAt), isTrue);
+    session.resume(fix(37.58, 8));
+    expect(session.isRunning, isFalse);
   });
 
   test('위치 중단과 부정확한 GPS 이후 간격은 추정하지 않습니다', () {

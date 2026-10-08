@@ -4,25 +4,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/models/live_runner.dart';
+import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'support/live_map_fakes.dart';
+import 'support/run_history_fakes.dart';
 
 void main() {
   late FakeLocationService location;
   late FakeRunnerService service;
   late LiveMapController controller;
+  late FakeRunRecordService historyService;
+  late RunHistoryController history;
 
   setUp(() {
     location = FakeLocationService();
     service = FakeRunnerService();
+    historyService = FakeRunRecordService();
+    history = RunHistoryController(historyService);
     controller = LiveMapController(
       locationService: location,
       runnerService: service,
+      runHistory: history,
     );
   });
   tearDown(() async {
     controller.dispose();
+    history.dispose();
     await location.updates.close();
   });
 
@@ -59,6 +67,37 @@ void main() {
     expect(controller.sharing, isFalse);
     expect(controller.runSession, isNull);
     expect(service.actions, ['publish', 'stop']);
+    expect(historyService.records, hasLength(1));
+  });
+
+  test('저장 실패 시 종료 결과를 유지하고 같은 식별자로 재시도합니다', () async {
+    await controller.startRun();
+    historyService.saveFailure = StateError('연결 실패');
+    expect(await controller.finishRun(), isNull);
+    expect(controller.runSession!.isFinished, isTrue);
+    expect(controller.runError, isNotNull);
+    final summary = historyService.attempts.single;
+    await controller.startRun();
+    expect(controller.runSession!.isFinished, isTrue);
+    historyService.saveFailure = null;
+    expect(await controller.finishRun(), same(summary));
+    expect(historyService.attempts.last, same(summary));
+    expect(historyService.records, hasLength(1));
+    expect(controller.runSession, isNull);
+  });
+
+  test('저장 중에는 종료와 시작을 중복 실행하지 않습니다', () async {
+    await controller.startRun();
+    historyService.pendingSave = Completer<void>();
+    final finish = controller.finishRun();
+    expect(controller.savingRun, isTrue);
+    expect(await controller.finishRun(), isNull);
+    await controller.startRun();
+    expect(historyService.attempts, hasLength(1));
+    historyService.pendingSave!.complete();
+    await finish;
+    expect(historyService.records, hasLength(1));
+    expect(controller.savingRun, isFalse);
   });
 
   test('백그라운드에서 러닝을 일시 정지하고 복귀 시 계속 버튼을 기다립니다', () async {

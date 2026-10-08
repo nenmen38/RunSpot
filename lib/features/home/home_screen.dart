@@ -6,6 +6,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/theme/app_colors.dart';
+import '../run_history/models/run_record.dart';
+import '../run_history/run_history_screen.dart';
+import '../run_history/widgets/run_record_details.dart';
 import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
@@ -84,41 +87,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_endingRun) return;
     setState(() => _endingRun = true);
     try {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('러닝을 종료할까요?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('종료'),
-            ),
-          ],
-        ),
-      );
+      final confirmed =
+          widget.controller.runSession?.isFinished == true ||
+          await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('러닝을 종료할까요?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('취소'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('종료'),
+                    ),
+                  ],
+                ),
+              ) ==
+              true;
       if (confirmed != true || !mounted) return;
       final summary = await widget.controller.finishRun();
       if (!mounted || summary == null) return;
+      final record = RunRecord(
+        id: summary.clientRunId,
+        clientRunId: summary.clientRunId,
+        startedAt: summary.startedAt,
+        endedAt: summary.endedAt,
+        distanceMeters: summary.distanceMeters.round(),
+        durationSeconds: summary.duration.inSeconds,
+      );
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('러닝 완료'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '거리 ${(summary.distanceMeters / 1000).toStringAsFixed(2)} km',
-              ),
-              const SizedBox(height: 8),
-              Text('시간 ${formatRunDuration(summary.duration)}'),
-            ],
+          content: SingleChildScrollView(
+            child: RunRecordDetails(record: record),
           ),
           actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _openHistory();
+              },
+              child: const Text('내 기록'),
+            ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('확인'),
@@ -129,6 +142,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } finally {
       if (mounted) setState(() => _endingRun = false);
     }
+  }
+
+  void _openHistory() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            RunHistoryScreen(controller: widget.controller.runHistory),
+      ),
+    );
   }
 
   @override
@@ -332,6 +354,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               ),
                           ],
                           icon: const Icon(Icons.radar),
+                        ),
+                        IconButton(
+                          tooltip: '내 기록',
+                          onPressed: _openHistory,
+                          icon: const Icon(Icons.history),
                         ),
                         IconButton(
                           tooltip: '프로필 및 공개 설정',

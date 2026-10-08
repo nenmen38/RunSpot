@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/formatters/run_format.dart';
 import '../live_map_controller.dart';
 
 class RunControls extends StatelessWidget {
@@ -18,7 +19,8 @@ class RunControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = controller.runSession;
     final running = session?.isRunning == true;
-    final waiting = busy || controller.startingRun;
+    final waiting = busy || controller.startingRun || controller.savingRun;
+    final finished = session?.isFinished == true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -40,7 +42,11 @@ class RunControls extends StatelessWidget {
                 ),
               ),
               Text(
-                running ? '러닝 중' : '일시 정지',
+                finished
+                    ? '저장 대기'
+                    : running
+                    ? '러닝 중'
+                    : '일시 정지',
                 style: TextStyle(
                   color: running ? const Color(0xFF16836F) : Colors.grey,
                   fontWeight: FontWeight.w700,
@@ -62,7 +68,7 @@ class RunControls extends StatelessWidget {
                   minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                onPressed: waiting || controller.locating
+                onPressed: waiting || controller.locating || finished
                     ? null
                     : () {
                         if (running) {
@@ -96,7 +102,7 @@ class RunControls extends StatelessWidget {
                 ),
                 onPressed: session == null || waiting ? null : onFinish,
                 icon: const Icon(Icons.stop),
-                label: const Text('러닝 종료'),
+                label: Text(finished ? '저장 재시도' : '러닝 종료'),
               ),
             ),
           ],
@@ -122,11 +128,4 @@ class _RunMetric extends StatelessWidget {
       ),
     ],
   );
-}
-
-String formatRunDuration(Duration duration) {
-  final hours = duration.inHours;
-  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
 }

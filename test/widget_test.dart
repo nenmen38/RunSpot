@@ -6,8 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
+import 'package:runquest/features/run_history/run_history_controller.dart';
 
 import 'support/live_map_fakes.dart';
+import 'support/run_history_fakes.dart';
 
 class MemoryTileProvider extends TileProvider {
   @override
@@ -28,6 +30,7 @@ void main() {
     final controller = LiveMapController(
       locationService: location,
       runnerService: FakeRunnerService(),
+      runHistory: RunHistoryController(FakeRunRecordService()),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -86,10 +89,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('러닝 완료'), findsOneWidget);
     expect(controller.runSession, isNull);
+    expect(controller.runHistory.records, hasLength(1));
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
     expect(find.text('러닝 시작'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('내 기록'));
+    await tester.pumpAndSettle();
+    expect(find.text('내 기록'), findsOneWidget);
+    expect(find.text('0.00 km'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

@@ -7,6 +7,8 @@ import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
+import 'package:runquest/features/run_history/data/run_record_service.dart';
+import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/social/social_screen.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -41,11 +43,15 @@ class _RunQuestShellState extends State<RunQuestShell> {
         LiveMapController(
           locationService: DeviceLocationService(),
           runnerService: SupabaseLiveRunnerService(Supabase.instance.client),
+          runHistory: RunHistoryController(
+            SupabaseRunRecordService(Supabase.instance.client),
+          ),
         );
   }
 
   @override
   void dispose() {
+    _map.runHistory.dispose();
     _map.dispose();
     super.dispose();
   }

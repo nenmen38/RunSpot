@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../run_history/run_history_controller.dart';
+
 import 'data/live_runner_service.dart';
 import 'data/location_service.dart';
 import 'models/live_runner.dart';
@@ -12,10 +14,12 @@ class LiveMapController extends ChangeNotifier {
   LiveMapController({
     required this.locationService,
     required this.runnerService,
+    required this.runHistory,
   });
 
   final LocationService locationService;
   final LiveRunnerService runnerService;
+  final RunHistoryController runHistory;
   LocationFix? position;
   List<LiveRunner> runners = [];
   LocationFailure? locationFailure;
@@ -23,6 +27,7 @@ class LiveMapController extends ChangeNotifier {
   String? runError;
   RunSession? runSession;
   bool startingRun = false;
+  bool savingRun = false;
   bool locating = false;
   bool sharing = false;
   bool changingSharing = false;
@@ -116,7 +121,12 @@ class LiveMapController extends ChangeNotifier {
   }
 
   Future<void> startRun() async {
-    if (_disposed || !_active || startingRun || runSession?.isRunning == true) {
+    if (_disposed ||
+        !_active ||
+        startingRun ||
+        savingRun ||
+        runSession?.isRunning == true ||
+        runSession?.isFinished == true) {
       return;
     }
     startingRun = true;
@@ -167,14 +177,29 @@ class LiveMapController extends ChangeNotifier {
 
   Future<RunSummary?> finishRun() async {
     final session = runSession;
-    if (session == null) return null;
+    if (_disposed || session == null || savingRun) return null;
     final summary = session.finish();
-    runSession = null;
     _runTimer?.cancel();
     runError = null;
+    savingRun = true;
     _notify();
-    if (sharing || changingSharing) await setSharing(false);
-    return summary;
+    try {
+      if (sharing || changingSharing) await setSharing(false);
+      await runHistory.save(summary);
+      if (_disposed) return null;
+      runSession = null;
+      return summary;
+    } catch (error) {
+      if (!_disposed) {
+        runError = '기록을 저장하지 못했습니다. ${RunHistoryController.message(error)}';
+      }
+      return null;
+    } finally {
+      if (!_disposed) {
+        savingRun = false;
+        _notify();
+      }
+    }
   }
 
   // 쓰기와 삭제를 직렬화하여 공유를 끈 뒤 늦은 업로드가 되살아나지 않게 합니다.

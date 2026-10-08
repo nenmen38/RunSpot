@@ -2,10 +2,11 @@
 
 ## 현재 상태
 
-- 개발 프로젝트: `RunSpot` (`rtdlluilhkcdghoakyrp`). 실제 사용자가 없는 현재 프로젝트를 개발용으로 사용합니다.
-- 운영 프로젝트: 미확인.
-- 원격 적용: 2026-09-22 마이그레이션 4개 적용 완료. 소셜 권한을 개인 기능과 분리했습니다.
-- 로컬 PostgreSQL 14에서 인증 대역을 사용해 마이그레이션 및 권한 테스트 통과.
+- 연결된 프로젝트: `RunSpot` (`rtdlluilhkcdghoakyrp`). 별도 운영 프로젝트 구분은 미확인입니다.
+- 원격 적용: 2026-10-08 기준 러닝 기록 저장까지 마이그레이션 10개 반영 완료.
+- 약관 제거는 서버에 수동 반영된 함수·권한과 테이블 제거 상태를 확인한 뒤 누락된 적용 이력만 정리했습니다. 실시간 지도와 기록 저장은 CLI로 적용했습니다.
+- 로컬 PostgreSQL 16에서 인증 대역을 사용해 기록 저장·중복 방지·본인 조회 및 기존 보안·지도 권한 테스트 통과.
+- 원격 DB에서도 기록 저장·재시도·타인 조회 차단을 트랜잭션 안에서 검증했고, 검증용 기록은 롤백했습니다.
 - 실제 Supabase 인증, 저장소, 모바일 로그인 통합 테스트는 별도로 필요합니다.
 
 ## 파일과 적용 순서
@@ -16,12 +17,13 @@
 4. `migrations/20260922000400_social_access_policy.sql`: 개인 기능 허용, 인증된 사용자 소셜 작성, 양방향 위치 공개 정책.
 5. 가입·닉네임·테스트 가입(005~007), 약관 제거(`20261001000100`) 마이그레이션.
 6. `migrations/20261006000100_live_runner_map.sql`: 본인 위치 갱신·삭제, 주변 러너 지도 조회 및 비공개 실시간 변경 신호.
+7. `migrations/20261008000100_run_history.sql`: 본인 러닝 기록 저장 RPC와 정지·짧은 러닝 허용 제약.
 
 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
 
 원격 환경에 기존 테이블이 있으면 먼저 스키마와 마이그레이션 이력을 가져와 충돌을 검토해야 합니다.
-동일 이름의 기존 테이블을 덮어쓰는 구문이나 데이터 삭제 구문은 포함하지 않습니다.
+약관 제거 등 과거 마이그레이션에는 테이블 제거가 있으므로 적용 전에 현재 스키마와 복구 수단을 확인합니다. 러닝 기록 저장 변경은 기존 기록을 삭제하지 않습니다.
 개발과 운영 각각 프로젝트 ID를 확인한 뒤 연결하고, 미리보기에서 예상한 미적용 마이그레이션만 있는지 확인합니다.
 
 ```sh
@@ -46,6 +48,8 @@ supabase db push
 - 친구 공개는 수락된 관계만 허용하며 양방향 차단 여부를 함께 확인합니다.
 - 게시물 공개 범위는 위치 공개 범위와 독립적입니다. 인증된 비공개 사용자도 공개 게시물·댓글을 작성할 수 있습니다. 여기서 공개는 로그인한 사용자에게만 공개한다는 의미입니다.
 - `runs`와 구간 기록은 본인 전용입니다. 타인은 위치·실제 시작 시각이 없는 `posts`와 가공된 경로만 읽습니다.
+- `save_my_run()`은 현재 로그인한 활성 계정에 개인 측정값만 저장합니다. 전화번호 인증은 요구하지 않으며 소유자·검증 상태·코스 ID를 입력으로 받지 않습니다.
+- 사용자별 `client_run_id`로 중복을 방지하며 같은 식별자의 다른 내용은 거절합니다. 음수·과도한 거리, 비정상 날짜, 경과 시간을 초과한 측정 시간을 거절합니다. 기록은 `pending` 상태로 저장되고 기존 공개·랭킹 권한을 확장하지 않습니다.
 - `routes`는 본인 소유이며 다른 사람의 코스를 `runs.route_id`로 참조할 수 없습니다.
 - `runspot_private`를 Supabase Data API의 노출 스키마 목록에 추가하지 않습니다.
 - `my_staff_role()`은 현재 DB 역할과 `aal2`를 검사합니다. 일반 사용자 또는 다중 인증 미완료 시 NULL을 반환합니다.
@@ -55,7 +59,7 @@ supabase db push
 
 ## 서버 기능과 저장소 후속 작업
 
-이 변경은 DB 기반입니다. 아래 기능은 아직 구현되지 않았으므로 앱의 운영 흐름이 완성된 상태가 아닙니다.
+개인 러닝 기록 저장·목록 조회는 구현되어 있습니다. 아래 후속 기능은 아직 구현되지 않았으므로 앱의 운영 흐름 전체가 완성된 상태는 아닙니다.
 
 - JWT 검증, 현재 계정 상태 및 대상 소유권을 확인하는 서버 API.
 - 업로드 크기·형식·소유권 검사, GPS 처리, 거리 계산과 기록 확정 트랜잭션.
@@ -90,10 +94,12 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20261001000100_remove_registration_terms.sql \
   -f supabase/tests/local_realtime_stub.sql \
   -f supabase/migrations/20261006000100_live_runner_map.sql \
+  -f supabase/migrations/20261008000100_run_history.sql \
   -f supabase/tests/test_registration.sql \
   -f supabase/tests/registration.sql \
   -f supabase/tests/security.sql \
-  -f supabase/tests/live_runner_map.sql
+  -f supabase/tests/live_runner_map.sql \
+  -f supabase/tests/run_history.sql
 ```
 
 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
@@ -168,7 +174,15 @@ update runspot_private.registration_test_settings set enabled_until=null where s
 6. 실제 기기에서 신규 소셜 계정, 기존 인증 계정, 잘못된 코드, 만료, 재전송, 번호 중복, 번호 변경을 검증합니다.
 
 일반 문자 소유 확인은 관리자 다중 인증(`aal2`)과 별개입니다.
-신규 서버 API를 만들 때에는 서비스 역할로 데이터를 변경하기 전에 JWT 검증과 현재 전화번호 확인·계정 상태 검사를 모두 수행해야 합니다.
+신규 소셜 서버 API를 만들 때에는 서비스 역할로 데이터를 변경하기 전에 JWT 검증과 현재 전화번호 확인·계정 상태 검사를 모두 수행해야 합니다. 개인 기록은 전화번호 인증과 분리하되 로그인·본인 소유권·활성 계정 검사를 유지합니다.
+
+## 기록 저장 보안 점검
+
+- `runs`의 RLS와 본인 조회 정책은 유지하며 일반 사용자의 직접 INSERT·UPDATE 권한은 없습니다. 저장 RPC의 실행 권한은 로그인 사용자에게만 부여합니다.
+- 기록 요청은 측정 계정의 로그인 세션에 고정하며 계정이 바뀐 후 이전 요청의 결과를 화면에 반영하지 않습니다.
+- 비공개 스키마의 RLS 정책 없음 안내는 일반 사용자의 직접 접근을 거부하는 기존 설계입니다. RPC는 현재 사용자와 활성 계정을 검사합니다.
+- Supabase의 [로그인 사용자 실행 가능 권한 함수 안내](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)는 `save_my_run()`에도 표시됩니다. 의도한 API이며 소유자 입력·검증 상태 변경·타인 기록 조회를 허용하지 않습니다.
+- 기존 Auth의 [유출 비밀번호 검사 미설정 경고](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)는 이번 기능 범위에서 변경하지 않았습니다.
 
 참고: [마이그레이션](https://supabase.com/docs/guides/deployment/database-migrations),
 [행 수준 보안](https://supabase.com/docs/guides/database/postgres/row-level-security),
