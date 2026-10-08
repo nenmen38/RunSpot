@@ -4,21 +4,28 @@ import '../../home/models/run_session.dart';
 import '../models/run_record.dart';
 
 abstract interface class RunRecordService {
+  String get ownerId;
+  bool get isCurrentOwner;
   Future<RunRecord> save(RunSummary summary);
   Future<List<RunRecord>> list({required int offset, required int limit});
 }
 
 class SupabaseRunRecordService implements RunRecordService {
   SupabaseRunRecordService(this.client)
-    : _ownerId = client.auth.currentUser?.id;
+    : ownerId =
+          client.auth.currentUser?.id ??
+          (throw const AuthException('로그인이 필요합니다.'));
 
   final SupabaseClient client;
-  final String? _ownerId;
+  @override
+  final String ownerId;
+
+  @override
+  bool get isCurrentOwner => client.auth.currentSession?.user.id == ownerId;
 
   Session _requireOwner() {
-    final owner = _ownerId;
     final session = client.auth.currentSession;
-    if (owner == null || session == null || session.user.id != owner) {
+    if (session == null || session.user.id != ownerId) {
       throw const AuthException('로그인이 필요합니다.');
     }
     return session;

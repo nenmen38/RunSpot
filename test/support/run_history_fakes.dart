@@ -1,16 +1,23 @@
 import 'dart:async';
 
 import 'package:runquest/features/home/models/run_session.dart';
+import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
 import 'package:runquest/features/run_history/models/run_record.dart';
 
 class FakeRunRecordService implements RunRecordService {
+  FakeRunRecordService({this.ownerId = 'owner'});
+  @override
+  final String ownerId;
+  @override
+  bool isCurrentOwner = true;
   final records = <RunRecord>[];
   final attempts = <RunSummary>[];
   final offsets = <int>[];
   Object? saveFailure;
   Object? listFailure;
   Completer<void>? pendingSave;
+  Object? responseFailure;
 
   @override
   Future<RunRecord> save(RunSummary summary) async {
@@ -30,6 +37,7 @@ class FakeRunRecordService implements RunRecordService {
       durationSeconds: summary.duration.inSeconds,
     );
     records.insert(0, record);
+    if (responseFailure != null) throw responseFailure!;
     return record;
   }
 
@@ -41,5 +49,40 @@ class FakeRunRecordService implements RunRecordService {
     offsets.add(offset);
     if (listFailure != null) throw listFailure!;
     return records.skip(offset).take(limit).toList();
+  }
+}
+
+class FakeRunOutbox implements RunOutbox {
+  FakeRunOutbox({this.ownerId = 'owner', Map<String, RunSummary>? rows})
+    : rows = rows ?? {};
+  @override
+  final String ownerId;
+  final Map<String, RunSummary> rows;
+  Object? putFailure;
+  Object? listFailure;
+  Object? removeFailure;
+  bool closed = false;
+
+  @override
+  Future<void> put(RunSummary summary) async {
+    if (putFailure != null) throw putFailure!;
+    rows.putIfAbsent(summary.clientRunId, () => summary);
+  }
+
+  @override
+  Future<List<RunSummary>> list() async {
+    if (listFailure != null) throw listFailure!;
+    return rows.values.toList();
+  }
+
+  @override
+  Future<void> remove(String clientRunId) async {
+    if (removeFailure != null) throw removeFailure!;
+    rows.remove(clientRunId);
+  }
+
+  @override
+  Future<void> close() async {
+    closed = true;
   }
 }

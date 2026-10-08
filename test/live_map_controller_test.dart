@@ -16,12 +16,14 @@ void main() {
   late LiveMapController controller;
   late FakeRunRecordService historyService;
   late RunHistoryController history;
+  late FakeRunOutbox outbox;
 
   setUp(() {
     location = FakeLocationService();
     service = FakeRunnerService();
     historyService = FakeRunRecordService();
-    history = RunHistoryController(historyService);
+    outbox = FakeRunOutbox();
+    history = RunHistoryController(historyService, outbox: outbox);
     controller = LiveMapController(
       locationService: location,
       runnerService: service,
@@ -70,20 +72,38 @@ void main() {
     expect(historyService.records, hasLength(1));
   });
 
-  test('저장 실패 시 종료 결과를 유지하고 같은 식별자로 재시도합니다', () async {
+  test('서버 저장 실패 시 기기에 보관하고 다음 러닝을 시작할 수 있습니다', () async {
     await controller.startRun();
     historyService.saveFailure = StateError('연결 실패');
+    final result = await controller.finishRun();
+    expect(result, isNotNull);
+    expect(controller.runSession, isNull);
+    expect(controller.runError, isNull);
+    final summary = historyService.attempts.single;
+    expect(outbox.rows.values.single, same(summary));
+    expect(history.isPending(summary.clientRunId), isTrue);
+    await controller.startRun();
+    expect(controller.runSession!.isRunning, isTrue);
+    historyService.saveFailure = null;
+    await history.syncPending();
+    expect(historyService.attempts.last, same(summary));
+    expect(historyService.records, hasLength(1));
+    expect(outbox.rows, isEmpty);
+  });
+
+  test('기기 저장 실패 시 종료 결과를 유지하고 서버에 보내지 않습니다', () async {
+    await controller.startRun();
+    outbox.putFailure = StateError('저장 공간 부족');
     expect(await controller.finishRun(), isNull);
     expect(controller.runSession!.isFinished, isTrue);
     expect(controller.runError, isNotNull);
-    final summary = historyService.attempts.single;
+    expect(historyService.attempts, isEmpty);
+    final summary = controller.runSession!.finish();
     await controller.startRun();
     expect(controller.runSession!.isFinished, isTrue);
-    historyService.saveFailure = null;
+    outbox.putFailure = null;
     expect(await controller.finishRun(), same(summary));
-    expect(historyService.attempts.last, same(summary));
     expect(historyService.records, hasLength(1));
-    expect(controller.runSession, isNull);
   });
 
   test('저장 중에는 종료와 시작을 중복 실행하지 않습니다', () async {
@@ -93,6 +113,7 @@ void main() {
     expect(controller.savingRun, isTrue);
     expect(await controller.finishRun(), isNull);
     await controller.startRun();
+    await Future<void>.delayed(Duration.zero);
     expect(historyService.attempts, hasLength(1));
     historyService.pendingSave!.complete();
     await finish;
@@ -100,16 +121,132 @@ void main() {
     expect(controller.savingRun, isFalse);
   });
 
-  test('백그라운드에서 러닝을 일시 정지하고 복귀 시 계속 버튼을 기다립니다', () async {
+  test('백그라운드에서도 같은 러닝의 시간과 거리를 계속 측정합니다', () async {
     await controller.startRun();
     final session = controller.runSession;
+    final duration = session!.duration;
+    final modes = List<bool>.of(location.watchModes);
     await controller.setActive(false);
-    expect(session!.isRunning, isFalse);
+    expect(session.isRunning, isTrue);
+    location.updates.add(testFix(latitude: 37.567));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(session.duration, greaterThan(duration));
+    expect(session.distanceMeters, greaterThan(40));
     await controller.setActive(true);
-    expect(session.isRunning, isFalse);
-    await controller.startRun();
     expect(controller.runSession, same(session));
     expect(session.isRunning, isTrue);
+    expect(location.watchModes, modes);
+    expect(service.actions, isEmpty);
+  });
+
+  test('러닝 중 백그라운드에서는 GPS를 유지하지만 공유는 중단합니다', () async {
+    await controller.startRun();
+    await controller.setSharing(true);
+    await controller.setActive(false);
+    expect(controller.sharing, isFalse);
+    expect(location.activeWatches, 1);
+    location.updates.add(testFix(latitude: 37.568));
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.runSession!.distanceMeters, greaterThan(100));
+    expect(service.actions, ['publish', 'stop']);
+    await controller.setActive(true);
+    expect(controller.sharing, isFalse);
+    expect(service.actions, ['publish', 'stop']);
+  });
+
+  test('일시 정지와 종료는 백그라운드 실행 설정을 해제합니다', () async {
+    await controller.startRun();
+    expect(location.watchModes.last, isTrue);
+    controller.pauseRun();
+    await Future<void>.delayed(Duration.zero);
+    expect(location.watchModes.last, isFalse);
+    await controller.setActive(false);
+    expect(location.activeWatches, 0);
+    await controller.setActive(true);
+    await controller.startRun();
+    expect(location.watchModes.last, isTrue);
+    await controller.finishRun();
+    expect(location.watchModes.last, isFalse);
+  });
+
+  test('백그라운드에서 종료하면 GPS를 완전히 해제합니다', () async {
+    await controller.startRun();
+    await controller.setActive(false);
+    await controller.finishRun();
+    await Future<void>.delayed(Duration.zero);
+    expect(location.activeWatches, 0);
+    expect(controller.runSession, isNull);
+  });
+
+  test('백그라운드 GPS 오류도 러닝을 정지하고 구독을 해제합니다', () async {
+    await controller.startRun();
+    await controller.setActive(false);
+    location.updates.addError(StateError('위치 중단'));
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.runSession!.isRunning, isFalse);
+    expect(controller.locationFailure, isNotNull);
+    expect(location.activeWatches, 0);
+    await controller.setActive(true);
+    expect(controller.runSession!.isRunning, isFalse);
+    expect(location.watchModes.last, isFalse);
+  });
+
+  test('네이티브 GPS가 응답하기 전에는 러닝을 시작하지 않습니다', () async {
+    location.emitInitialFix = false;
+    final start = controller.startRun();
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.startingRun, isTrue);
+    expect(controller.runSession, isNull);
+    location.updates.add(testFix());
+    await start;
+    expect(controller.runSession!.isRunning, isTrue);
+  });
+
+  test('GPS 준비 중 백그라운드로 가면 러닝 시작을 취소합니다', () async {
+    location.emitInitialFix = false;
+    final start = controller.startRun();
+    await Future<void>.delayed(Duration.zero);
+    await controller.setActive(false);
+    await start;
+    expect(controller.startingRun, isFalse);
+    expect(controller.runSession, isNull);
+    expect(location.activeWatches, 0);
+  });
+
+  test('네이티브 측정 시작 실패를 성공으로 표시하지 않습니다', () async {
+    location.watchFailure = StateError('서비스 시작 실패');
+    await controller.startRun();
+    expect(controller.runSession, isNull);
+    expect(controller.runError, isNotNull);
+    expect(location.activeWatches, 0);
+  });
+
+  test('늦은 지도 구독 해제 중 백그라운드로 가면 측정을 시작하지 않습니다', () async {
+    await controller.start();
+    location.pendingCancellation = Completer<void>();
+    final start = controller.startRun();
+    await Future<void>.delayed(Duration.zero);
+    final background = controller.setActive(false);
+    location.pendingCancellation!.complete();
+    await start;
+    await background;
+    expect(controller.runSession, isNull);
+    expect(location.watchModes, [false]);
+    expect(location.activeWatches, 0);
+  });
+
+  test('시작 위치 확인 중 앱을 닫았다 열어도 취소된 러닝은 시작하지 않습니다', () async {
+    await controller.start();
+    location.pendingCurrent = Completer<LocationFix>();
+    final start = controller.startRun();
+    await controller.setActive(false);
+    final resume = controller.setActive(true);
+    location.pendingCurrent!.complete(testFix());
+    await start;
+    await resume;
+    expect(controller.runSession, isNull);
+    expect(location.watchModes, [false, false]);
+    expect(controller.startingRun, isFalse);
   });
 
   test('부정확한 위치 또는 권한 거부 시 러닝을 시작하지 않습니다', () async {
@@ -189,12 +326,27 @@ void main() {
     await controller.start();
     await controller.setSharing(true);
     await controller.setActive(false);
+    expect(location.activeWatches, 0);
     expect(controller.sharing, isFalse);
     expect(controller.runners, isEmpty);
     expect(service.actions.last, 'stop');
     await controller.setActive(true);
     expect(controller.position, isNotNull);
     expect(controller.sharing, isFalse);
+  });
+
+  test('공유 해제 응답이 늦어도 복귀 후의 현재 위치를 지우지 않습니다', () async {
+    await controller.start();
+    await controller.setSharing(true);
+    service.pendingStop = Completer<void>();
+    final background = controller.setActive(false);
+    await Future<void>.delayed(Duration.zero);
+    await controller.setActive(true);
+    service.pendingStop!.complete();
+    await background;
+    expect(controller.position, isNotNull);
+    expect(controller.sharing, isFalse);
+    expect(location.activeWatches, 1);
   });
 
   test('미인증 또는 비공개 서버 거절을 우회하지 않습니다', () async {

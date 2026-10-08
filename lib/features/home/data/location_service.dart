@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/live_runner.dart';
+import 'location_settings.dart';
 
 enum LocationProblem { disabled, denied, deniedForever, unavailable }
 
@@ -18,7 +20,7 @@ class LocationFailure implements Exception {
 
 abstract interface class LocationService {
   Future<LocationFix> current({bool requestPermission = false});
-  Stream<LocationFix> watch();
+  Stream<LocationFix> watch({bool recording = false});
   Future<void> openSettings(LocationProblem problem);
 }
 
@@ -55,12 +57,18 @@ class DeviceLocationService implements LocationService {
   }
 
   @override
-  Stream<LocationFix> watch() => Geolocator.getPositionStream(
-    locationSettings: const LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
-    ),
-  ).map(_fix);
+  Stream<LocationFix> watch({bool recording = false}) =>
+      Geolocator.getPositionStream(
+        locationSettings: kIsWeb
+            ? const LocationSettings(
+                accuracy: LocationAccuracy.high,
+                distanceFilter: 5,
+              )
+            : trackingSettings(
+                platform: defaultTargetPlatform,
+                recording: recording,
+              ),
+      ).map(_fix);
 
   static LocationFix _fix(Position position) => LocationFix(
     latitude: position.latitude,

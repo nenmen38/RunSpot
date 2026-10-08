@@ -28,7 +28,7 @@ void main() {
   test('기록을 20개씩 조회하고 새로고침은 처음부터 조회합니다', () async {
     final service = FakeRunRecordService()
       ..records.addAll(List.generate(25, record));
-    final controller = RunHistoryController(service);
+    final controller = RunHistoryController(service, outbox: FakeRunOutbox());
     addTearDown(controller.dispose);
     await controller.refresh();
     expect(controller.records, hasLength(20));
@@ -45,7 +45,7 @@ void main() {
   test('새로고침 실패 시 기존 기록을 유지하고 첫 페이지를 재시도합니다', () async {
     final service = FakeRunRecordService()
       ..records.addAll(List.generate(25, record));
-    final controller = RunHistoryController(service);
+    final controller = RunHistoryController(service, outbox: FakeRunOutbox());
     addTearDown(controller.dispose);
     await controller.refresh();
     service.listFailure = StateError('연결 실패');
@@ -66,7 +66,7 @@ void main() {
 
   testWidgets('목록 오류를 재시도하고 기록 상세를 엽니다', (tester) async {
     final service = FakeRunRecordService()..listFailure = StateError('연결 실패');
-    final controller = RunHistoryController(service);
+    final controller = RunHistoryController(service, outbox: FakeRunOutbox());
     addTearDown(controller.dispose);
     await tester.binding.setSurfaceSize(const Size(320, 568));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -91,7 +91,10 @@ void main() {
   });
 
   testWidgets('기록이 없으면 빈 목록을 표시합니다', (tester) async {
-    final controller = RunHistoryController(FakeRunRecordService());
+    final controller = RunHistoryController(
+      FakeRunRecordService(),
+      outbox: FakeRunOutbox(),
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(home: RunHistoryScreen(controller: controller)),

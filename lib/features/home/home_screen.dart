@@ -12,6 +12,7 @@ import '../run_history/widgets/run_record_details.dart';
 import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
+import 'widgets/run_route_layer.dart';
 
 // 지도 타일만 채도를 낮추고 밝게 처리하여 위치 마커의 대비를 유지합니다.
 const _lightMapFilter = ColorFilter.matrix([
@@ -68,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _tileProvider = widget.tileProvider ?? NetworkTileProvider();
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_changed);
+    unawaited(widget.controller.runHistory.setActive(true));
     unawaited(widget.controller.start());
   }
 
@@ -116,11 +118,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         endedAt: summary.endedAt,
         distanceMeters: summary.distanceMeters.round(),
         durationSeconds: summary.duration.inSeconds,
+        pendingSync: widget.controller.runHistory.isPending(
+          summary.clientRunId,
+        ),
       );
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('러닝 완료'),
+          title: Text(record.pendingSync ? '기기에 저장됨' : '러닝 완료'),
           content: SingleChildScrollView(
             child: RunRecordDetails(record: record),
           ),
@@ -157,10 +162,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // 권한 대화상자의 일시적인 inactive 상태에서는 공유를 중단하지 않습니다.
     if (state == AppLifecycleState.resumed) {
+      unawaited(widget.controller.runHistory.setActive(true));
       unawaited(widget.controller.setActive(true));
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      if (state == AppLifecycleState.detached) widget.controller.pauseRun();
+      unawaited(widget.controller.runHistory.setActive(false));
       unawaited(widget.controller.setActive(false));
     }
   }
@@ -228,6 +236,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       });
                     },
                   ),
+                  if (state.runSession != null)
+                    RunRouteLayer(segments: state.runSession!.routeSegments),
                   MarkerLayer(
                     markers: [
                       if (position != null)

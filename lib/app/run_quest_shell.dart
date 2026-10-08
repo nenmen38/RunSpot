@@ -7,6 +7,7 @@ import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
+import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/social/social_screen.dart';
@@ -38,15 +39,23 @@ class _RunQuestShellState extends State<RunQuestShell> {
   @override
   void initState() {
     super.initState();
-    _map =
-        widget.mapController ??
-        LiveMapController(
-          locationService: DeviceLocationService(),
-          runnerService: SupabaseLiveRunnerService(Supabase.instance.client),
-          runHistory: RunHistoryController(
-            SupabaseRunRecordService(Supabase.instance.client),
+    if (widget.mapController != null) {
+      _map = widget.mapController!;
+    } else {
+      final client = Supabase.instance.client;
+      final records = SupabaseRunRecordService(client);
+      _map = LiveMapController(
+        locationService: DeviceLocationService(),
+        runnerService: SupabaseLiveRunnerService(client),
+        runHistory: RunHistoryController(
+          records,
+          outbox: SqliteRunOutbox(
+            ownerId: records.ownerId,
+            namespace: client.rest.url,
           ),
-        );
+        ),
+      );
+    }
   }
 
   @override

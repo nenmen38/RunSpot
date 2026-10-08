@@ -26,6 +26,21 @@ class RunControls extends StatelessWidget {
       children: [
         if (session != null) ...[
           const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              finished
+                  ? '저장 대기'
+                  : running
+                  ? '러닝 중'
+                  : '일시 정지',
+              style: TextStyle(
+                color: running ? const Color(0xFF16836F) : Colors.grey,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
           Row(
             children: [
               Expanded(
@@ -35,21 +50,31 @@ class RunControls extends StatelessWidget {
                       '${(session.distanceMeters / 1000).toStringAsFixed(2)} km',
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
                 child: _RunMetric(
                   label: '시간',
                   value: formatRunDuration(session.duration),
                 ),
               ),
-              Text(
-                finished
-                    ? '저장 대기'
-                    : running
-                    ? '러닝 중'
-                    : '일시 정지',
-                style: TextStyle(
-                  color: running ? const Color(0xFF16836F) : Colors.grey,
-                  fontWeight: FontWeight.w700,
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _RunMetric(
+                  label: '현재 페이스',
+                  value: formatPaceDuration(session.currentPace),
+                  unit: '/km',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _RunMetric(
+                  label: '평균 페이스',
+                  value: formatPaceDuration(session.averagePace),
+                  unit: '/km',
                 ),
               ),
             ],
@@ -113,18 +138,38 @@ class RunControls extends StatelessWidget {
 }
 
 class _RunMetric extends StatelessWidget {
-  const _RunMetric({required this.label, required this.value});
+  const _RunMetric({required this.label, required this.value, this.unit});
   final String label;
   final String value;
+  final String? unit;
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      Text(
-        value,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+      SizedBox(
+        height: 28,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text.rich(
+            TextSpan(
+              text: value,
+              children: [
+                if (unit != null)
+                  TextSpan(
+                    text: ' $unit',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+        ),
       ),
     ],
   );

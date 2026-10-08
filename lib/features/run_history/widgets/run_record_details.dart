@@ -25,6 +25,10 @@ class RunRecordDetails extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
+      if (record.pendingSync) ...[
+        const Text('서버 저장 대기', style: TextStyle(color: Colors.deepOrange)),
+        const SizedBox(height: 8),
+      ],
       Text('시작 ${formatRunDate(record.startedAt)}'),
       Text('종료 ${formatRunDate(record.endedAt)}'),
       const SizedBox(height: 16),

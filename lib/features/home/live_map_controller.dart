@@ -7,6 +7,7 @@ import '../run_history/run_history_controller.dart';
 
 import 'data/live_runner_service.dart';
 import 'data/location_service.dart';
+import 'data/location_tracker.dart';
 import 'models/live_runner.dart';
 import 'models/run_session.dart';
 
@@ -37,12 +38,55 @@ class LiveMapController extends ChangeNotifier {
   bool _active = true;
   bool _refreshing = false;
   int _generation = 0;
+  int _activityGeneration = 0;
+  int? _runStartGeneration;
   DateTime? _lastPublished;
   Timer? _heartbeat;
   Timer? _refreshTimer;
   Timer? _runTimer;
-  StreamSubscription<LocationFix>? _locations;
+  late final _tracker = LocationTracker(
+    locationService,
+    onFix: _acceptPosition,
+    onFailure: (error) => unawaited(_locationLost(error)),
+  );
   Future<void> _writes = Future.value();
+
+  LocationTrackingMode get _trackingMode {
+    if (_disposed || locationFailure != null) {
+      return LocationTrackingMode.stopped;
+    }
+    if (runSession?.isRunning == true ||
+        (startingRun &&
+            _active &&
+            _runStartGeneration == _activityGeneration)) {
+      return LocationTrackingMode.recording;
+    }
+    return _active ? LocationTrackingMode.map : LocationTrackingMode.stopped;
+  }
+
+  Future<void> _syncTracking() async {
+    try {
+      await _tracker.setMode(_trackingMode);
+    } catch (_) {
+      if (_disposed) return;
+      locationFailure = const LocationFailure(LocationProblem.unavailable);
+      runSession?.pause();
+      _runTimer?.cancel();
+      position = null;
+      if (sharing || changingSharing) unawaited(setSharing(false));
+      _notify();
+    }
+  }
+
+  void _startTimers() {
+    _heartbeat?.cancel();
+    _runTimer?.cancel();
+    if (!_active || _disposed) return;
+    _heartbeat = Timer.periodic(const Duration(seconds: 15), (_) => _tick());
+    if (runSession?.isRunning == true) {
+      _runTimer = Timer.periodic(const Duration(seconds: 1), (_) => _notify());
+    }
+  }
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -53,39 +97,34 @@ class LiveMapController extends ChangeNotifier {
     locating = true;
     locationFailure = null;
     _notify();
-    final generation = _generation;
+    final generation = _activityGeneration;
     try {
       final fix = await locationService.current(requestPermission: true);
-      if (_disposed || !_active || generation != _generation) return;
+      if (_disposed || !_active || generation != _activityGeneration) return;
       _acceptPosition(fix);
-      await _locations?.cancel();
-      _locations = locationService.watch().listen(
-        _acceptPosition,
-        onError: (_) {
-          unawaited(
-            _locationLost(const LocationFailure(LocationProblem.unavailable)),
-          );
-        },
-      );
-      _heartbeat?.cancel();
-      _heartbeat = Timer.periodic(const Duration(seconds: 15), (_) => _tick());
+      await _syncTracking();
+      _startTimers();
     } on LocationFailure catch (error) {
-      if (!_disposed && generation == _generation) locationFailure = error;
+      if (!_disposed && generation == _activityGeneration) {
+        locationFailure = error;
+      }
     } catch (_) {
-      if (!_disposed && generation == _generation) {
+      if (!_disposed && generation == _activityGeneration) {
         locationFailure = const LocationFailure(LocationProblem.unavailable);
       }
     } finally {
       if (!_disposed) {
         locating = false;
         _notify();
-        if (_active && generation != _generation) unawaited(start());
+        if (_active && generation != _activityGeneration && !startingRun) {
+          unawaited(start());
+        }
       }
     }
   }
 
   void _acceptPosition(LocationFix fix) {
-    if (_disposed || !_active) return;
+    if (_disposed || (!_active && runSession?.isRunning != true)) return;
     runSession?.accept(fix);
     if ((sharing || runSession?.isRunning == true) && !fix.isUsable) {
       unawaited(
@@ -95,27 +134,37 @@ class LiveMapController extends ChangeNotifier {
     }
     position = fix;
     locationFailure = null;
-    _notify();
-    if (sharing && !changingSharing) unawaited(_publish());
+    if (_active) _notify();
+    if (_active && sharing && !changingSharing) unawaited(_publish());
   }
 
   Future<void> _tick() async {
     if (_disposed || !_active || locating) return;
+    final generation = _activityGeneration;
     try {
-      _acceptPosition(await locationService.current());
+      final fix = await locationService.current();
+      if (_disposed || !_active || generation != _activityGeneration) return;
+      _acceptPosition(fix);
       if (sharing) await refresh();
     } on LocationFailure catch (error) {
-      await _locationLost(error);
+      if (_active && generation == _activityGeneration) {
+        await _locationLost(error);
+      }
     } catch (_) {
-      await _locationLost(const LocationFailure(LocationProblem.unavailable));
+      if (_active && generation == _activityGeneration) {
+        await _locationLost(const LocationFailure(LocationProblem.unavailable));
+      }
     }
   }
 
   Future<void> _locationLost(LocationFailure error) async {
-    if (_disposed || !_active) return;
-    pauseRun();
+    if (_disposed) return;
     locationFailure = error;
+    runSession?.pause();
+    _runTimer?.cancel();
+    _activityGeneration++;
     position = null;
+    unawaited(_syncTracking());
     if (sharing || changingSharing) await setSharing(false);
     _notify();
   }
@@ -130,39 +179,47 @@ class LiveMapController extends ChangeNotifier {
       return;
     }
     startingRun = true;
+    final generation = _runStartGeneration = ++_activityGeneration;
     runError = null;
     _notify();
     try {
       final fix = await locationService.current(requestPermission: true);
-      if (_disposed || !_active) return;
+      if (_disposed || !_active || generation != _activityGeneration) return;
       if (!fix.isUsable) {
         runError = '정확한 현재 위치를 확인한 뒤 러닝을 시작해 주세요.';
         return;
       }
-      if (_locations == null) await start();
-      if (_disposed || !_active) return;
-      if (_locations == null || locationFailure != null) {
+      locationFailure = null;
+      final ready = await _tracker.setMode(
+        LocationTrackingMode.recording,
+        waitForFix: true,
+      );
+      if (_disposed || !_active || generation != _activityGeneration) return;
+      if (ready == null || locationFailure != null || !ready.isUsable) {
         runError = locationFailure?.message ?? '위치 측정을 시작하지 못했습니다.';
         return;
       }
-      _acceptPosition(fix);
+      _acceptPosition(ready);
       if (runSession == null) {
-        runSession = RunSession(fix);
+        runSession = RunSession(ready);
       } else {
-        runSession!.resume(fix);
+        runSession!.resume(ready);
       }
-      _runTimer?.cancel();
-      _runTimer = Timer.periodic(const Duration(seconds: 1), (_) => _notify());
+      _startTimers();
     } on LocationFailure catch (error) {
-      if (!_disposed) {
+      if (!_disposed && generation == _activityGeneration) {
         runError = error.message;
         locationFailure = error;
       }
     } catch (_) {
-      if (!_disposed) runError = '러닝을 시작하지 못했습니다. 다시 시도해 주세요.';
+      if (!_disposed && generation == _activityGeneration) {
+        runError = '러닝을 시작하지 못했습니다. 다시 시도해 주세요.';
+        locationFailure = const LocationFailure(LocationProblem.unavailable);
+      }
     } finally {
       if (!_disposed) {
         startingRun = false;
+        await _syncTracking();
         _notify();
       }
     }
@@ -171,7 +228,9 @@ class LiveMapController extends ChangeNotifier {
   void pauseRun() {
     if (runSession == null) return;
     runSession!.pause();
+    _activityGeneration++;
     _runTimer?.cancel();
+    unawaited(_syncTracking());
     _notify();
   }
 
@@ -179,12 +238,15 @@ class LiveMapController extends ChangeNotifier {
     final session = runSession;
     if (_disposed || session == null || savingRun) return null;
     final summary = session.finish();
+    _activityGeneration++;
     _runTimer?.cancel();
+    unawaited(_syncTracking());
     runError = null;
     savingRun = true;
     _notify();
     try {
-      if (sharing || changingSharing) await setSharing(false);
+      // 위치 공유 정리 중 연결이 끊겨도 완료 기록의 기기 저장은 지연하지 않습니다.
+      if (sharing || changingSharing) unawaited(setSharing(false));
       await runHistory.save(summary);
       if (_disposed) return null;
       runSession = null;
@@ -337,15 +399,23 @@ class LiveMapController extends ChangeNotifier {
   Future<void> setActive(bool active) async {
     if (_disposed || _active == active) return;
     _active = active;
+    _activityGeneration++;
     if (active) {
-      await start();
+      if (runSession?.isRunning == true) {
+        await _syncTracking();
+        _startTimers();
+        _notify();
+      } else {
+        await start();
+      }
     } else {
-      pauseRun();
       _heartbeat?.cancel();
-      await _locations?.cancel();
-      _locations = null;
-      await setSharing(false);
-      position = null;
+      _runTimer?.cancel();
+      // 개인 측정은 유지하지만 공개 위치는 즉시 비공개로 전환합니다.
+      final stopSharing = sharing || changingSharing ? setSharing(false) : null;
+      await _syncTracking();
+      await stopSharing;
+      if (!_active && runSession?.isRunning != true) position = null;
       _notify();
     }
   }
@@ -364,11 +434,12 @@ class LiveMapController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _generation++;
+    _activityGeneration++;
     _heartbeat?.cancel();
     _refreshTimer?.cancel();
     _runTimer?.cancel();
     runSession?.pause();
-    unawaited(_locations?.cancel());
+    unawaited(_tracker.close().catchError((Object _) {}));
     unawaited(runnerService.disconnect().catchError((Object _) {}));
     unawaited(_enqueue(runnerService.stopSharing).catchError((Object _) {}));
     super.dispose();

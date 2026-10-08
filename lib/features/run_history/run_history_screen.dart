@@ -41,13 +41,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     animation: widget.controller,
     builder: (context, _) {
       final state = widget.controller;
+      final records = state.visibleRecords;
       return Scaffold(
         appBar: AppBar(
           title: const Text('내 기록'),
           actions: [
             IconButton(
               tooltip: '새로고침',
-              onPressed: state.loading ? null : state.refresh,
+              onPressed: state.loading || state.syncing ? null : state.refresh,
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -57,13 +58,25 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            itemCount: state.records.length + 1,
+            itemCount: records.length + 1,
             itemBuilder: (context, index) {
-              if (index == state.records.length) {
+              if (index == records.length) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Column(
                     children: [
+                      if (state.syncing) const Text('서버 저장 중'),
+                      if (state.syncError != null) ...[
+                        Text(
+                          state.syncError!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                        TextButton.icon(
+                          onPressed: state.syncing ? null : state.syncPending,
+                          icon: const Icon(Icons.cloud_upload_outlined),
+                          label: const Text('저장 재시도'),
+                        ),
+                      ],
                       if (state.loading) const CircularProgressIndicator(),
                       if (state.error != null) ...[
                         Text(
@@ -75,7 +88,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                           icon: const Icon(Icons.refresh),
                           label: const Text('다시 시도'),
                         ),
-                      ] else if (!state.loading && state.records.isEmpty)
+                      ] else if (!state.loading &&
+                          !state.syncing &&
+                          records.isEmpty)
                         const Text('아직 러닝 기록이 없습니다.')
                       else if (!state.loading && state.hasMore)
                         TextButton.icon(
@@ -87,7 +102,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   ),
                 );
               }
-              final record = state.records[index];
+              final record = records[index];
               return Column(
                 children: [
                   ListTile(
@@ -99,6 +114,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                         spacing: 16,
                         runSpacing: 4,
                         children: [
+                          if (record.pendingSync)
+                            const Text(
+                              '서버 저장 대기',
+                              style: TextStyle(color: Colors.deepOrange),
+                            ),
                           Text(
                             '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
                             style: const TextStyle(fontWeight: FontWeight.w700),
