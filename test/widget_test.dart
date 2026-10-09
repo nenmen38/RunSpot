@@ -13,6 +13,7 @@ import 'package:runquest/features/run_history/run_history_controller.dart';
 
 import 'support/live_map_fakes.dart';
 import 'support/run_history_fakes.dart';
+import 'support/friend_fakes.dart';
 
 class MemoryTileProvider extends TileProvider {
   @override
@@ -45,6 +46,7 @@ void main() {
           child: RunQuestShell(
             mapController: controller,
             mapTileProvider: MemoryTileProvider(),
+            friendService: FakeFriendService(),
           ),
         ),
       ),
@@ -115,6 +117,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.sharing, isTrue);
     await tester.tap(find.text('소셜').last);
+    await tester.pumpAndSettle();
+    expect(find.text('내 친구 0'), findsOneWidget);
+    await tester.tap(find.text('랭킹'));
     await tester.pumpAndSettle();
     expect(find.text('친구 랭킹'), findsOneWidget);
     await tester.tap(find.text('홈'));

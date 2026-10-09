@@ -10,15 +10,22 @@ import 'package:runquest/features/profile/profile_screen.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
+import 'package:runquest/features/social/data/friend_service.dart';
 import 'package:runquest/features/social/social_screen.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RunQuestShell extends StatefulWidget {
-  const RunQuestShell({this.mapController, this.mapTileProvider, super.key});
+  const RunQuestShell({
+    this.mapController,
+    this.mapTileProvider,
+    this.friendService,
+    super.key,
+  });
 
   final LiveMapController? mapController;
   final TileProvider? mapTileProvider;
+  final FriendService? friendService;
 
   @override
   State<RunQuestShell> createState() => _RunQuestShellState();
@@ -81,6 +88,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       SocialScreen(
         rankingMode: _rankingMode,
         onModeChanged: (value) => setState(() => _rankingMode = value),
+        friendService: widget.friendService,
+        onProfileTap: () => setState(() => _tab = 2),
       ),
       const ProfileScreen(),
       AdminScreen(review: _review, onAction: _setReviewStatus),
