@@ -81,6 +81,98 @@ void main() {
       RunningSuitability.avoid,
     );
   });
+  test('마지막 관측값이 정상이어도 갱신 실패 시 양호로 판단하지 않습니다', () {
+    final good = fixture(now);
+    for (final code in [
+      'quota_exhausted',
+      'refresh_in_progress',
+      'provider_unavailable',
+    ]) {
+      final data = RunningConditions(
+        fetchedAt: now,
+        weather: good.weather,
+        dust: good.dust,
+        weatherError: code,
+      );
+      expect(data.assess(now).status, RunningSuitability.unknown);
+      expect(data.assess(now).incomplete, isTrue);
+      expect(data.refreshNotice, isNotNull);
+    }
+    final hazardous = fixture(now, pm25: 76);
+    final data = RunningConditions(
+      fetchedAt: now,
+      weather: hazardous.weather,
+      dust: hazardous.dust,
+      weatherError: 'quota_exhausted',
+    );
+    expect(data.assess(now).status, RunningSuitability.avoid);
+    expect(data.assess(now).incomplete, isTrue);
+  });
+  test('서버 갱신과 원래 관측 시각을 구분하여 해석합니다', () {
+    final cached = now.subtract(const Duration(minutes: 5));
+    final observed = now.subtract(const Duration(hours: 3));
+    final data = RunningConditions.fromJson({
+      'fetchedAt': now.toIso8601String(),
+      'weather': {
+        'observedAt': observed.toIso8601String(),
+        'cachedAt': cached.toIso8601String(),
+        'temperature': 20,
+        'wind': 1,
+        'rain': 0,
+        'precipitation': 0,
+      },
+      'dust': {
+        'observedAt': observed.toIso8601String(),
+        'cachedAt': cached.toIso8601String(),
+        'station': '중구',
+        'distanceKm': 1,
+        'pm10': 10,
+        'pm25': 5,
+      },
+    });
+    expect(data.weather!.cachedAt, cached);
+    expect(data.dust!.cachedAt, cached);
+    expect(data.assess(now).status, RunningSuitability.unknown);
+  });
+  test('한도 도달 시 이전 자료가 없으면 저장 자료 없음으로 표시합니다', () {
+    final data = RunningConditions(
+      fetchedAt: now,
+      weatherError: 'quota_exhausted',
+      dustError: 'quota_exhausted',
+    );
+    expect(data.refreshNotice, '조회 한도에 도달했습니다. 저장된 관측 자료가 없습니다.');
+    expect(data.assess(now).status, RunningSuitability.unknown);
+  });
+  testWidgets('작은 화면에서도 호출 한도와 마지막 관측 시각을 표시합니다', (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = ConditionsController(
+      FakeConditionsService(),
+      clock: () => now,
+    );
+    addTearDown(controller.dispose);
+    final good = fixture(now);
+    controller.data = RunningConditions(
+      fetchedAt: now,
+      weather: good.weather,
+      dust: good.dust,
+      dustError: 'quota_exhausted',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ConditionsPanel(controller: controller)),
+      ),
+    );
+    expect(find.text('조건 판단 불가'), findsOneWidget);
+    expect(find.text('조회 한도에 도달했습니다. 마지막 관측 자료입니다.'), findsOneWidget);
+    expect(find.textContaining('관측'), findsWidgets);
+    await tester.tap(find.byTooltip('러닝 환경 상세'));
+    await tester.pumpAndSettle();
+    expect(find.text('공동 조회 한도에 도달하여 마지막 관측 자료를 표시합니다.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   test('잘못된 자료와 결측값을 0으로 바꾸지 않습니다', () {
     final result = RunningConditions.fromJson({
       'fetchedAt': now.toIso8601String(),

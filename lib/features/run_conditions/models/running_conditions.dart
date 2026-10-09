@@ -3,12 +3,14 @@ enum RunningSuitability { good, caution, avoid, unknown }
 class WeatherObservation {
   const WeatherObservation({
     required this.observedAt,
+    this.cachedAt,
     this.temperature,
     this.rain,
     this.precipitation,
     this.wind,
   });
   final DateTime? observedAt;
+  final DateTime? cachedAt;
   final double? temperature;
   final double? rain;
   final int? precipitation;
@@ -17,6 +19,7 @@ class WeatherObservation {
   factory WeatherObservation.fromJson(Map<String, dynamic> json) =>
       WeatherObservation(
         observedAt: _time(json['observedAt']),
+        cachedAt: _time(json['cachedAt']),
         temperature: _number(json['temperature'], -80, 60),
         rain: _number(json['rain'], 0, 1000),
         precipitation: _integer(json['precipitation'], 0, 7),
@@ -39,12 +42,14 @@ class WeatherObservation {
 class DustObservation {
   const DustObservation({
     required this.observedAt,
+    this.cachedAt,
     required this.station,
     required this.distanceKm,
     this.pm10,
     this.pm25,
   });
   final DateTime? observedAt;
+  final DateTime? cachedAt;
   final String station;
   final double distanceKm;
   final double? pm10;
@@ -53,6 +58,7 @@ class DustObservation {
   factory DustObservation.fromJson(Map<String, dynamic> json) =>
       DustObservation(
         observedAt: _time(json['observedAt']),
+        cachedAt: _time(json['cachedAt']),
         station: json['station'] is String ? json['station'] as String : '',
         distanceKm: _number(json['distanceKm'], 0, 30) ?? double.infinity,
         pm10: _number(json['pm10'], 0, 10000),
@@ -91,6 +97,20 @@ class RunningConditions {
   final String? weatherError;
   final String? dustError;
 
+  String? get refreshNotice {
+    final errors = [weatherError, dustError].whereType<String>();
+    if (errors.isEmpty) return null;
+    if (errors.contains('quota_exhausted')) {
+      return weather != null || dust != null
+          ? '조회 한도에 도달했습니다. 마지막 관측 자료입니다.'
+          : '조회 한도에 도달했습니다. 저장된 관측 자료가 없습니다.';
+    }
+    if (errors.contains('refresh_in_progress')) {
+      return '지역 관측 자료를 갱신 중입니다.';
+    }
+    return '최신 관측 자료를 갱신하지 못했습니다.';
+  }
+
   factory RunningConditions.fromJson(Map<String, dynamic> json) {
     final time = _time(json['fetchedAt']);
     if (time == null) throw const FormatException('관측 자료 조회 시각이 없습니다.');
@@ -122,6 +142,10 @@ class RunningConditions {
     var status = RunningSuitability.good;
     var incomplete = false;
     final w = weather, d = dust;
+    if (weatherError != null || dustError != null) {
+      incomplete = true;
+      notes.add(refreshNotice!);
+    }
     if (w == null || !isFresh(w.observedAt, now)) {
       incomplete = true;
       notes.add(

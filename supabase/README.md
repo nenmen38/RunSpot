@@ -206,20 +206,41 @@ update runspot_private.registration_test_settings set enabled_until=null where s
 
 ## 러닝 환경 조회
 
-- `20261009111535_running_conditions.sql`과 `functions/running-conditions/`가 필요합니다. 연결된 RunSpot 서버에 적용했습니다. 함수의 `verify_jwt`는 켜 두며 플랫폼 검사 후 `getUser()`와 현재 활성 계정 검사를 추가로 수행합니다. 개인 환경 조회에는 전화번호 인증을 요구하지 않습니다.
+- `20261009111535_running_conditions.sql`, `20261009191148_environment_shared_budget.sql`과 `functions/running-conditions/`가 필요합니다. 함수의 `verify_jwt`는 켜 두며 플랫폼 검사 후 `getUser()`와 현재 활성 계정 검사를 추가로 수행합니다. 개인 환경 조회에는 전화번호 인증을 요구하지 않습니다.
 - 공공데이터포털에서 [기상청 단기예보](https://www.data.go.kr/data/15084084/openapi.do), [에어코리아 대기오염정보](https://www.data.go.kr/data/15073861/openapi.do), [에어코리아 측정소정보](https://www.data.go.kr/data/15073877/openapi.do)를 승인받습니다. 키는 서버 비밀 설정 `KMA_SERVICE_KEY`, `AIRKOREA_SERVICE_KEY`에 등록하며 클라이언트 빌드 설정·저장소·로그에는 추가하지 않습니다.
 - `supabase secrets set --project-ref <프로젝트 식별자> --env-file <보호된 서버 비밀 파일>`로 등록합니다. 파일은 두 변수만 포함하고 본인만 읽을 수 있게 보호하며 Git에 넣지 않습니다. 같은 공공데이터 키도 각 API의 활용 승인이 필요합니다. 실제 운영 계정 승인과 일일 호출량은 공공데이터포털에서 관리합니다.
-- `running-conditions`는 로그인 세션으로 `latitude`, `longitude`만 받습니다. 좌표는 약 1km 정밀도로 반올림하고 기상청 5km 격자와 가까운 미세먼지 측정소를 선택합니다. 사용자 좌표는 저장하지 않습니다. 외부 기관에는 격자·측정소 이름만 보내고 기관 오류 원문이나 인증키를 포함한 URL은 앱에 반환하지 않습니다.
-- 공개 관측 캐시는 비공개 스키마의 RLS 기본 거절 테이블에 저장합니다. 캐시 읽기·쓰기는 `service_role`만 실행 가능하며 공개 연결 함수도 호출자 권한으로 실행합니다. 앱은 직접 캐시나 호출 제한 원본을 읽거나 수정할 수 없습니다. 관측값 5~10분, 측정소 목록 24시간을 보관하고 새 캐시 저장 시 만료 자료를 정리합니다.
-- 계정당 최소 10초 간격·시간당 120회 제한을 원자적 갱신으로 적용합니다. API 전체 개발 계정 호출량 제한은 별도이며 여러 사용자와 지역이 많아지면 운영 계정 증설이 필요합니다. 기관 자료를 얻지 못하면 부분 자료와 오류 코드를 반환하며 대체 측정값을 만들지 않습니다.
+- `running-conditions`는 로그인 세션으로 `latitude`, `longitude`만 받습니다. 좌표는 약 1km 정밀도로 반올림하고 기상청 5km 격자와 가까운 미세먼지 측정소를 선택합니다. 사용자 좌표는 저장하지 않습니다. 외부 기관에는 격자·시도명만 보내고 기관 오류 원문이나 인증키를 포함한 URL은 앱에 반환하지 않습니다.
+- 공개 관측 캐시는 비공개 스키마의 RLS 기본 거절 테이블에 저장합니다. 공동 캐시·갱신 권한·호출 예산 RPC는 `service_role`만 실행 가능하며 공개 연결 함수는 호출자 권한으로 실행합니다. 앱은 원본 캐시·예산 테이블에 접근할 수 없습니다. 기존 캐시 RPC는 이전 배포 호환을 위해 유지하지만 새 함수는 공동 캐시만 사용합니다.
+- 날씨는 격자별 마지막 정상 자료를 보관하며 `base_date:base_time`이 같은 발표 자료를 반복 조회하지 않습니다. 다음 발표 시각부터 요청이 있는 격자만 갱신합니다. 미세먼지는 `getCtprvnRltmMesureDnsty`의 시도별 최신 측정소 목록을 3600초간 공유하며 측정소 목록은 86400초간 공유합니다. 전남·광주는 공식 문서의 `전남광주` 조회로 통합합니다. 페이지 누락 없이 전체 목록을 받은 뒤 저장하며 매 페이지 예산을 예약합니다. 가장 가까운 30km 이내 측정소만 선택하고 코드가 있으면 동일 코드로 연결합니다.
+- 지역별 DB 행을 잠가 180초 갱신 권한을 부여하고, 갱신 권한 토큰으로 호출 예약·저장을 검증합니다. 프로세스 장애 후 권한이 만료되면 새 요청이 담당하며 이전 작업자는 결과를 덮어쓸 수 없습니다. 실패 후 5분 동안 반복 조회를 막습니다. 갱신할 때 일주일 이상 갱신되지 않은 다른 지역의 캐시를 정리하며 현재 요청 지역의 마지막 정상 자료는 보존합니다. 만료 자료 반환에는 오류·원래 관측 시각·마지막 서버 갱신 시각을 포함합니다. 최신 자료의 수신 시각이 관측 시각을 대체하지 않습니다.
+- `environment_budgets`의 `kma`, `air`, `stations`는 각각 최근 24시간 450회 상한입니다. 기관 초기화 시각을 추측하지 않고 이동 24시간 창으로 보수적으로 집계합니다. 기관별 예산 행을 잠근 트랜잭션에서 호출 전 예약하고 실패·시간 초과도 환불하지 않습니다. 예산 RPC 장애 시 외부 요청을 진행하지 않습니다. 운영 승인 후 증액하려면 승인 범위에 맞게 상한 검증과 설정을 마이그레이션으로 변경해야 합니다. 다른 서버·스크립트에서 같은 키를 사용하는 호출은 이 DB 예산에 포함되지 않습니다.
+- 계정당 최소 10초 간격·시간당 120회 제한은 유지합니다. 기관별 상한에 도달하면 외부 요청을 중단하고 마지막 정상 자료와 `quota_exhausted`를 반환합니다. 마지막 자료가 없으면 해당 기관 자료는 `null`입니다. 앱은 공동 갱신 실패 또는 관측 2시간 경과 시 양호 판단을 중단하며 이미 확인된 주의 조건은 자료 부족 안내와 함께 유지합니다.
 
 ```sh
 cd supabase/functions/running-conditions
 npx --yes deno@2.5.4 check index.ts
-npx --yes deno@2.5.4 test providers_test.ts
+npx --yes deno@2.5.4 test providers_test.ts shared_cache_test.ts
 ```
 
-SQL 권한·호출 제한 테스트는 `tests/running_conditions.sql`을 격리된 로컬 DB에서 실행합니다. 비로그인 실행과 앱의 캐시 접근 차단, 정지 계정 차단, 시간당 제한, 만료 자료 미사용을 확인합니다. 의존성은 고정 버전과 `deno.lock`으로 관리합니다.
+SQL 권한·호출 제한 테스트는 `tests/running_conditions.sql`, `tests/environment_shared_budget.sql`을 격리된 로컬 DB에서 실행합니다. 새 테스트는 갱신 권한·예산 접근 차단·발표 경계·한도·실패 자료 보관·24시간 경과·이전 작업자 덮어쓰기 차단도 확인합니다. 의존성은 고정 버전과 `deno.lock`으로 관리합니다.
+
+`tests/environment_concurrency_test.ts`는 인증 대역을 가진 임시 로컬 DB에서 20개 연결의 갱신 권한과 449회 사용 후 동시 요청이 정확히 한 회만 허용되는지 검증합니다. 소켓은 `/private/tmp/runspot-environment-db.`로 시작하는 격리 경로, 포트는 55439를 사용합니다. 실제 Supabase에 실행하지 않습니다.
+
+```sh
+ENVIRONMENT_TEST_SOCKET=<격리된_임시_DB_소켓> ENVIRONMENT_TEST_PSQL=<psql_실행파일> \
+  npx --yes deno@2.5.4 test --allow-env=ENVIRONMENT_TEST_SOCKET,ENVIRONMENT_TEST_PSQL \
+  --allow-run=<psql_실행파일> supabase/tests/environment_concurrency_test.ts
+```
+
+관리자의 SQL 조회로 외부 호출 예약량을 확인합니다. 사용자별 앱 조회 횟수가 아니라 기관별 실제 외부 요청 예산입니다.
+
+```sql
+select b.provider,b.max_requests,count(a.id) as reserved_last_24h
+from runspot_private.environment_budgets b
+left join runspot_private.environment_attempts a
+  on a.provider=b.provider and a.reserved_at>clock_timestamp()-interval '24 hours'
+group by b.provider,b.max_requests;
+```
 
 ## 개인 경로 저장 API
 

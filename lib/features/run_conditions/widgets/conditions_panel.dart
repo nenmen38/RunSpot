@@ -64,6 +64,7 @@ class ConditionsPanel extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       controller.error ??
+                          data?.refreshNotice ??
                           (data == null
                               ? '현재 위치 확인 중'
                               : stale
@@ -76,6 +77,16 @@ class ConditionsPanel extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (data?.refreshNotice != null)
+                      Text(
+                        '날씨 ${_time(weather?.observedAt)} · 미세먼지 ${_time(dust?.observedAt)}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF606872),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                   ],
                 ),
               ),
@@ -183,7 +194,15 @@ class ConditionsPanel extends StatelessWidget {
                     ),
                     if (data?.weatherError != null)
                       Text(
-                        _providerError(data!.weatherError!),
+                        _providerError(
+                          data!.weatherError!,
+                          hasPrevious: weather != null,
+                        ),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    if (weather?.cachedAt != null)
+                      Text(
+                        _time(weather!.cachedAt, suffix: '서버 갱신'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     const Divider(height: 28),
@@ -210,7 +229,15 @@ class ConditionsPanel extends StatelessWidget {
                       ),
                     if (data?.dustError != null)
                       Text(
-                        _providerError(data!.dustError!),
+                        _providerError(
+                          data!.dustError!,
+                          hasPrevious: dust != null,
+                        ),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    if (dust?.cachedAt != null)
+                      Text(
+                        _time(dust!.cachedAt, suffix: '서버 갱신'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     const Divider(height: 28),
@@ -243,16 +270,24 @@ class ConditionsPanel extends StatelessWidget {
       ],
     ),
   );
-  String _time(DateTime? time) {
+  String _time(DateTime? time, {String suffix = '관측'}) {
     if (time == null) return '관측 시각 없음';
     final local = time.toLocal();
-    return '${local.month}/${local.day} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')} 관측';
+    return '${local.month}/${local.day} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')} $suffix';
   }
 
-  String _providerError(String code) => switch (code) {
-    'permission_denied' => '관측 API 이용 권한을 확인해야 합니다.',
-    'no_nearby_station' => '30km 안에 두 미세먼지 항목을 측정하는 측정소가 없습니다.',
-    'not_configured' => '서버의 관측 API 설정이 필요합니다.',
-    _ => '관측 기관의 자료를 가져오지 못했습니다.',
-  };
+  String _providerError(String code, {bool hasPrevious = false}) =>
+      switch (code) {
+        'quota_exhausted' =>
+          hasPrevious
+              ? '공동 조회 한도에 도달하여 마지막 관측 자료를 표시합니다.'
+              : '공동 조회 한도에 도달했고 저장된 관측 자료가 없습니다.',
+        'refresh_in_progress' => '같은 지역의 관측 자료를 공동 갱신하고 있습니다.',
+        'refresh_superseded' => '지역 관측 자료 갱신을 다시 확인해야 합니다.',
+        'cache_unavailable' => '관측 자료 저장소에 연결하지 못했습니다.',
+        'permission_denied' => '관측 API 이용 권한을 확인해야 합니다.',
+        'no_nearby_station' => '30km 안에 두 미세먼지 항목을 측정하는 측정소가 없습니다.',
+        'not_configured' => '서버의 관측 API 설정이 필요합니다.',
+        _ => '관측 기관의 자료를 가져오지 못했습니다.',
+      };
 }

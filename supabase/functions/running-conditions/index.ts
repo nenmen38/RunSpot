@@ -1,11 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import {
-  Cache,
   coordinate,
   ProviderFailure,
   Providers,
   supported,
 } from "./providers.ts";
+import { DatabaseSharedCache } from "./shared_cache.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -82,23 +82,7 @@ Deno.serve(async (request: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       options,
     );
-    const cache: Cache = {
-      async read(key) {
-        const result = await admin.rpc("read_environment_cache", {
-          requested_key: key,
-        });
-        if (result.error) throw new ProviderFailure("cache_unavailable");
-        return result.data;
-      },
-      async write(key, value, ttl) {
-        const result = await admin.rpc("write_environment_cache", {
-          requested_key: key,
-          cache_payload: value,
-          ttl_seconds: ttl,
-        });
-        if (result.error) throw new ProviderFailure("cache_unavailable");
-      },
-    };
+    const cache = new DatabaseSharedCache(admin);
     const providers = new Providers(cache, {
       kma: Deno.env.get("KMA_SERVICE_KEY") ?? "",
       air: Deno.env.get("AIRKOREA_SERVICE_KEY") ?? "",
@@ -117,6 +101,8 @@ Deno.serve(async (request: Request) => {
           result.reason instanceof ProviderFailure
             ? result.reason.code
             : "provider_unavailable";
+      } else if (typeof result.value.refreshError === "string") {
+        errors[i === 0 ? "weather" : "dust"] = result.value.refreshError;
       }
     }
     return reply({
