@@ -49,9 +49,13 @@ void main() {
     expect(session.isRunning, isFalse);
     expect(session.finish(), same(summary));
     expect(summary.clientRunId, isNotEmpty);
+    expect(summary.route.segments.map((segment) => segment.length), [2, 2]);
+    expect(() => summary.route.segments.clear(), throwsUnsupportedError);
+    expect(() => summary.route.segments.first.clear(), throwsUnsupportedError);
     expect(summary.endedAt.isAfter(summary.startedAt), isTrue);
     session.resume(fix(37.58, 8));
     expect(session.isRunning, isFalse);
+    expect(summary.route.segments.last.last.latitude, 37.5705);
   });
 
   test('위치 중단과 부정확한 GPS 이후 간격은 추정하지 않습니다', () {

@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
+import 'package:runquest/features/run_history/models/run_route.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 String session(String owner, String token) => jsonEncode({
@@ -29,6 +31,10 @@ void main() {
     endedAt: DateTime.utc(2026, 10, 8, 7),
     distanceMeters: 5000.4,
     duration: const Duration(minutes: 25),
+    route: RunRoute([
+      [const LatLng(37.5665, 126.978)],
+      [const LatLng(37.57, 126.98)],
+    ]),
   );
   final row = {
     'id': '20000000-0000-0000-0000-000000000001',
@@ -60,7 +66,7 @@ void main() {
     final service = SupabaseRunRecordService(client);
     final saved = await service.save(summary);
     expect(saved.distanceMeters, 5000);
-    expect(request.url.path, '/rest/v1/rpc/save_my_run');
+    expect(request.url.path, '/rest/v1/rpc/save_my_run_with_route');
     expect(request.headers['authorization'], 'Bearer token-a');
     expect(jsonDecode(request.body), {
       'client_id': summary.clientRunId,
@@ -68,6 +74,7 @@ void main() {
       'end_time': summary.endedAt.toIso8601String(),
       'distance_metres': 5000,
       'active_seconds': 1500,
+      'route_segments': summary.route.toJson(),
     });
   });
 
@@ -125,6 +132,45 @@ void main() {
     );
     expect(request.url.queryParameters['offset'], '20');
     expect(request.url.queryParameters['limit'], '20');
+    expect(request.headers['authorization'], 'Bearer token-a');
+  });
+
+  test('경로만 별도 조회하며 계정이 바뀐 응답은 숨깁니다', () async {
+    late SupabaseClient client;
+    late http.Request request;
+    var switchOwner = false;
+    client = SupabaseClient(
+      'https://example.supabase.co',
+      '테스트용 공개 키',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((value) async {
+        request = value;
+        if (switchOwner) {
+          await client.auth.recoverSession(session('other-owner', 'token-b'));
+        }
+        return http.Response(
+          jsonEncode(summary.route.toJson()),
+          200,
+          request: value,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(session('owner', 'token-a'));
+    final service = SupabaseRunRecordService(client);
+    expect(
+      (await service.loadRoute('run-id')).toJson(),
+      summary.route.toJson(),
+    );
+    expect(request.url.path, '/rest/v1/rpc/my_run_route');
+    expect(jsonDecode(request.body), {'requested_run_id': 'run-id'});
+    expect(request.headers['authorization'], 'Bearer token-a');
+    switchOwner = true;
+    await expectLater(
+      service.loadRoute('run-id'),
+      throwsA(isA<AuthException>()),
+    );
     expect(request.headers['authorization'], 'Bearer token-a');
   });
 }

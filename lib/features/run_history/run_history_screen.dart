@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../shared/formatters/run_format.dart';
 import 'models/run_record.dart';
 import 'run_history_controller.dart';
+import 'run_record_detail_screen.dart';
 import 'widgets/run_record_details.dart';
 
 class RunHistoryScreen extends StatefulWidget {
@@ -22,17 +23,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     unawaited(widget.controller.refresh());
   }
 
-  void _open(RunRecord record) => showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('러닝 기록'),
-      content: SingleChildScrollView(child: RunRecordDetails(record: record)),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('확인'),
-        ),
-      ],
+  void _open(RunRecord record) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) =>
+          RunRecordDetailScreen(record: record, controller: widget.controller),
     ),
   );
 

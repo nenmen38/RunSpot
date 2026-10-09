@@ -3,7 +3,7 @@
 ## 현재 상태
 
 - 연결된 프로젝트: `RunSpot` (`rtdlluilhkcdghoakyrp`). 별도 운영 프로젝트 구분은 미확인입니다.
-- 원격 적용: 2026-10-09 기준 친구 관리까지 마이그레이션 11개 반영 완료.
+- 원격 적용: 2026-10-09 기준 개인 러닝 경로 저장까지 마이그레이션 12개 반영 완료.
 - 약관 제거는 서버에 수동 반영된 함수·권한과 테이블 제거 상태를 확인한 뒤 누락된 적용 이력만 정리했습니다. 실시간 지도와 기록 저장은 CLI로 적용했습니다.
 - 로컬 PostgreSQL 16에서 인증 대역을 사용해 기록 저장·중복 방지·본인 조회 및 기존 보안·지도 권한 테스트 통과.
 - 원격 DB에서도 기록 저장·재시도·타인 조회 차단을 트랜잭션 안에서 검증했고, 검증용 기록은 롤백했습니다.
@@ -19,6 +19,7 @@
 6. `migrations/20261006000100_live_runner_map.sql`: 본인 위치 갱신·삭제, 주변 러너 지도 조회 및 비공개 실시간 변경 신호.
 7. `migrations/20261008000100_run_history.sql`: 본인 러닝 기록 저장 RPC와 정지·짧은 러닝 허용 제약.
 8. `migrations/20261009100450_friend_management.sql`: 친구 목록·정확한 닉네임 검색·서버 상태 전이, 관계 식별자, 비공개 발송 제한 저장소.
+9. `migrations/20261009104713_private_run_routes.sql`: 본인 전용 경로 저장·조회, 기록과 경로의 원자적 확정 및 재전송 일치 검사.
 
 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
@@ -73,7 +74,7 @@ supabase db push
 - 공개 경로 생성 시 시작·종료 주변 및 사용자가 지정한 보호 구역을 제거하고 위치 유추 위험을 평가합니다.
 - 랭킹은 검증된 기록·참여 동의·공개 범위·차단을 반영하는 서버 조회로 추가합니다.
 
-정확한 경로는 비공개 객체 경로로 참조합니다. 대규모 공간 검색은 전용 스키마의 PostGIS와 공간 인덱스로 확장해야 합니다.
+완료된 개인 측정 경로는 비공개 JSON 좌표로 저장합니다. 기존 객체 경로 참조용 테이블은 유지하며 향후 대용량 파일 저장에 사용할 수 있습니다. 대규모 공간 검색은 전용 스키마의 PostGIS와 공간 인덱스로 확장해야 합니다.
 공유 경로는 원본 파일 경로를 노출하지 않고 별도의 가공된 폴리라인만 저장합니다.
 서버 비밀 키는 RLS를 우회하므로 모든 서버 API가 호출자와 작업 대상을 검사해야 합니다.
 
@@ -97,12 +98,14 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20261006000100_live_runner_map.sql \
   -f supabase/migrations/20261008000100_run_history.sql \
   -f supabase/migrations/20261009100450_friend_management.sql \
+  -f supabase/migrations/20261009104713_private_run_routes.sql \
   -f supabase/tests/test_registration.sql \
   -f supabase/tests/registration.sql \
   -f supabase/tests/security.sql \
   -f supabase/tests/live_runner_map.sql \
   -f supabase/tests/run_history.sql \
-  -f supabase/tests/friends.sql
+  -f supabase/tests/friends.sql \
+  -f supabase/tests/run_routes.sql
 ```
 
 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
@@ -200,6 +203,33 @@ update runspot_private.registration_test_settings set enabled_until=null where s
 - 비공개 스키마의 RLS 정책 없음 안내는 일반 사용자의 직접 접근을 거부하는 기존 설계입니다. RPC는 현재 사용자와 활성 계정을 검사합니다.
 - Supabase의 [로그인 사용자 실행 가능 권한 함수 안내](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)는 `save_my_run()`에도 표시됩니다. 의도한 API이며 소유자 입력·검증 상태 변경·타인 기록 조회를 허용하지 않습니다.
 - 기존 Auth의 [유출 비밀번호 검사 미설정 경고](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)는 이번 기능 범위에서 변경하지 않았습니다.
+
+## 러닝 환경 조회
+
+- `20261009111535_running_conditions.sql`과 `functions/running-conditions/`가 필요합니다. 연결된 RunSpot 서버에 적용했습니다. 함수의 `verify_jwt`는 켜 두며 플랫폼 검사 후 `getUser()`와 현재 활성 계정 검사를 추가로 수행합니다. 개인 환경 조회에는 전화번호 인증을 요구하지 않습니다.
+- 공공데이터포털에서 [기상청 단기예보](https://www.data.go.kr/data/15084084/openapi.do), [에어코리아 대기오염정보](https://www.data.go.kr/data/15073861/openapi.do), [에어코리아 측정소정보](https://www.data.go.kr/data/15073877/openapi.do)를 승인받습니다. 키는 서버 비밀 설정 `KMA_SERVICE_KEY`, `AIRKOREA_SERVICE_KEY`에 등록하며 클라이언트 빌드 설정·저장소·로그에는 추가하지 않습니다.
+- `supabase secrets set --project-ref <프로젝트 식별자> --env-file <보호된 서버 비밀 파일>`로 등록합니다. 파일은 두 변수만 포함하고 본인만 읽을 수 있게 보호하며 Git에 넣지 않습니다. 같은 공공데이터 키도 각 API의 활용 승인이 필요합니다. 실제 운영 계정 승인과 일일 호출량은 공공데이터포털에서 관리합니다.
+- `running-conditions`는 로그인 세션으로 `latitude`, `longitude`만 받습니다. 좌표는 약 1km 정밀도로 반올림하고 기상청 5km 격자와 가까운 미세먼지 측정소를 선택합니다. 사용자 좌표는 저장하지 않습니다. 외부 기관에는 격자·측정소 이름만 보내고 기관 오류 원문이나 인증키를 포함한 URL은 앱에 반환하지 않습니다.
+- 공개 관측 캐시는 비공개 스키마의 RLS 기본 거절 테이블에 저장합니다. 캐시 읽기·쓰기는 `service_role`만 실행 가능하며 공개 연결 함수도 호출자 권한으로 실행합니다. 앱은 직접 캐시나 호출 제한 원본을 읽거나 수정할 수 없습니다. 관측값 5~10분, 측정소 목록 24시간을 보관하고 새 캐시 저장 시 만료 자료를 정리합니다.
+- 계정당 최소 10초 간격·시간당 120회 제한을 원자적 갱신으로 적용합니다. API 전체 개발 계정 호출량 제한은 별도이며 여러 사용자와 지역이 많아지면 운영 계정 증설이 필요합니다. 기관 자료를 얻지 못하면 부분 자료와 오류 코드를 반환하며 대체 측정값을 만들지 않습니다.
+
+```sh
+cd supabase/functions/running-conditions
+npx --yes deno@2.5.4 check index.ts
+npx --yes deno@2.5.4 test providers_test.ts
+```
+
+SQL 권한·호출 제한 테스트는 `tests/running_conditions.sql`을 격리된 로컬 DB에서 실행합니다. 비로그인 실행과 앱의 캐시 접근 차단, 정지 계정 차단, 시간당 제한, 만료 자료 미사용을 확인합니다. 의존성은 고정 버전과 `deno.lock`으로 관리합니다.
+
+## 개인 경로 저장 API
+
+- `save_my_run_with_route()`는 기존 개인 기록 검사를 재사용하고 구간별 `[[위도,경도],…]` 배열을 기록과 같은 트랜잭션에서 저장합니다. 동일한 기록 식별자의 다른 경로는 거절하며 서버 응답이 끊겨도 같은 내용으로 재전송할 수 있습니다. 기존 `save_my_run()`은 이전 앱과의 호환을 위해 유지합니다.
+- `my_run_route(requested_run_id)`는 현재 활성 계정이 소유한 기록만 조회합니다. 친구 여부·위치 공개 설정과 관계없이 타인 경로와 미존재 기록은 같은 접근 거절 응답을 반환합니다. 경로 없는 이전 기록은 빈 배열을 반환합니다.
+- 경로는 `runspot_private.measured_run_routes`에 저장합니다. RLS 기본 거절과 직접 테이블 권한 회수를 함께 적용하며, 공개 함수는 호출자 권한으로 비공개 검사 함수에 연결합니다. Data API의 노출 스키마에 `runspot_private`를 추가하지 않습니다.
+- 좌표는 유한한 숫자와 지리 범위를 검사합니다. 구간 5만 개·좌표 50만 개·직렬화된 데이터 32MiB까지 허용하며 잘라서 저장하지 않습니다. 상한 초과 요청은 거절하고 앱의 기기 원본은 유지합니다. 좌표별 시각·정확도·인증 토큰은 저장하지 않습니다.
+- 기록 삭제 시 경로도 함께 삭제됩니다. 별도 경로 공개·거리 검증·전체 기록 오프라인 캐시는 포함하지 않습니다. 지도 배경은 기존 타일 제공자를 사용합니다.
+- 로컬 SQL 테스트에서 정밀도·구간 단절·형식·범위·크기 제한·중복·다른 경로 거절·비로그인·타인·친구·정지 계정 및 직접 접근 차단을 검증했습니다. 원격 서버에서는 실제 활성 계정의 저장·재전송·본인 조회·접근 거절을 트랜잭션 안에서 확인하고 롤백하여 기존 기록 2개를 보존했습니다.
+- 보안 점검에 새 경고는 없습니다. 새 비공개 테이블의 [정책 없음 안내](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)는 직접 접근을 허용하지 않는 의도된 구성입니다. 기존 공개 함수 실행 및 유출 비밀번호 검사 경고는 변경하지 않았습니다.
 
 참고: [마이그레이션](https://supabase.com/docs/guides/deployment/database-migrations),
 [행 수준 보안](https://supabase.com/docs/guides/database/postgres/row-level-security),

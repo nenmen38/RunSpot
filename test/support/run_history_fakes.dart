@@ -4,6 +4,7 @@ import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
 import 'package:runquest/features/run_history/models/run_record.dart';
+import 'package:runquest/features/run_history/models/run_route.dart';
 
 class FakeRunRecordService implements RunRecordService {
   FakeRunRecordService({this.ownerId = 'owner'});
@@ -18,6 +19,9 @@ class FakeRunRecordService implements RunRecordService {
   Object? listFailure;
   Completer<void>? pendingSave;
   Object? responseFailure;
+  Object? routeFailure;
+  final routes = <String, RunRoute>{};
+  final routeRequests = <String>[];
 
   @override
   Future<RunRecord> save(RunSummary summary) async {
@@ -37,8 +41,16 @@ class FakeRunRecordService implements RunRecordService {
       durationSeconds: summary.duration.inSeconds,
     );
     records.insert(0, record);
+    routes[record.id] = summary.route;
     if (responseFailure != null) throw responseFailure!;
     return record;
+  }
+
+  @override
+  Future<RunRoute> loadRoute(String runId) async {
+    routeRequests.add(runId);
+    if (routeFailure != null) throw routeFailure!;
+    return routes[runId] ?? const RunRoute.empty();
   }
 
   @override

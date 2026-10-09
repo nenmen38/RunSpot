@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
+
+import '../../run_history/models/run_route.dart';
 
 import 'live_runner.dart';
 import 'run_pace.dart';
@@ -13,12 +16,14 @@ class RunSummary {
     required this.endedAt,
     required this.distanceMeters,
     required this.duration,
+    this.route = const RunRoute.empty(),
   });
   final String clientRunId;
   final DateTime startedAt;
   final DateTime endedAt;
   final double distanceMeters;
   final Duration duration;
+  final RunRoute route;
 }
 
 class RunSession {
@@ -124,6 +129,12 @@ class RunSession {
       endedAt: DateTime.now().toUtc(),
       distanceMeters: _distanceMeters,
       duration: duration,
+      route: RunRoute(
+        _segments.map(
+          (segment) =>
+              segment.map((fix) => LatLng(fix.latitude, fix.longitude)),
+        ),
+      ),
     );
   }
 }

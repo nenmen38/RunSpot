@@ -1,22 +1,34 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as path;
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
+import 'package:runquest/features/run_history/models/run_route.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import 'support/run_history_fakes.dart';
 
-RunSummary summary({String id = 'run', double distance = 1234.5678}) =>
-    RunSummary(
-      clientRunId: id,
-      startedAt: DateTime.parse('2026-10-09T09:00:00.123456+09:00'),
-      endedAt: DateTime.utc(2026, 10, 9, 1, 0, 0, 456, 789),
-      distanceMeters: distance,
-      duration: const Duration(minutes: 25, microseconds: 123456),
-    );
+RunSummary summary({
+  String id = 'run',
+  double distance = 1234.5678,
+  RunRoute? route,
+}) => RunSummary(
+  clientRunId: id,
+  startedAt: DateTime.parse('2026-10-09T09:00:00.123456+09:00'),
+  endedAt: DateTime.utc(2026, 10, 9, 1, 0, 0, 456, 789),
+  distanceMeters: distance,
+  duration: const Duration(minutes: 25, microseconds: 123456),
+  route:
+      route ??
+      RunRoute([
+        [const LatLng(37.5665123456, 126.978), const LatLng(37.567, 126.9785)],
+        [const LatLng(37.568, 126.979)],
+      ]),
+);
 
 void main() {
   sqfliteFfiInit();
@@ -60,6 +72,7 @@ void main() {
     expect(restored.startedAt.isUtc, isTrue);
     expect(restored.distanceMeters, original.distanceMeters);
     expect(restored.duration, original.duration);
+    expect(restored.route.toJson(), original.route.toJson());
   });
 
   test('같은 기록은 한 번 보관하며 다른 측정값으로 덮어쓰지 않습니다', () async {
@@ -72,6 +85,10 @@ void main() {
       throwsA(isA<RunOutboxException>()),
     );
     expect((await store.list()).single.distanceMeters, 1234.5678);
+    await expectLater(
+      store.put(summary(route: const RunRoute.empty())),
+      throwsA(isA<RunOutboxException>()),
+    );
     await store.remove('run');
     expect(await store.list(), isEmpty);
   });
@@ -122,10 +139,73 @@ void main() {
     );
     expect(service.attempts.first.duration, service.attempts.last.duration);
     expect(
+      service.attempts.first.route.toJson(),
+      service.attempts.last.route.toJson(),
+    );
+    expect(service.routes.values.single.toJson(), summary().route.toJson());
+    expect(
       service.attempts.first.distanceMeters,
       service.attempts.last.distanceMeters,
     );
     second.dispose();
     await Future<void>.delayed(Duration.zero);
+  });
+
+  test('이전 버전 전송 대기 기록은 경로 없이 보존하여 업그레이드합니다', () async {
+    final old = await databaseFactoryFfi.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) async {
+          await db.execute(
+            'CREATE TABLE pending_runs (namespace TEXT, owner_id TEXT, client_run_id TEXT, started_at TEXT, ended_at TEXT, distance_m REAL, duration_us INTEGER, PRIMARY KEY(namespace,owner_id,client_run_id))',
+          );
+        },
+      ),
+    );
+    final original = summary();
+    await old.insert('pending_runs', {
+      'namespace': 'project',
+      'owner_id': 'owner',
+      'client_run_id': original.clientRunId,
+      'started_at': original.startedAt.toUtc().toIso8601String(),
+      'ended_at': original.endedAt.toUtc().toIso8601String(),
+      'distance_m': original.distanceMeters,
+      'duration_us': original.duration.inMicroseconds,
+    });
+    await old.close();
+    final restored = (await open().list()).single;
+    expect(restored.clientRunId, original.clientRunId);
+    expect(restored.duration, original.duration);
+    expect(restored.route.isEmpty, isTrue);
+  });
+
+  test('서버 크기 제한으로 거절된 기록도 기기 원본과 다른 대기 기록을 보존합니다', () async {
+    final large = summary(
+      route: RunRoute(
+        List.generate(50001, (_) => [const LatLng(37.56, 126.97)]),
+      ),
+    );
+    final store = open();
+    final service = FakeRunRecordService()
+      ..saveFailure = const PostgrestException(
+        message: '경로 데이터가 너무 큽니다.',
+        code: '22023',
+      );
+    final controller = RunHistoryController(service, outbox: store);
+    expect((await controller.save(large)).pendingSync, isTrue);
+    expect((await controller.save(summary(id: 'second'))).pendingSync, isTrue);
+    controller.dispose();
+    await Future<void>.delayed(Duration.zero);
+    final restored = await open().list();
+    expect(restored, hasLength(2));
+    expect(
+      restored.firstWhere((row) => row.clientRunId == 'run').route.segments,
+      hasLength(50001),
+    );
+    expect(
+      restored.firstWhere((row) => row.clientRunId == 'second').route.toJson(),
+      summary().route.toJson(),
+    );
   });
 }

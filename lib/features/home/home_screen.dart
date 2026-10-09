@@ -9,6 +9,8 @@ import '../../shared/theme/app_colors.dart';
 import '../run_history/models/run_record.dart';
 import '../run_history/run_history_screen.dart';
 import '../run_history/widgets/run_record_details.dart';
+import '../run_conditions/conditions_controller.dart';
+import '../run_conditions/widgets/conditions_panel.dart';
 import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
@@ -41,13 +43,15 @@ const _lightMapFilter = ColorFilter.matrix([
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.controller,
-    required this.onProfileTap,
     this.tileProvider,
+    this.conditionsController,
+    this.isActive = true,
     super.key,
   });
   final LiveMapController controller;
-  final VoidCallback onProfileTap;
   final TileProvider? tileProvider;
+  final ConditionsController? conditionsController;
+  final bool isActive;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -62,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _tileError = false;
   bool _endingRun = false;
   String? _selectedId;
+  bool _foreground = true;
 
   @override
   void initState() {
@@ -69,6 +74,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _tileProvider = widget.tileProvider ?? NetworkTileProvider();
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_changed);
+    widget.conditionsController?.setActive(widget.isActive);
+    widget.conditionsController?.setLocation(widget.controller.position);
     unawaited(widget.controller.runHistory.setActive(true));
     unawaited(widget.controller.start());
   }
@@ -76,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _changed() {
     if (!mounted) return;
     final position = widget.controller.position;
+    widget.conditionsController?.setLocation(position);
     if (_following && _mapReady && position != null) {
       _map.move(
         LatLng(position.latitude, position.longitude),
@@ -160,6 +168,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.inactive) {
+      _foreground = state == AppLifecycleState.resumed;
+    }
+    widget.conditionsController?.setActive(_foreground && widget.isActive);
     // 권한 대화상자의 일시적인 inactive 상태에서는 공유를 중단하지 않습니다.
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.controller.runHistory.setActive(true));
@@ -174,7 +186,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.conditionsController != widget.conditionsController) {
+      oldWidget.conditionsController?.setActive(false);
+      widget.conditionsController?.setLocation(widget.controller.position);
+    }
+    widget.conditionsController?.setActive(_foreground && widget.isActive);
+  }
+
+  @override
   void dispose() {
+    widget.conditionsController?.setActive(false);
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_changed);
     unawaited(_tileReset.close());
@@ -325,66 +348,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ],
               ),
-              Positioned(
-                left: 12,
-                right: 12,
-                top: 12,
-                child: Material(
-                  color: Colors.white,
-                  elevation: 2,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.directions_run,
-                          color: Color(0xFF16836F),
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'RunSpot',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        PopupMenuButton<int>(
-                          tooltip: '주변 러너 조회 반경',
-                          initialValue: state.radiusMeters,
-                          onSelected: state.setRadius,
-                          itemBuilder: (_) => [
-                            for (final radius in [500, 1000, 3000, 5000])
-                              CheckedPopupMenuItem(
-                                value: radius,
-                                checked: state.radiusMeters == radius,
-                                child: Text(_distance(radius.toDouble())),
-                              ),
-                          ],
-                          icon: const Icon(Icons.radar),
-                        ),
-                        IconButton(
-                          tooltip: '내 기록',
-                          onPressed: _openHistory,
-                          icon: const Icon(Icons.history),
-                        ),
-                        IconButton(
-                          tooltip: '프로필 및 공개 설정',
-                          onPressed: widget.onProfileTap,
-                          icon: const Icon(Icons.person_outline),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
               if (state.locating || state.locationFailure != null || _tileError)
                 Positioned(
                   left: 12,
                   right: 12,
-                  top: 80,
+                  top: 12,
                   child: Material(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
@@ -486,6 +454,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
           ),
         ),
+        if (widget.conditionsController != null)
+          ConditionsPanel(controller: widget.conditionsController!),
         Material(
           color: Colors.white,
           child: Padding(
@@ -508,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                           Text(
                             state.sharing
-                                ? '주변 러너 ${state.runners.length}명 · ${_distance(state.radiusMeters.toDouble())}'
+                                ? '주변 러너 ${state.runners.length}명'
                                 : '내 위치만 표시 중',
                           ),
                         ],
@@ -530,20 +500,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 if (state.sharing && !state.connected) const Text('실시간 연결 중'),
                 if (state.sharingError != null)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          state.sharingError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: '프로필 및 공개 설정',
-                        onPressed: widget.onProfileTap,
-                        icon: const Icon(Icons.manage_accounts_outlined),
-                      ),
-                    ],
+                  Text(
+                    state.sharingError!,
+                    style: const TextStyle(color: Colors.red),
                   ),
                 if (state.sharing &&
                     state.connected &&

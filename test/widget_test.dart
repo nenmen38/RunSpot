@@ -4,16 +4,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/home/widgets/run_route_layer.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
+import 'package:runquest/features/run_conditions/conditions_controller.dart';
 
 import 'support/live_map_fakes.dart';
 import 'support/run_history_fakes.dart';
 import 'support/friend_fakes.dart';
+import 'support/conditions_fakes.dart';
 
 class MemoryTileProvider extends TileProvider {
   @override
@@ -25,7 +30,62 @@ class MemoryTileProvider extends TileProvider {
       );
 }
 
+class MemoryAuthStorage extends GotrueAsyncStorage {
+  final values = <String, String>{};
+  @override
+  Future<String?> getItem({required String key}) async => values[key];
+  @override
+  Future<void> setItem({required String key, required String value}) async {
+    values[key] = value;
+  }
+
+  @override
+  Future<void> removeItem({required String key}) async {
+    values.remove(key);
+  }
+}
+
 void main() {
+  setUpAll(() async {
+    await Supabase.initialize(
+      url: 'https://example.supabase.co',
+      publishableKey: 'test-public-key',
+      debug: false,
+      authOptions: FlutterAuthClientOptions(
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUri: false,
+        pkceAsyncStorage: MemoryAuthStorage(),
+      ),
+      httpClient: MockClient(
+        (request) async => http.Response(
+          request.url.path.endsWith('/my_phone_verified')
+              ? 'false'
+              : jsonEncode({'visibility': 'private', 'nickname': null}),
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+    await Supabase.instance.client.auth.recoverSession(
+      jsonEncode({
+        'access_token': 'test-user-session',
+        'refresh_token': 'test-refresh-token',
+        'token_type': 'bearer',
+        'expires_in': 3600,
+        'expires_at': DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600,
+        'user': {
+          'id': '00000000-0000-0000-0000-000000000001',
+          'aud': 'authenticated',
+          'app_metadata': {},
+          'user_metadata': {},
+          'created_at': '2026-10-09T00:00:00Z',
+        },
+      }),
+    );
+  });
+  tearDownAll(() => Supabase.instance.dispose());
+
   Future<LiveMapController> showApp(WidgetTester tester, Size size) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -39,6 +99,8 @@ void main() {
         outbox: FakeRunOutbox(),
       ),
     );
+    final conditions = ConditionsController(FakeConditionsService());
+    addTearDown(conditions.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
@@ -47,6 +109,7 @@ void main() {
             mapController: controller,
             mapTileProvider: MemoryTileProvider(),
             friendService: FakeFriendService(),
+            conditionsController: conditions,
           ),
         ),
       ),
@@ -58,9 +121,13 @@ void main() {
   testWidgets('홈은 현재 위치 지도이며 코스 만들기 탭이 없습니다', (tester) async {
     await showApp(tester, const Size(390, 844));
     expect(find.byType(FlutterMap), findsOneWidget);
-    expect(find.text('RunSpot'), findsOneWidget);
+    expect(find.text('RunSpot'), findsNothing);
+    expect(find.byTooltip('주변 러너 조회 반경'), findsNothing);
+    expect(find.byTooltip('내 기록'), findsNothing);
+    expect(find.byTooltip('프로필 및 공개 설정'), findsNothing);
     expect(find.bySemanticsLabel('내 현재 위치'), findsOneWidget);
     expect(find.text('위치 공유'), findsOneWidget);
+    expect(find.text('러닝 조건 양호'), findsOneWidget);
     expect(find.text('러닝 시작'), findsOneWidget);
     expect(find.text('러닝 종료'), findsOneWidget);
     expect(find.text('코스'), findsNothing);
@@ -104,10 +171,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('러닝 시작'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.byTooltip('내 기록'));
+    await tester.tap(find.text('프로필').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('내 기록'));
     await tester.pumpAndSettle();
     expect(find.text('내 기록'), findsOneWidget);
     expect(find.text('0.00 km'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('내 프로필'), findsOneWidget);
+    await tester.tap(find.text('홈'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(find.text('내 기록'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -196,7 +272,6 @@ void main() {
         home: Scaffold(
           body: HomeScreen(
             controller: controller,
-            onProfileTap: () {},
             tileProvider: MemoryTileProvider(),
           ),
         ),
@@ -221,6 +296,7 @@ void main() {
     await tester.tap(find.text('러닝 시작'));
     await tester.pump();
     final session = controller.runSession!;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
@@ -228,6 +304,8 @@ void main() {
     await tester.pump();
     expect(session.isRunning, isTrue);
     expect(session.distanceMeters, greaterThan(100));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(controller.runSession, same(session));
@@ -280,6 +358,25 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+
+  for (final size in [const Size(320, 568), const Size(390, 844)]) {
+    testWidgets('프로필에서 내 기록을 열고 돌아옵니다: ${size.width}', (tester) async {
+      await showApp(tester, size);
+      await tester.tap(find.text('프로필').last);
+      await tester.pumpAndSettle();
+      expect(find.text('내 기록').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('내 기록'));
+      await tester.pumpAndSettle();
+      expect(find.text('내 기록'), findsOneWidget);
+      expect(find.text('아직 러닝 기록이 없습니다.'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('내 프로필'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   for (final size in [
     const Size(320, 568),

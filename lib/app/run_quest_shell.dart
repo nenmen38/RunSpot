@@ -10,6 +10,9 @@ import 'package:runquest/features/profile/profile_screen.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
+import 'package:runquest/features/run_history/run_history_screen.dart';
+import 'package:runquest/features/run_conditions/conditions_controller.dart';
+import 'package:runquest/features/run_conditions/data/conditions_service.dart';
 import 'package:runquest/features/social/data/friend_service.dart';
 import 'package:runquest/features/social/social_screen.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
@@ -20,12 +23,14 @@ class RunQuestShell extends StatefulWidget {
     this.mapController,
     this.mapTileProvider,
     this.friendService,
+    this.conditionsController,
     super.key,
   });
 
   final LiveMapController? mapController;
   final TileProvider? mapTileProvider;
   final FriendService? friendService;
+  final ConditionsController? conditionsController;
 
   @override
   State<RunQuestShell> createState() => _RunQuestShellState();
@@ -34,6 +39,7 @@ class RunQuestShell extends StatefulWidget {
 class _RunQuestShellState extends State<RunQuestShell> {
   int _tab = 0;
   late final LiveMapController _map;
+  ConditionsController? _conditions;
   int _rankingMode = 0;
   ReviewCase _review = const ReviewCase(
     user: 'speed_ghost',
@@ -48,8 +54,12 @@ class _RunQuestShellState extends State<RunQuestShell> {
     super.initState();
     if (widget.mapController != null) {
       _map = widget.mapController!;
+      _conditions = widget.conditionsController;
     } else {
       final client = Supabase.instance.client;
+      _conditions =
+          widget.conditionsController ??
+          ConditionsController(SupabaseConditionsService(client));
       final records = SupabaseRunRecordService(client);
       _map = LiveMapController(
         locationService: DeviceLocationService(),
@@ -67,6 +77,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
 
   @override
   void dispose() {
+    if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
     super.dispose();
@@ -82,6 +93,14 @@ class _RunQuestShellState extends State<RunQuestShell> {
     );
   }
 
+  void _openHistory() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => RunHistoryScreen(controller: _map.runHistory),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -91,7 +110,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         friendService: widget.friendService,
         onProfileTap: () => setState(() => _tab = 2),
       ),
-      const ProfileScreen(),
+      ProfileScreen(onHistoryTap: _openHistory),
       AdminScreen(review: _review, onAction: _setReviewStatus),
     ];
 
@@ -103,8 +122,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
               offstage: _tab != 0,
               child: HomeScreen(
                 controller: _map,
+                conditionsController: _conditions,
+                isActive: _tab == 0,
                 tileProvider: widget.mapTileProvider,
-                onProfileTap: () => setState(() => _tab = 2),
               ),
             ),
             if (_tab != 0)

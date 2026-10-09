@@ -2,12 +2,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../home/models/run_session.dart';
 import '../models/run_record.dart';
+import '../models/run_route.dart';
 
 abstract interface class RunRecordService {
   String get ownerId;
   bool get isCurrentOwner;
   Future<RunRecord> save(RunSummary summary);
   Future<List<RunRecord>> list({required int offset, required int limit});
+  Future<RunRoute> loadRoute(String runId);
 }
 
 class SupabaseRunRecordService implements RunRecordService {
@@ -37,18 +39,29 @@ class SupabaseRunRecordService implements RunRecordService {
     // 계정 전환 중에도 측정한 계정의 세션으로만 요청을 전송합니다.
     final row = await client
         .rpc(
-          'save_my_run',
+          'save_my_run_with_route',
           params: {
             'client_id': summary.clientRunId,
             'start_time': summary.startedAt.toUtc().toIso8601String(),
             'end_time': summary.endedAt.toUtc().toIso8601String(),
             'distance_metres': summary.distanceMeters.round(),
             'active_seconds': summary.duration.inSeconds,
+            'route_segments': summary.route.toJson(),
           },
         )
         .setHeader('Authorization', 'Bearer ${session.accessToken}');
     _requireOwner();
     return RunRecord.fromJson(Map<String, dynamic>.from(row as Map));
+  }
+
+  @override
+  Future<RunRoute> loadRoute(String runId) async {
+    final session = _requireOwner();
+    final route = await client
+        .rpc('my_run_route', params: {'requested_run_id': runId})
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    _requireOwner();
+    return RunRoute.fromJson(route);
   }
 
   @override

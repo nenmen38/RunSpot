@@ -1,4 +1,5 @@
 import '../../home/models/run_session.dart';
+import 'run_route.dart';
 
 class RunRecord {
   const RunRecord({
@@ -9,6 +10,7 @@ class RunRecord {
     required this.distanceMeters,
     required this.durationSeconds,
     this.pendingSync = false,
+    this.route,
   });
 
   final String id;
@@ -18,6 +20,7 @@ class RunRecord {
   final int distanceMeters;
   final int durationSeconds;
   final bool pendingSync;
+  final RunRoute? route;
 
   factory RunRecord.pending(RunSummary summary) => RunRecord(
     id: summary.clientRunId,
@@ -27,6 +30,7 @@ class RunRecord {
     distanceMeters: summary.distanceMeters.round(),
     durationSeconds: summary.duration.inSeconds,
     pendingSync: true,
+    route: summary.route,
   );
 
   int? get paceSeconds => distanceMeters > 0 && durationSeconds > 0

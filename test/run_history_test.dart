@@ -86,6 +86,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('러닝 기록'), findsOneWidget);
     expect(find.text('평균 페이스'), findsOneWidget);
+    expect(find.text('저장된 경로가 없습니다.'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

@@ -8,6 +8,7 @@ import '../home/models/run_session.dart';
 import 'data/run_outbox.dart';
 import 'data/run_record_service.dart';
 import 'models/run_record.dart';
+import 'models/run_route.dart';
 
 class RunHistoryController extends ChangeNotifier {
   RunHistoryController(this.service, {required this.outbox}) {
@@ -52,6 +53,14 @@ class RunHistoryController extends ChangeNotifier {
 
   bool isPending(String clientRunId) =>
       pendingRecords.any((row) => row.clientRunId == clientRunId);
+
+  Future<RunRoute> loadRoute(RunRecord record) async {
+    _requireOwner();
+    if (record.route != null) return record.route!;
+    final route = await service.loadRoute(record.id).timeout(requestTimeout);
+    _requireOwner();
+    return route;
+  }
 
   bool get _canUpload => !_disposed && _foreground && service.isCurrentOwner;
 

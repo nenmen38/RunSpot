@@ -254,9 +254,9 @@ void main() {
     expect(find.text('저장 재시도'), findsOneWidget);
     await tester.tap(find.text('5.00 km'));
     await tester.pumpAndSettle();
-    expect(find.text('서버 저장 대기'), findsNWidgets(2));
+    expect(find.text('서버 저장 대기'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('확인'));
+    await tester.pageBack();
     await tester.pumpAndSettle();
     service.saveFailure = null;
     service.listFailure = null;

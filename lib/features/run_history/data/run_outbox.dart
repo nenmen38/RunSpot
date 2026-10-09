@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../home/models/run_session.dart';
+import '../models/run_route.dart';
 
 class RunOutboxException implements Exception {
   const RunOutboxException(this.message);
@@ -52,7 +55,7 @@ class SqliteRunOutbox implements RunOutbox {
   Future<Database> _create() async => _factory.openDatabase(
     await _databasePath(),
     options: OpenDatabaseOptions(
-      version: 1,
+      version: 2,
       singleInstance: false,
       onConfigure: (db) async {
         await db.execute('PRAGMA synchronous = FULL');
@@ -67,9 +70,17 @@ class SqliteRunOutbox implements RunOutbox {
             ended_at TEXT NOT NULL,
             distance_m REAL NOT NULL CHECK(distance_m >= 0),
             duration_us INTEGER NOT NULL CHECK(duration_us >= 0),
+            route_json TEXT NOT NULL DEFAULT '[]',
             PRIMARY KEY(namespace, owner_id, client_run_id)
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            "ALTER TABLE pending_runs ADD COLUMN route_json TEXT NOT NULL DEFAULT '[]'",
+          );
+        }
       },
     ),
   );
@@ -90,6 +101,7 @@ class SqliteRunOutbox implements RunOutbox {
       'ended_at': summary.endedAt.toUtc().toIso8601String(),
       'distance_m': summary.distanceMeters,
       'duration_us': summary.duration.inMicroseconds,
+      'route_json': jsonEncode(summary.route.toJson()),
     };
     try {
       final db = await _open();
@@ -137,6 +149,7 @@ class SqliteRunOutbox implements RunOutbox {
               endedAt: DateTime.parse(row['ended_at'] as String),
               distanceMeters: (row['distance_m'] as num).toDouble(),
               duration: Duration(microseconds: row['duration_us'] as int),
+              route: RunRoute.fromJson(jsonDecode(row['route_json'] as String)),
             ),
           )
           .toList();
