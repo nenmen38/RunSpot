@@ -66,7 +66,7 @@ class _NicknameScreenState extends State<NicknameScreen> {
         setState(
           () => _error = switch (error.code) {
             '23505' => '이미 사용 중인 닉네임입니다.',
-            '42501' => '전화번호 인증 상태를 확인해 주세요.',
+            '42501' => '이메일 인증 상태를 확인해 주세요.',
             'P0001' => '닉네임은 30일에 한 번 변경할 수 있습니다.',
             '22023' => '닉네임 형식을 확인해 주세요.',
             _ => '닉네임을 저장하지 못했습니다. 다시 시도해 주세요.',
@@ -94,7 +94,7 @@ class _NicknameScreenState extends State<NicknameScreen> {
             children: [
               if (_busy) const LinearProgressIndicator(),
               if (_state != null && !_state!.verified)
-                const Text('전화번호 인증 후 닉네임을 등록할 수 있습니다.'),
+                const Text('이메일 인증 후 닉네임을 등록할 수 있습니다.'),
               if (_state?.verified == true && !canChange && next != null)
                 Text(
                   '변경 가능: ${next.year}년 ${next.month}월 ${next.day}일 ${next.hour}시 ${next.minute}분',

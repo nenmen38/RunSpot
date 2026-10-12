@@ -1,10 +1,12 @@
 import 'package:runquest/features/auth/data/nickname_service.dart';
-import 'package:runquest/features/auth/data/phone_verification_service.dart';
+import 'package:runquest/features/auth/data/email_verification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../auth/phone_verification.dart';
+import '../auth/email_verification.dart';
 import '../auth/nickname.dart';
+import '../auth/phone_verification.dart';
+import '../auth/data/phone_verification_service.dart';
 
 class PrivacyControls extends StatefulWidget {
   const PrivacyControls({super.key});
@@ -33,7 +35,7 @@ class _PrivacyControlsState extends State<PrivacyControls> {
       _error = null;
     });
     try {
-      final verified = await SupabasePhoneVerification(_client).isVerified();
+      final verified = await SupabaseEmailVerification(_client).isVerified();
       final profile = await _client
           .from('profiles')
           .select('visibility,nickname')
@@ -84,9 +86,8 @@ class _PrivacyControlsState extends State<PrivacyControls> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (routeContext) {
-          return PhoneVerificationScreen(
-            allowBack: true,
-            service: SupabasePhoneVerification(_client),
+          return EmailVerificationScreen(
+            service: SupabaseEmailVerification(_client),
             onVerified: () async => Navigator.of(routeContext).pop(),
           );
         },
@@ -107,6 +108,13 @@ class _PrivacyControlsState extends State<PrivacyControls> {
     );
     if (mounted) await _load();
   }
+
+  Future<void> _verifyPhone() => Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) =>
+          PhoneVerificationScreen(service: SupabasePhoneVerification(_client)),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -143,9 +151,14 @@ class _PrivacyControlsState extends State<PrivacyControls> {
               : (values) => _save(values.single),
         ),
         if (!_verified && !_busy && _error == null)
-          TextButton(onPressed: _verify, child: const Text('전화번호 인증')),
+          TextButton(onPressed: _verify, child: const Text('이메일 인증')),
         if (_verified && _nickname == null && !_busy && _error == null)
           TextButton(onPressed: _editNickname, child: const Text('닉네임 등록')),
+        TextButton.icon(
+          onPressed: _busy ? null : _verifyPhone,
+          icon: const Icon(Icons.phone_outlined),
+          label: const Text('전화번호 인증 (선택)'),
+        ),
         if (_error != null) ...[
           Text(_error!),
           TextButton(

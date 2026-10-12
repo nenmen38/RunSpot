@@ -31,7 +31,7 @@ select public.complete_test_registration();
 select public.complete_test_registration();
 select pg_temp.assert_true(public.my_registration_complete(),'테스트 가입 허용');
 select pg_temp.assert_true(runspot_private.is_active(auth.uid()),'테스트 개인 기능 허용');
-select pg_temp.assert_true(not runspot_private.can_interact(),'전화번호 미인증 소셜 차단 유지');
+select pg_temp.assert_true(not runspot_private.can_interact(),'이메일 미인증 소셜 차단 유지');
 select pg_temp.assert_true(pg_temp.denied('select public.set_my_nickname(''선점'')'),'미인증 닉네임 선점 차단 유지');
 reset role;
 select pg_temp.assert_true((select registration_completed_at is null from public.profiles where id='00000000-0000-0000-0000-000000000021'),'정식 가입 완료 위조 없음');

@@ -108,7 +108,7 @@ class _SocialScreenState extends State<SocialScreen>
           if (_friends.loaded && !_friends.canInteract)
             Row(
               children: [
-                const Expanded(child: Text('전화번호 인증과 닉네임 등록이 필요합니다.')),
+                const Expanded(child: Text('이메일 인증과 닉네임 등록이 필요합니다.')),
                 TextButton(
                   onPressed: widget.onProfileTap,
                   child: const Text('프로필'),

@@ -351,13 +351,13 @@ void main() {
 
   test('미인증 또는 비공개 서버 거절을 우회하지 않습니다', () async {
     service.publishFailure = const PostgrestException(
-      message: '전화번호 인증이 필요합니다.',
+      message: '이메일 인증이 필요합니다.',
       code: '42501',
     );
     await controller.start();
     await controller.setSharing(true);
     expect(controller.sharing, isFalse);
-    expect(controller.sharingError, '전화번호 인증이 필요합니다.');
+    expect(controller.sharingError, '이메일 인증이 필요합니다.');
     expect(service.onChanged, isNull);
   });
 

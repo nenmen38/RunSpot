@@ -16,7 +16,7 @@ select pg_temp.assert_true(pg_temp.fails($q$select public.read_environment_cache
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000093',true);
-select pg_temp.assert_true(public.consume_environment_request(),'전화번호 미인증 계정의 개인 환경 조회 허용');
+select pg_temp.assert_true(public.consume_environment_request(),'이메일 미인증 계정의 개인 환경 조회 허용');
 select pg_temp.assert_true(not public.consume_environment_request(),'짧은 간격의 중복 호출 차단');
 select pg_temp.assert_true(pg_temp.fails($q$select public.read_environment_cache('weather:60:127')$q$,'42501'),'앱에서 원본 캐시 조회 차단');
 select pg_temp.assert_true(pg_temp.fails($q$select public.write_environment_cache('weather:60:127','{}',300)$q$,'42501'),'앱에서 캐시 오염 차단');

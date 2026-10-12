@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/shared/widgets/panel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const _authRedirectUrl = 'runspot://login-callback';
+import 'auth_redirect.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -19,9 +21,13 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isSignUp = false;
   bool _loading = false;
   String? _message;
+  String? _confirmationEmail;
+  bool _resendCoolingDown = false;
+  Timer? _resendTimer;
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _passwordConfirmationController.dispose();
@@ -37,7 +43,7 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
         provider,
-        redirectTo: _authRedirectUrl,
+        redirectTo: authRedirectUrl,
         authScreenLaunchMode: LaunchMode.externalApplication,
       );
     } on AuthException catch (error) {
@@ -75,6 +81,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() {
       _loading = true;
       _message = null;
+      _confirmationEmail = null;
     });
 
     try {
@@ -83,10 +90,14 @@ class _AuthScreenState extends State<AuthScreen> {
         final response = await auth.signUp(
           email: email,
           password: password,
-          emailRedirectTo: _authRedirectUrl,
+          emailRedirectTo: authRedirectUrl,
         );
         if (mounted && response.session == null) {
-          setState(() => _message = '가입 확인 메일을 확인해 주세요.');
+          setState(() {
+            _message = '가입 확인 메일을 확인해 주세요.';
+            _confirmationEmail = email;
+          });
+          _startResendCooldown();
         }
       } else {
         await auth.signInWithPassword(email: email, password: password);
@@ -94,6 +105,9 @@ class _AuthScreenState extends State<AuthScreen> {
     } on AuthException catch (error) {
       if (mounted) {
         setState(() => _message = _authErrorMessage(error));
+        if (error.code == 'email_not_confirmed') {
+          setState(() => _confirmationEmail = email);
+        }
       }
     } catch (error) {
       if (mounted) setState(() => _message = _fallbackAuthErrorMessage(error));
@@ -101,6 +115,48 @@ class _AuthScreenState extends State<AuthScreen> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendCoolingDown = true);
+    _resendTimer = Timer(const Duration(seconds: 60), () {
+      if (mounted) setState(() => _resendCoolingDown = false);
+    });
+  }
+
+  Future<void> _resendConfirmation() async {
+    final email = _confirmationEmail;
+    if (_loading || _resendCoolingDown || email == null) return;
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
+    try {
+      await Supabase.instance.client.auth.resend(
+        type: OtpType.signup,
+        email: email,
+        emailRedirectTo: authRedirectUrl,
+      );
+      if (mounted) {
+        setState(() => _message = '가입 확인 메일을 확인해 주세요.');
+        _startResendCooldown();
+      }
+    } on AuthException catch (error) {
+      if (mounted) {
+        setState(
+          () => _message = switch (error.code) {
+            'over_email_send_rate_limit' ||
+            'over_request_rate_limit' => '메일 요청이 많습니다. 잠시 후 다시 시도해 주세요.',
+            _ => '인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
+          },
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => _message = '인증 메일을 보내지 못했습니다.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -211,12 +267,23 @@ class _AuthScreenState extends State<AuthScreen> {
                             )
                           : Text(actionLabel),
                     ),
+                    if (_confirmationEmail != null)
+                      TextButton.icon(
+                        onPressed: _loading || _resendCoolingDown
+                            ? null
+                            : _resendConfirmation,
+                        icon: const Icon(Icons.mark_email_unread_outlined),
+                        label: Text(
+                          _resendCoolingDown ? '인증 메일 재전송 대기 중' : '인증 메일 재전송',
+                        ),
+                      ),
                     TextButton(
                       onPressed: _loading
                           ? null
                           : () => setState(() {
                               _isSignUp = !_isSignUp;
                               _message = null;
+                              _confirmationEmail = null;
                               _passwordConfirmationController.clear();
                             }),
                       child: Text(switchLabel),
@@ -254,6 +321,9 @@ class _AuthScreenState extends State<AuthScreen> {
 }
 
 String _authErrorMessage(AuthException error) {
+  if (error.code == 'email_not_confirmed') {
+    return '이메일 인증을 완료한 후 로그인해 주세요.';
+  }
   if (_isMissingSupabaseHostError(error.message)) {
     return 'Supabase URL 설정이 필요합니다. config/dev.json 값을 확인하거나 실행 옵션을 다시 확인해 주세요.';
   }

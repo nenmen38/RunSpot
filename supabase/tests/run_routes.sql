@@ -19,7 +19,7 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000091',true);
 select pg_temp.assert_true(pg_temp.fails($q$select * from runspot_private.measured_run_routes$q$,'42501'),'원본 직접 조회 차단');
--- 전화번호 미인증 계정도 본인 전용 경로를 보관할 수 있습니다.
+-- 이메일 미인증 계정도 본인 전용 경로를 보관할 수 있습니다.
 select public.save_my_run_with_route('10000000-0000-0000-0000-000000000001',now()-interval '1 hour',now(),100,60,
  '[[[37.5665123456,126.978],[37.567,126.979]],[[37.57,126.98]]]');
 select public.save_my_run_with_route('10000000-0000-0000-0000-000000000001',now()-interval '1 hour',now(),100,60,

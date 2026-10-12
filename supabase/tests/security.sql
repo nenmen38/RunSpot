@@ -21,7 +21,7 @@ insert into auth.users(id) values
 ('00000000-0000-0000-0000-000000000002'),
 ('00000000-0000-0000-0000-000000000003');
 select runspot_private.finish_registration(id) from auth.users;
-update auth.users set phone='8210' || right(replace(id::text,'-',''),8), phone_confirmed_at=now()
+update auth.users set email=id::text || '@example.com', email_confirmed_at=now()
 where id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003');
 update public.profiles set nickname=case when right(id::text,1)='1' then '테스트러너' else 'runner_' || right(id::text,1) end;
 update public.profiles set visibility='public';
@@ -95,31 +95,31 @@ set local role service_role;
 select pg_temp.assert_true(pg_temp.denied('delete from runspot_private.audit_logs'),'서비스 역할 감사 로그 삭제 차단');
 reset role;
 update runspot_private.account_controls set status='active';
-update auth.users set phone_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';
+update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';
 set local role authenticated;
-select pg_temp.assert_true(not public.my_phone_verified(),'전화번호만 입력한 계정은 미인증');
+select pg_temp.assert_true(not public.my_email_verified(),'이메일만 입력한 계정은 미인증');
 select pg_temp.assert_true((select count(*)=1 from public.runs),'미인증 계정 개인 기록 허용');
 select pg_temp.assert_true((select count(*)=5 from public.route_presets),'미인증 계정 코스 허용');
 select pg_temp.assert_true(pg_temp.denied('update public.profiles set visibility=''public'' where id=auth.uid()'),'미인증 공개 범위 변경 차단');
 select pg_temp.assert_true(pg_temp.denied('insert into public.comments(post_id,body) values(''30000000-0000-0000-0000-000000000001'',''댓글'')'),'미인증 댓글 차단');
 select pg_temp.assert_true(pg_temp.denied('select public.publish_run(''10000000-0000-0000-0000-000000000001'',''글'',''public'')'),'미인증 게시물 차단');
-select pg_temp.assert_true(pg_temp.denied('select runspot_private.phone_verified(''00000000-0000-0000-0000-000000000002'')'),'타인 인증 상태 조회 차단');
+select pg_temp.assert_true(pg_temp.denied('select runspot_private.email_verified(''00000000-0000-0000-0000-000000000002'')'),'타인 인증 상태 조회 차단');
 reset role;
-update auth.users set phone_confirmed_at=now(),phone_change='821099999999' where id='00000000-0000-0000-0000-000000000001';
+update auth.users set email_confirmed_at=now(),email_change='next@example.com' where id='00000000-0000-0000-0000-000000000001';
 set local role authenticated;
-select pg_temp.assert_true(not public.my_phone_verified(),'번호 변경 중에는 재인증 필요');
-select pg_temp.assert_true((select count(*)=1 from public.runs),'번호 변경 중 개인 기록 접근 허용');
+select pg_temp.assert_true(not public.my_email_verified(),'이메일 변경 중에는 재인증 필요');
+select pg_temp.assert_true((select count(*)=1 from public.runs),'이메일 변경 중 개인 기록 접근 허용');
 reset role;
-update auth.users set phone_change='' where id='00000000-0000-0000-0000-000000000001';
+update auth.users set email_change='' where id='00000000-0000-0000-0000-000000000001';
 set local role authenticated;
-select pg_temp.assert_true(public.my_phone_verified(),'인증 완료 계정 확인');
+select pg_temp.assert_true(public.my_email_verified(),'인증 완료 계정 확인');
 select pg_temp.assert_true((select count(*)=1 from public.runs),'인증 완료 후 접근 복원');
 reset role;
 insert into public.runs(id,user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
 values ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001',
 '20000000-0000-0000-0000-000000000002','2026-09-21 00:00:00Z','2026-09-21 00:30:00Z',5000,1800,'verified');
 set local role authenticated;
-select pg_temp.assert_true((select visibility='private' from public.profiles where id=auth.uid()),'번호 변경 시 비공개 초기화');
+select pg_temp.assert_true((select visibility='private' from public.profiles where id=auth.uid()),'이메일 변경 시 비공개 초기화');
 select pg_temp.assert_true(public.publish_run('10000000-0000-0000-0000-000000000002','비공개 사용자 글','public') is not null,'인증된 비공개 사용자 게시물 작성');
 insert into public.comments(post_id,body) values ('30000000-0000-0000-0000-000000000001','비공개 사용자 댓글');
 select pg_temp.assert_true((select count(*)=1 from public.comments),'인증된 비공개 사용자 댓글 작성');
@@ -157,7 +157,7 @@ set local role authenticated;
 select pg_temp.assert_true((select count(*)=0 from public.nearby_locations()),'오래된 위치 제외');
 reset role;
 update runspot_private.live_locations set updated_at=now();
-update auth.users set phone_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';
+update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';
 set local role authenticated;
 select pg_temp.assert_true((select count(*)=0 from public.nearby_locations()),'미인증 위치 조회 불가');
 reset role;

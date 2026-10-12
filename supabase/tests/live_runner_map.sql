@@ -13,7 +13,7 @@ insert into auth.users(id) values
  ('00000000-0000-0000-0000-000000000011'),
  ('00000000-0000-0000-0000-000000000012'),
  ('00000000-0000-0000-0000-000000000013');
-update auth.users set phone='8210' || right(replace(id::text,'-',''),8),phone_confirmed_at=now();
+update auth.users set email=id::text || '@example.com',email_confirmed_at=now();
 update public.profiles set nickname='러너' || right(id::text,2);
 update public.profiles set visibility='public';
 set local role anon;
@@ -80,10 +80,10 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000011',true);
 select pg_temp.assert_true(pg_temp.fails('select public.update_my_live_location(37,127,10)','42501'),'비공개 사용자 업로드 차단');
 reset role;
-update auth.users set phone_confirmed_at=null where id='00000000-0000-0000-0000-000000000013';
+update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000013';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000013',true);
-select pg_temp.assert_true(pg_temp.fails('select public.update_my_live_location(37,127,10)','42501'),'전화번호 미인증 업로드 차단');
+select pg_temp.assert_true(pg_temp.fails('select public.update_my_live_location(37,127,10)','42501'),'이메일 미인증 업로드 차단');
 select set_config('realtime.topic','runner-map',true);
 select pg_temp.assert_true((select count(*)=0 from realtime.messages),'미인증 사용자 방송 수신 차단');
 reset role;

@@ -2,7 +2,7 @@
 
 - `main.dart`: 앱 초기화 호출과 실행 진입점입니다.
 - `app/`: Firebase·Supabase 초기화, 최상위 앱 설정, 화면 크기, 탭 구성을 담당합니다.
-- `features/auth/`: 로그인, 가입, 전화번호 인증, 닉네임 등록을 담당합니다. `data/`에는 화면과 분리된 전화번호·닉네임 서비스가 있습니다.
+- `features/auth/`: 로그인, 가입, 이메일 인증, 선택 전화번호 인증, 닉네임 등록을 담당합니다. `data/`에는 화면과 분리된 이메일·전화번호·닉네임 서비스가 있습니다.
 - `features/home/`: 실제 지도 홈 화면과 `LiveMapController`를 담당합니다. `data/`는 기기 위치 및 서버 공유를, `models/`는 위치와 주변 러너 데이터를 담당합니다.
 - `features/home/data/location_settings.dart`는 플랫폼별 지도·러닝 GPS 설정을, `location_tracker.dart`는 구독 교체와 시작 준비 확인을 담당합니다. 러닝 GPS는 백그라운드에서 유지하지만 서버 위치 공유는 별도로 중단합니다.
 - `features/home/models/run_pace.dart`는 최근 GPS 이동 구간의 현재 페이스를 계산합니다. `run_session.dart`는 평균 페이스와 구간별 경로를, `widgets/run_route_layer.dart`는 측정 중 지도 선 표시를 담당합니다. 종료 시 변경 불가능한 경로 스냅샷을 완료 기록에 포함합니다.

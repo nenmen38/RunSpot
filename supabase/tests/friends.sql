@@ -20,7 +20,7 @@ insert into auth.users(id) values
  ('00000000-0000-0000-0000-000000000043'),
  ('00000000-0000-0000-0000-000000000044'),
  ('00000000-0000-0000-0000-000000000045');
-update auth.users set phone='8210999999'||right(id::text,2),phone_confirmed_at=now()
+update auth.users set email=id::text || '@example.com',email_confirmed_at=now()
   where id::text like '%00000000004_';
 update public.profiles set nickname='Friend'||right(id::text,2),visibility='friends'
   where id::text like '%00000000004_';
@@ -118,7 +118,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000043'
 select pg_temp.assert_true(pg_temp.fails('select public.change_friend(''00000000-0000-0000-0000-000000000042'',''request'')','42501'),'반대 방향 차단 요청 차단');
 reset role;
 delete from runspot_private.blocks where blocker_id='00000000-0000-0000-0000-000000000043';
-update auth.users set phone_confirmed_at=null where id='00000000-0000-0000-0000-000000000043';
+update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000043';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000042',true);
 select pg_temp.assert_true(pg_temp.fails(format('select public.change_friend(%L,''accept'',%L)','00000000-0000-0000-0000-000000000043',:'private_id'),'42501'),'인증 취소된 상대 수락 차단');

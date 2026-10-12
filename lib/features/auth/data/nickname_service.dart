@@ -28,7 +28,7 @@ class SupabaseNicknameService implements NicknameService {
 
   @override
   Future<NicknameState> load() async {
-    final verified = await client.rpc('my_phone_verified') == true;
+    final verified = await client.rpc('my_email_verified') == true;
     final profile = await client
         .from('profiles')
         .select('nickname,nickname_changed_at')

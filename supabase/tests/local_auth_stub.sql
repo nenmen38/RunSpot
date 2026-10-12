@@ -9,6 +9,10 @@ create table auth.users(
   phone text,
   phone_confirmed_at timestamptz,
   phone_change text,
+  email text,
+  email_confirmed_at timestamptz,
+  email_change text,
+  is_anonymous boolean not null default false,
   raw_user_meta_data jsonb not null default '{}'::jsonb
 );
 create function auth.uid() returns uuid language sql stable as $$

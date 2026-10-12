@@ -18,7 +18,7 @@ select pg_temp.assert_true(pg_temp.fails($q$select public.save_my_run(
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000081',true);
--- 전화번호 인증이 없어도 비공개 개인 기록은 저장할 수 있습니다.
+-- 이메일 인증이 없어도 비공개 개인 기록은 저장할 수 있습니다.
 select public.save_my_run('10000000-0000-0000-0000-000000000001',now()-interval '30 minutes',now(),5000,1500);
 select public.save_my_run('10000000-0000-0000-0000-000000000001',now()-interval '30 minutes',now(),5000,1500);
 select pg_temp.assert_true((select count(*)=1 from public.runs),'재시도 중복 저장 방지');

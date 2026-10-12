@@ -59,7 +59,7 @@ void main() {
       ),
       httpClient: MockClient(
         (request) async => http.Response(
-          request.url.path.endsWith('/my_phone_verified')
+          request.url.path.endsWith('/my_email_verified')
               ? 'false'
               : jsonEncode({'visibility': 'private', 'nickname': null}),
           200,
