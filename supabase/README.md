@@ -3,7 +3,7 @@
 ## 현재 상태
 
 - 연결된 프로젝트: `RunSpot` (`rtdlluilhkcdghoakyrp`). 별도 운영 프로젝트 구분은 미확인입니다.
-- 원격 적용: 2026-10-12 기준 선택 전화번호 인증까지 마이그레이션 16개 반영 완료.
+- 원격 적용: 2026-10-13 기준 러닝 종료 기온 저장까지 마이그레이션 18개와 `run-feedback` 함수 반영 완료.
 - 약관 제거는 서버에 수동 반영된 함수·권한과 테이블 제거 상태를 확인한 뒤 누락된 적용 이력만 정리했습니다. 실시간 지도와 기록 저장은 CLI로 적용했습니다.
 - 로컬 PostgreSQL 16에서 인증 대역을 사용해 기록 저장·중복 방지·본인 조회 및 기존 보안·지도 권한 테스트 통과.
 - 원격 DB에서도 기록 저장·재시도·타인 조회 차단을 트랜잭션 안에서 검증했고, 검증용 기록은 롤백했습니다.
@@ -25,6 +25,8 @@
 10. `migrations/20261009111535_running_conditions.sql`, `20261009191148_environment_shared_budget.sql`: 러닝 환경 조회와 지역 공동 캐시·외부 호출 예산.
 11. `migrations/20261011171941_email_social_verification.sql`: 소셜 인증을 이메일로 전환하고 기존 전화번호 인증 RPC를 제거합니다. 기존 닉네임은 보존하며 이메일 미인증 계정의 공개 범위만 비공개로 되돌립니다.
 12. `migrations/20261011185117_optional_phone_verification.sql`: 선택 전화번호 인증의 본인 상태 조회. 이메일 기반 소셜 권한을 바꾸거나 인증 상태를 직접 쓰는 기능은 추가하지 않습니다.
+13. `migrations/20261013002352_run_feedback_quota.sql`: AI 피드백의 본인 조회, 계정별 72시간·전체 호출 예산과 서버 전용 예약·결과 저장.
+14. `migrations/20261013012622_run_temperature_snapshot.sql`: 종료 기온·관측 시각과 본인 저장 RPC. 기존 기록·경로 저장 RPC는 유지하고 과거 기온을 추정해 채우지 않습니다.
 
 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
@@ -72,7 +74,6 @@ supabase db push
 - 업로드 크기·형식·소유권 검사, GPS 처리, 거리 계산과 기록 확정 트랜잭션.
 - 사용자 차단·차단 해제 API와 관리 화면. 기존 양방향 차단은 친구 검색·요청·수락에도 반영하지만 이번 변경은 차단 작성 권한을 추가하지 않습니다.
 - 관리자 권한과 다중 인증 검사, 조치 및 감사 로그의 원자적 기록.
-- AI 호출 중복 방지 및 호출 전 예산 예약. `ai_usage`는 사용량 기록이며 한도 강제 기능이 아닙니다.
 - 실제 GPS 위조는 서버 거리 재계산만으로 완전히 방지되지 않습니다. `verified`는 정의한 검증 규칙을 통과했다는 의미입니다.
 - 비공개 Storage 버킷 생성과 별도 Storage RLS. 객체 경로 문자열만 저장해도 접근 제어가 생기지는 않습니다.
 - Storage 원본 삭제, 탈퇴 시 객체 정리 및 보관 만료 작업. DB 행 삭제가 파일 삭제를 수행하지 않습니다.
@@ -108,6 +109,8 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20261009191148_environment_shared_budget.sql \
   -f supabase/migrations/20261011171941_email_social_verification.sql \
   -f supabase/migrations/20261011185117_optional_phone_verification.sql \
+  -f supabase/migrations/20261013002352_run_feedback_quota.sql \
+  -f supabase/migrations/20261013012622_run_temperature_snapshot.sql \
   -f supabase/tests/test_registration.sql \
   -f supabase/tests/registration.sql \
   -f supabase/tests/security.sql \
@@ -118,7 +121,9 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/tests/running_conditions.sql \
   -f supabase/tests/environment_shared_budget.sql \
   -f supabase/tests/email_verification.sql \
-  -f supabase/tests/optional_phone_verification.sql
+  -f supabase/tests/optional_phone_verification.sql \
+  -f supabase/tests/run_feedback.sql \
+  -f supabase/tests/run_temperature.sql
 ```
 
 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
@@ -207,6 +212,44 @@ update runspot_private.registration_test_settings set enabled_until=null where s
 
 일반 이메일 소유 확인은 관리자 다중 인증(`aal2`)과 별개입니다.
 신규 소셜 서버 API에서는 서비스 역할로 데이터를 변경하기 전에 JWT 검증과 현재 이메일 확인·계정 상태 검사를 모두 수행해야 합니다. 개인 기록은 이메일 인증과 분리하되 로그인·본인 소유권·활성 계정 검사를 유지합니다.
+
+## 러닝 종료 기온
+
+- `runs.temperature_c`, `temperature_observed_at`은 함께 비우거나 함께 저장합니다. 허용 범위는 -80~60°C, 원래 종료 시각보다 2시간 전부터 15분 후까지의 유한 관측 시각입니다. 현재 업로드 시각을 기준으로 하지 않아 지연된 오프라인 기록도 원래 기온을 유지합니다.
+- `save_my_run_with_temperature`은 공개 스키마의 호출자 권한 래퍼와 비공개 스키마의 본인·활성 계정 검사로 분리합니다. 익명 실행과 직접 쓰기는 허용하지 않습니다. 최초 삽입에 기온을 함께 기록하고 중복 재전송 시 값 변경을 거절합니다. 경로 검증이 실패하면 전체 저장을 취소합니다.
+- 기존 기온 없는 기록의 재시도는 빈 값으로 유지합니다. 앱이 전달하는 개인 관측 스냅샷이며 공식 검증 데이터·위치 인증·보상 근거로 사용하지 않습니다. 날씨 함수나 외부 API 예산·AI 입력은 변경하지 않았습니다. 갤러리 사진은 서버로 보내지 않습니다.
+- PostgreSQL 16에서 SQL 테스트 13개와 별도 20개 동시 연결 저장·10개 변경 재시도 거절 테스트가 통과했습니다. 원격 기존 기록의 기온은 모두 빈 값이며 새 공개 함수의 익명 실행 금지·호출자 권한을 확인했습니다. 새 보안 경고는 추가되지 않았고 기존 공개 권한 함수 경고는 유지됩니다. [기존 함수 경고 안내](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+
+```sh
+TEMPERATURE_TEST_SOCKET=<격리된_기온_DB_소켓> \
+TEMPERATURE_TEST_PSQL=<psql_경로> \
+deno test --allow-env=TEMPERATURE_TEST_SOCKET,TEMPERATURE_TEST_PSQL \
+  --allow-run=<psql_경로> supabase/tests/temperature_concurrency_test.ts
+```
+
+## AI 러닝 피드백
+
+- `functions/run-feedback/`는 플랫폼 JWT 검사 후 Auth `getUser()`로 사용자를 확인하고, 현재 활성 계정과 본인 기록을 다시 검사합니다. 새 생성에는 현재 이메일 확인이 필요합니다. 닉네임·전화번호·위치 공개 설정을 바꾸지 않습니다.
+- `my_run_feedback(requested_run_id)`는 본인 저장 결과와 서버의 다음 요청 시각을 반환합니다. 생성은 사용자 동의 후 Edge Function에 기록 식별자 하나만 전송합니다. `reserve_run_feedback`, `finish_run_feedback`는 서버 역할만 실행합니다. 공개 RPC는 호출자 권한이며 내부 권한 함수는 비노출 스키마에 있습니다.
+- `feedback_requests`는 실제 외부 호출 전 원자적으로 예약합니다. 계정 행 잠금과 전체 예산 행 잠금으로 서로 다른 기록·기기·서버 프로세스의 동시 요청을 직렬화합니다. 요청 시작부터 72시간이며 실패·시간 초과·서버 중단도 환불하지 않습니다. 예약된 요청에는 자동 재전송을 하지 않습니다.
+- 전체 서비스는 이동 24시간 100회·이동 30일 1,000회 상한입니다. 관리 예산 설정은 비공개 `feedback_limits`에 있으며 0이면 새 호출을 차단합니다. 증액은 예산 승인 후 서버 관리 작업으로 진행합니다. 계정·기록 삭제 후에도 식별자를 제거한 요청 이력은 전체 호출 예산에 남습니다. 다른 앱이나 관리 스크립트의 같은 키 사용은 이 예산에 포함되지 않습니다.
+- 현재 모델은 안정 버전 `gemini-3.5-flash-lite`입니다. 한 요청은 후보 1개·출력 최대 768토큰, 텍스트 지시문과 숫자 요약 합계 4,096바이트 이하입니다. Google 검색·지도·음성·대화 이력·자동 재시도는 사용하지 않습니다. 응답은 최대 32KB, 한국어 피드백 최대 500자로 검증하며 잘리거나 잘못된 출력은 저장하지 않습니다.
+- 비교 대상은 현재 러닝 시작 전 30일 안의 최대 5회 기록입니다. 현재 거리·시간·페이스와 이전 합계·평균만 전송하며 이메일·전화번호·닉네임·계정/기록 식별자·날짜·좌표·사용자 입력 문장은 보내지 않습니다. 기기 측정값을 검증된 운동 성과로 단정하거나 의료 진단·경험치 지급에 사용하지 않습니다.
+- 서버에 저장된 완료 기록 중 거리 100m·활동 시간 60초 이상만 새 생성 대상입니다. 비교 기록이 없어도 현재 기록이 충분하면 분석할 수 있으며 비교 한계를 명시합니다. 기록 저장 자체는 이 조건과 무관하게 기존대로 유지됩니다.
+- 실패 원문·키·개인 기록은 로그와 앱 오류에 노출하지 않습니다. 실패 시 사용량을 모르면 `ai_usage`의 0은 미확인 값이며 무료 호출이라는 의미가 아닙니다. 비용 제한은 사용량 로그가 아니라 환불하지 않는 예약 횟수로 강제합니다.
+- `GEMINI_API_KEY`는 Dashboard의 Edge Functions → Secrets에만 등록합니다. 무료 Gemini 요금제의 데이터 개선 사용 여부와 유료 요금제 정책을 확인한 뒤 운영 데이터를 처리합니다. 참고: [키 보안](https://ai.google.dev/gemini-api/docs/api-key), [모델](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite), [요금·데이터 정책](https://ai.google.dev/gemini-api/docs/pricing).
+
+```sh
+supabase db push --linked
+supabase functions deploy run-feedback --project-ref rtdlluilhkcdghoakyrp --use-api
+cd supabase/functions/run-feedback
+npx --yes deno@2.5.4 check index.ts
+npx --yes deno@2.5.4 test feedback_test.ts
+```
+
+`tests/run_feedback.sql`은 격리된 로컬 DB에서만 실행합니다. `tests/feedback_concurrency_test.ts`는 인증 대역이 있는 `/private/tmp/runspot-feedback-db.` 경로의 Unix 소켓·55439 포트만 허용합니다. `FEEDBACK_TEST_SOCKET`, `FEEDBACK_TEST_PSQL`을 설정하고 해당 변수 읽기·psql 실행 권한만 허용해 실행합니다. 실제 Supabase에는 테스트 계정을 생성하지 않습니다.
+
+앱 테스트 187개, SQL 테스트 12개, AI 함수 테스트 7개와 동시 DB 연결 테스트가 통과했습니다. 원격 실행 권한·요청 이력 0건과 iPhone 시뮬레이터의 자료 부족 표시를 확인했습니다. 대상 실계정의 기존 기록이 모두 0m이므로 실제 Gemini 생성과 토큰 사용량·요금 확인은 충분한 실제 러닝 기록 저장 후 검증해야 합니다. 현재 원격에는 가짜 기록이나 피드백을 추가하지 않았습니다. 새 비공개 테이블 2개의 RLS 정책 없음 안내는 직접 접근 거부 설계이며, 공개 권한 함수 관련 경고는 기존 항목 외 추가되지 않았습니다.
 
 ## 선택 전화번호 인증
 

@@ -1,5 +1,6 @@
 import '../../home/models/run_session.dart';
 import 'run_route.dart';
+import 'run_temperature.dart';
 
 class RunRecord {
   const RunRecord({
@@ -11,6 +12,7 @@ class RunRecord {
     required this.durationSeconds,
     this.pendingSync = false,
     this.route,
+    this.temperature,
   });
 
   final String id;
@@ -21,6 +23,7 @@ class RunRecord {
   final int durationSeconds;
   final bool pendingSync;
   final RunRoute? route;
+  final RunTemperature? temperature;
 
   factory RunRecord.pending(RunSummary summary) => RunRecord(
     id: summary.clientRunId,
@@ -31,6 +34,7 @@ class RunRecord {
     durationSeconds: summary.duration.inSeconds,
     pendingSync: true,
     route: summary.route,
+    temperature: summary.temperature,
   );
 
   int? get paceSeconds => distanceMeters > 0 && durationSeconds > 0
@@ -44,5 +48,6 @@ class RunRecord {
     endedAt: DateTime.parse(row['ended_at'] as String),
     distanceMeters: (row['distance_m'] as num).toInt(),
     durationSeconds: (row['duration_sec'] as num).toInt(),
+    temperature: RunTemperature.fromJson(row),
   );
 }

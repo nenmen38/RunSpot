@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+
+import '../shared/maps/run_map.dart';
+
 import 'package:runquest/features/admin/admin_screen.dart';
 import 'package:runquest/features/admin/models/review_case.dart';
 import 'package:runquest/features/home/data/live_runner_service.dart';
@@ -21,14 +23,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class RunQuestShell extends StatefulWidget {
   const RunQuestShell({
     this.mapController,
-    this.mapTileProvider,
+    this.mapBridgeFactory,
     this.friendService,
     this.conditionsController,
     super.key,
   });
 
   final LiveMapController? mapController;
-  final TileProvider? mapTileProvider;
+  final MapBridgeFactory? mapBridgeFactory;
   final FriendService? friendService;
   final ConditionsController? conditionsController;
 
@@ -124,7 +126,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
                 controller: _map,
                 conditionsController: _conditions,
                 isActive: _tab == 0,
-                tileProvider: widget.mapTileProvider,
+                mapBridgeFactory: widget.mapBridgeFactory,
               ),
             ),
             if (_tab != 0)

@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../run_history/models/run_route.dart';
+import '../../run_history/models/run_temperature.dart';
 
 import 'live_runner.dart';
 import 'run_pace.dart';
@@ -17,6 +18,7 @@ class RunSummary {
     required this.distanceMeters,
     required this.duration,
     this.route = const RunRoute.empty(),
+    this.temperature,
   });
   final String clientRunId;
   final DateTime startedAt;
@@ -24,6 +26,7 @@ class RunSummary {
   final double distanceMeters;
   final Duration duration;
   final RunRoute route;
+  final RunTemperature? temperature;
 }
 
 class RunSession {
@@ -120,13 +123,16 @@ class RunSession {
     _clock.start();
   }
 
-  RunSummary finish() {
+  RunSummary finish({RunTemperature? Function(DateTime)? temperatureAtEnd}) {
     pause();
-    // 재시도할 때 동일한 식별자와 종료 시각을 사용해 중복 저장을 막습니다.
+    if (_summary != null) return _summary!;
+    final endedAt = DateTime.now().toUtc();
+    // 재시도에도 종료 시각과 당시 기온을 그대로 보존합니다.
     return _summary ??= RunSummary(
       clientRunId: _clientRunId,
       startedAt: _startedAt,
-      endedAt: DateTime.now().toUtc(),
+      endedAt: endedAt,
+      temperature: temperatureAtEnd?.call(endedAt),
       distanceMeters: _distanceMeters,
       duration: duration,
       route: RunRoute(

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:runquest/shared/maps/run_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -11,23 +11,35 @@ import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
-import 'package:runquest/features/home/widgets/run_route_layer.dart';
+import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
+import 'package:runquest/features/run_history/models/run_record.dart';
+import 'package:runquest/features/run_share/run_share_screen.dart';
 import 'package:runquest/features/run_conditions/conditions_controller.dart';
 
 import 'support/live_map_fakes.dart';
+import 'support/map_fakes.dart';
 import 'support/run_history_fakes.dart';
 import 'support/friend_fakes.dart';
 import 'support/conditions_fakes.dart';
 
-class MemoryTileProvider extends TileProvider {
+class ServerIdRecordService extends FakeRunRecordService {
   @override
-  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
-      MemoryImage(
-        base64Decode(
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=',
-        ),
-      );
+  Future<RunRecord> save(RunSummary summary) async {
+    final saved = await super.save(summary);
+    final record = RunRecord(
+      id: 'server-record-id',
+      clientRunId: saved.clientRunId,
+      startedAt: saved.startedAt,
+      endedAt: saved.endedAt,
+      distanceMeters: saved.distanceMeters,
+      durationSeconds: saved.durationSeconds,
+      temperature: saved.temperature,
+    );
+    records[records.indexOf(saved)] = record;
+    routes[record.id] = routes.remove(saved.id)!;
+    return record;
+  }
 }
 
 class MemoryAuthStorage extends GotrueAsyncStorage {
@@ -86,7 +98,11 @@ void main() {
   });
   tearDownAll(() => Supabase.instance.dispose());
 
-  Future<LiveMapController> showApp(WidgetTester tester, Size size) async {
+  Future<LiveMapController> showApp(
+    WidgetTester tester,
+    Size size, {
+    FakeRunRecordService? recordService,
+  }) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final location = FakeLocationService();
@@ -95,7 +111,7 @@ void main() {
       locationService: location,
       runnerService: FakeRunnerService(),
       runHistory: RunHistoryController(
-        FakeRunRecordService(),
+        recordService ?? FakeRunRecordService(),
         outbox: FakeRunOutbox(),
       ),
     );
@@ -107,7 +123,7 @@ void main() {
         home: MobileAppViewport(
           child: RunQuestShell(
             mapController: controller,
-            mapTileProvider: MemoryTileProvider(),
+            mapBridgeFactory: FakeMapBridge.new,
             friendService: FakeFriendService(),
             conditionsController: conditions,
           ),
@@ -120,7 +136,11 @@ void main() {
 
   testWidgets('홈은 현재 위치 지도이며 코스 만들기 탭이 없습니다', (tester) async {
     await showApp(tester, const Size(390, 844));
-    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(find.byType(RunMap), findsOneWidget);
+    expect(
+      tester.widget<RunMap>(find.byType(RunMap)).controller.camera.zoom,
+      15.5,
+    );
     expect(find.text('RunSpot'), findsNothing);
     expect(find.byTooltip('주변 러너 조회 반경'), findsNothing);
     expect(find.byTooltip('내 기록'), findsNothing);
@@ -141,6 +161,9 @@ void main() {
     await tester.tap(find.text('러닝 시작'));
     await tester.pump();
     expect(controller.runSession!.isRunning, isTrue);
+    final map = tester.widget<RunMap>(find.byType(RunMap)).controller;
+    expect(map.camera.zoom, 16.5);
+    expect(map.command['animate'], isTrue);
     expect(find.text('러닝 중'), findsOneWidget);
     expect(find.text('거리'), findsOneWidget);
     expect(find.text('현재 페이스'), findsOneWidget);
@@ -149,6 +172,7 @@ void main() {
     await tester.tap(find.text('일시 정지').last);
     await tester.pump();
     expect(controller.runSession!.isRunning, isFalse);
+    expect(map.camera.zoom, 16.5);
     await tester.tap(find.text('러닝 계속'));
     await tester.pump();
     expect(controller.runSession!.isRunning, isTrue);
@@ -166,6 +190,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('러닝 완료'), findsOneWidget);
     expect(controller.runSession, isNull);
+    expect(map.camera.zoom, 15.5);
+    expect(map.command['animate'], isFalse);
     expect(controller.runHistory.records, hasLength(1));
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
@@ -182,8 +208,57 @@ void main() {
     expect(find.text('내 프로필'), findsOneWidget);
     await tester.tap(find.text('홈'));
     await tester.pumpAndSettle();
-    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(find.byType(RunMap), findsOneWidget);
     expect(find.text('내 기록'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('러닝 지도는 위치를 따라가되 수동 배율과 탐색을 존중합니다', (tester) async {
+    final controller = await showApp(tester, const Size(390, 844));
+    final location = controller.locationService as FakeLocationService;
+    final map = tester.widget<RunMap>(find.byType(RunMap)).controller;
+    await tester.drag(find.byType(RunMap), const Offset(90, 0));
+    await tester.pump();
+    await tester.tap(find.text('러닝 시작'));
+    await tester.pump();
+    expect(map.camera.zoom, 16.5);
+    expect(map.camera.center.latitude, controller.position!.latitude);
+    map.move(map.camera.center, 18);
+    final origin = controller.position!.recordedAt;
+    location.updates.add(
+      testFix(
+        latitude: 37.567,
+        recordedAt: origin.add(const Duration(seconds: 5)),
+      ),
+    );
+    await tester.pump();
+    expect(map.camera.zoom, 18);
+    expect(map.camera.center.latitude, 37.567);
+    await tester.drag(find.byType(RunMap), const Offset(90, 0));
+    await tester.pump();
+    final explored = map.camera.center;
+    location.updates.add(
+      testFix(
+        latitude: 37.568,
+        recordedAt: origin.add(const Duration(seconds: 10)),
+      ),
+    );
+    await tester.pump();
+    expect(map.camera.center, explored);
+    await tester.tap(find.byTooltip('내 위치로 이동'));
+    await tester.pump();
+    expect(map.camera.zoom, 16.5);
+    expect(map.camera.center.latitude, 37.568);
+    location.updates.add(
+      testFix(
+        latitude: 37.569,
+        recordedAt: origin.add(const Duration(seconds: 15)),
+      ),
+    );
+    await tester.pump();
+    expect(map.camera.center.latitude, 37.569);
+    expect(map.camera.zoom, 16.5);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -201,7 +276,7 @@ void main() {
     await tester.tap(find.text('홈'));
     await tester.pumpAndSettle();
     expect(controller.sharing, isTrue);
-    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(find.byType(RunMap), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -220,12 +295,9 @@ void main() {
     );
     await tester.pump();
     expect(controller.runSession!.currentPace, isNotNull);
-    final layerFinder = find.byWidgetPredicate(
-      (widget) => widget is PolylineLayer,
-    );
-    expect(find.byType(RunRouteLayer), findsOneWidget);
-    var layer = tester.widget<PolylineLayer>(layerFinder);
-    expect(layer.polylines.single.points, hasLength(2));
+    final layerFinder = find.byType(RunMap);
+    var layer = tester.widget<RunMap>(layerFinder);
+    expect(layer.segments.single, hasLength(2));
     await tester.tap(find.text('일시 정지').last);
     await tester.pump();
     location.fix = testFix(
@@ -241,13 +313,13 @@ void main() {
       ),
     );
     await tester.pump();
-    layer = tester.widget<PolylineLayer>(layerFinder);
-    expect(layer.polylines, hasLength(2));
-    expect(layer.polylines.first.points.last.latitude, 37.567);
-    expect(layer.polylines.last.points.first.latitude, 37.57);
+    layer = tester.widget<RunMap>(layerFinder);
+    expect(layer.segments, hasLength(2));
+    expect(layer.segments.first.last.latitude, 37.567);
+    expect(layer.segments.last.first.latitude, 37.57);
     await controller.finishRun();
     await tester.pump();
-    expect(find.byType(RunRouteLayer), findsNothing);
+    expect(tester.widget<RunMap>(find.byType(RunMap)).segments, isEmpty);
     expect(find.text('현재 페이스'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
@@ -272,7 +344,7 @@ void main() {
         home: Scaffold(
           body: HomeScreen(
             controller: controller,
-            tileProvider: MemoryTileProvider(),
+            mapBridgeFactory: FakeMapBridge.new,
           ),
         ),
       ),
@@ -282,7 +354,7 @@ void main() {
     await tester.pump();
     expect(find.text('현재 페이스'), findsOneWidget);
     expect(find.text('평균 페이스'), findsOneWidget);
-    expect(tester.getSize(find.byType(FlutterMap)).height, greaterThan(200));
+    expect(tester.getSize(find.byType(RunMap)).height, greaterThan(200));
     expect(find.text('러닝 종료').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
@@ -359,6 +431,73 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  for (final offline in [false, true]) {
+    testWidgets('러닝 종료 결과에서 바로 공유하고 홈으로 돌아옵니다: 오프라인 $offline', (tester) async {
+      final controller = await showApp(
+        tester,
+        const Size(320, 568),
+        recordService: ServerIdRecordService(),
+      );
+      final service = controller.runHistory.service as FakeRunRecordService;
+      if (offline) {
+        service.saveFailure = const SocketException('오프라인');
+        service.listFailure = const SocketException('오프라인');
+      }
+      await tester.tap(find.text('러닝 시작'));
+      await tester.pump();
+      await tester.tap(find.text('러닝 종료'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('종료'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text(offline ? '기기에 저장됨' : '러닝 완료'), findsOneWidget);
+      expect(find.text('공유').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('공유'));
+      await tester.pump();
+      final preview = find.byWidgetPredicate(
+        (widget) => widget is Image && widget.semanticLabel == '공유 이미지 미리보기',
+      );
+      // 실제 PNG 렌더링 완료를 기다려 테스트 실행 부하에 영향을 받지 않습니다.
+      for (
+        var attempt = 0;
+        attempt < 100 && preview.evaluate().isEmpty;
+        attempt++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+      }
+      expect(preview, findsOneWidget);
+      await tester.pumpAndSettle();
+      final share = tester.widget<RunShareScreen>(find.byType(RunShareScreen));
+      expect(share.record.pendingSync, offline);
+      expect(share.record.temperature!.celsius, 20);
+      expect(
+        share.record.temperature!.observedAt,
+        service.attempts.single.temperature!.observedAt,
+      );
+      if (!offline) expect(share.record.id, 'server-record-id');
+      expect(
+        share.record.clientRunId,
+        controller.runHistory.visibleRecords.single.clientRunId,
+      );
+      expect(
+        (await share.loadRoute()).toJson(),
+        controller.runHistory.visibleRecords.single.route?.toJson() ??
+            service.routes[share.record.id]!.toJson(),
+      );
+      expect(find.byTooltip('공유 설정'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      expect(find.text('러닝 시작'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
     testWidgets('프로필에서 내 기록을 열고 돌아옵니다: ${size.width}', (tester) async {
       await showApp(tester, size);
@@ -386,7 +525,7 @@ void main() {
     testWidgets('지도와 버튼은 ${size.width} 너비에서도 겹치지 않습니다', (tester) async {
       await showApp(tester, size);
       expect(tester.takeException(), isNull);
-      expect(find.byType(FlutterMap), findsOneWidget);
+      expect(find.byType(RunMap), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     });
   }

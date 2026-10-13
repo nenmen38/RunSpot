@@ -3,14 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../shared/formatters/run_format.dart';
+import '../run_feedback/data/run_feedback_service.dart';
+import 'data/run_record_service.dart';
 import 'models/run_record.dart';
 import 'run_history_controller.dart';
 import 'run_record_detail_screen.dart';
 import 'widgets/run_record_details.dart';
 
 class RunHistoryScreen extends StatefulWidget {
-  const RunHistoryScreen({required this.controller, super.key});
+  const RunHistoryScreen({
+    required this.controller,
+    this.feedbackService,
+    super.key,
+  });
   final RunHistoryController controller;
+  final RunFeedbackService? feedbackService;
 
   @override
   State<RunHistoryScreen> createState() => _RunHistoryScreenState();
@@ -25,8 +32,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   void _open(RunRecord record) => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) =>
-          RunRecordDetailScreen(record: record, controller: widget.controller),
+      builder: (_) => RunRecordDetailScreen(
+        record: record,
+        controller: widget.controller,
+        feedbackService:
+            widget.feedbackService ??
+            (widget.controller.service is SupabaseRunRecordService
+                ? SupabaseRunFeedbackService(
+                    (widget.controller.service as SupabaseRunRecordService)
+                        .client,
+                  )
+                : null),
+      ),
     ),
   );
 

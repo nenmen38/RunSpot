@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../run_history/run_history_controller.dart';
+import '../run_history/models/run_temperature.dart';
 
 import 'data/live_runner_service.dart';
 import 'data/location_service.dart';
@@ -234,10 +235,12 @@ class LiveMapController extends ChangeNotifier {
     _notify();
   }
 
-  Future<RunSummary?> finishRun() async {
+  Future<RunSummary?> finishRun({
+    RunTemperature? Function(DateTime)? temperatureAtEnd,
+  }) async {
     final session = runSession;
     if (_disposed || session == null || savingRun) return null;
-    final summary = session.finish();
+    final summary = session.finish(temperatureAtEnd: temperatureAtEnd);
     _activityGeneration++;
     _runTimer?.cancel();
     unawaited(_syncTracking());

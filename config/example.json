@@ -3,5 +3,8 @@
     "SUPABASE_PUBLISHABLE_KEY": "",
     "SUPABASE_URL": "",
     "KAKAO_NATIVE_KEY": "",
-    "KAKAO_REST_API_KEY": ""
+    "KAKAO_JAVASCRIPT_KEY": "",
+    "KAKAO_MAP_ORIGIN": "https://localhost",
+    "KAKAO_REST_API_KEY": "",
+    "GEMINI_API_KEY": ""
 }

@@ -7,6 +7,7 @@ import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/run_history/models/run_route.dart';
+import 'package:runquest/features/run_history/models/run_temperature.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
@@ -16,12 +17,14 @@ RunSummary summary({
   String id = 'run',
   double distance = 1234.5678,
   RunRoute? route,
+  RunTemperature? temperature,
 }) => RunSummary(
   clientRunId: id,
   startedAt: DateTime.parse('2026-10-09T09:00:00.123456+09:00'),
   endedAt: DateTime.utc(2026, 10, 9, 1, 0, 0, 456, 789),
   distanceMeters: distance,
   duration: const Duration(minutes: 25, microseconds: 123456),
+  temperature: temperature,
   route:
       route ??
       RunRoute([
@@ -61,7 +64,12 @@ void main() {
   });
 
   test('디스크를 닫고 다시 열어도 식별자와 측정 정밀도가 유지됩니다', () async {
-    final original = summary();
+    final original = summary(
+      temperature: RunTemperature(
+        celsius: 23.5,
+        observedAt: DateTime.utc(2026, 10, 9, 1),
+      ),
+    );
     final store = open();
     await store.put(original);
     await store.close();
@@ -73,6 +81,7 @@ void main() {
     expect(restored.distanceMeters, original.distanceMeters);
     expect(restored.duration, original.duration);
     expect(restored.route.toJson(), original.route.toJson());
+    expect(restored.temperature!.toJson(), original.temperature!.toJson());
   });
 
   test('같은 기록은 한 번 보관하며 다른 측정값으로 덮어쓰지 않습니다', () async {
@@ -87,6 +96,17 @@ void main() {
     expect((await store.list()).single.distanceMeters, 1234.5678);
     await expectLater(
       store.put(summary(route: const RunRoute.empty())),
+      throwsA(isA<RunOutboxException>()),
+    );
+    await expectLater(
+      store.put(
+        summary(
+          temperature: RunTemperature(
+            celsius: 20,
+            observedAt: summary().endedAt,
+          ),
+        ),
+      ),
       throwsA(isA<RunOutboxException>()),
     );
     await store.remove('run');
@@ -122,7 +142,10 @@ void main() {
     final service = FakeRunRecordService()
       ..saveFailure = const SocketException('오프라인');
     final first = RunHistoryController(service, outbox: open());
-    final result = await first.save(summary());
+    final original = summary(
+      temperature: RunTemperature(celsius: 0, observedAt: summary().endedAt),
+    );
+    final result = await first.save(original);
     expect(result.pendingSync, isTrue);
     first.dispose();
     await Future<void>.delayed(Duration.zero);
@@ -133,6 +156,10 @@ void main() {
     expect(service.records, hasLength(1));
     expect(await reopened.list(), isEmpty);
     expect(second.visibleRecords.single.pendingSync, isFalse);
+    expect(
+      second.visibleRecords.single.temperature!.toJson(),
+      original.temperature!.toJson(),
+    );
     expect(
       service.attempts.first.clientRunId,
       service.attempts.last.clientRunId,
@@ -178,6 +205,41 @@ void main() {
     expect(restored.clientRunId, original.clientRunId);
     expect(restored.duration, original.duration);
     expect(restored.route.isEmpty, isTrue);
+    expect(restored.temperature, isNull);
+  });
+
+  test('경로가 있는 2버전 저장소도 기온 없이 그대로 업그레이드합니다', () async {
+    final old = await databaseFactoryFfi.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: (db, _) async {
+          await db.execute(
+            "CREATE TABLE pending_runs (namespace TEXT, owner_id TEXT, client_run_id TEXT, started_at TEXT, ended_at TEXT, distance_m REAL, duration_us INTEGER, route_json TEXT NOT NULL DEFAULT '[]', PRIMARY KEY(namespace,owner_id,client_run_id))",
+          );
+        },
+      ),
+    );
+    final original = summary();
+    await old.insert('pending_runs', {
+      'namespace': 'project',
+      'owner_id': 'owner',
+      'client_run_id': original.clientRunId,
+      'started_at': original.startedAt.toIso8601String(),
+      'ended_at': original.endedAt.toIso8601String(),
+      'distance_m': original.distanceMeters,
+      'duration_us': original.duration.inMicroseconds,
+      'route_json': '[[[37.0,127.0]]]',
+    });
+    await old.close();
+    final restored = (await open().list()).single;
+    expect(restored.temperature, isNull);
+    expect(restored.route.toJson(), [
+      [
+        [37.0, 127.0],
+      ],
+    ]);
+    await open().put(restored);
   });
 
   test('서버 크기 제한으로 거절된 기록도 기기 원본과 다른 대기 기록을 보존합니다', () async {

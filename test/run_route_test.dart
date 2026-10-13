@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:runquest/shared/maps/run_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:runquest/features/home/models/run_session.dart';
@@ -12,16 +12,7 @@ import 'package:runquest/features/run_history/run_record_detail_screen.dart';
 import 'package:runquest/features/run_history/widgets/saved_run_map.dart';
 
 import 'support/run_history_fakes.dart';
-
-class _Tiles extends TileProvider {
-  @override
-  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
-      MemoryImage(
-        base64Decode(
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=',
-        ),
-      );
-}
+import 'support/map_fakes.dart';
 
 void main() {
   final route = RunRoute([
@@ -105,29 +96,32 @@ void main() {
           home: RunRecordDetailScreen(
             record: record,
             controller: controller,
-            tileProvider: _Tiles(),
+            mapBridgeFactory: FakeMapBridge.new,
           ),
         ),
       );
       await tester.pumpAndSettle();
       expect(service.routeRequests, [record.id]);
       expect(find.byType(SavedRunMap), findsOneWidget);
-      final layer = tester.widget<PolylineLayer>(find.byType(PolylineLayer));
-      expect(layer.polylines, hasLength(2));
-      expect(layer.polylines.map((line) => line.points.length), [2, 2]);
-      final camera = MapCamera.of(tester.element(find.byType(PolylineLayer)));
-      expect(camera.visibleBounds.contains(route.segments.first.first), isTrue);
-      expect(camera.visibleBounds.contains(route.segments.last.last), isTrue);
-      final zoom = camera.zoom;
-      final center = tester.getCenter(find.byType(FlutterMap));
-      await tester.dragFrom(center, const Offset(40, 30));
+      final map = tester.widget<RunMap>(find.byType(RunMap));
+      expect(map.segments, hasLength(2));
+      expect(map.segments.map((line) => line.length), [2, 2]);
+      expect(map.endpoints, isTrue);
+      expect(map.controller.command['type'], 'fit');
+      expect(
+        map.controller.command['points'],
+        route.segments
+            .expand((s) => s)
+            .map((p) => [p.latitude, p.longitude])
+            .toList(),
+      );
+      final revision = map.controller.command['revision'] as int;
+      await tester.drag(find.byType(RunMap), const Offset(40, 30));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('전체 경로 보기'));
       await tester.pumpAndSettle();
-      expect(
-        MapCamera.of(tester.element(find.byType(PolylineLayer))).zoom,
-        closeTo(zoom, .001),
-      );
+      expect(map.controller.command['revision'], greaterThan(revision));
+      expect(map.controller.command['type'], 'fit');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
@@ -142,7 +136,7 @@ void main() {
         home: RunRecordDetailScreen(
           record: record,
           controller: controller,
-          tileProvider: _Tiles(),
+          mapBridgeFactory: FakeMapBridge.new,
         ),
       ),
     );
@@ -166,7 +160,7 @@ void main() {
         home: RunRecordDetailScreen(
           record: RunRecord.pending(summary),
           controller: controller,
-          tileProvider: _Tiles(),
+          mapBridgeFactory: FakeMapBridge.new,
         ),
       ),
     );
@@ -189,20 +183,16 @@ void main() {
             route: RunRoute([
               [const LatLng(37.56, 126.97)],
             ]),
-            tileProvider: _Tiles(),
+            mapBridgeFactory: FakeMapBridge.new,
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<PolylineLayer>(find.byType(PolylineLayer)).polylines,
-      isEmpty,
-    );
-    expect(
-      tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers,
-      hasLength(1),
-    );
+    final map = tester.widget<RunMap>(find.byType(RunMap));
+    expect(map.segments.single, hasLength(1));
+    expect(map.endpoints, isTrue);
+    expect(map.controller.command['type'], 'fit');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

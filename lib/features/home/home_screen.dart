@@ -1,55 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/theme/app_colors.dart';
+import '../../shared/maps/run_map.dart';
+import '../run_history/data/run_record_service.dart';
 import '../run_history/models/run_record.dart';
 import '../run_history/run_history_screen.dart';
 import '../run_history/widgets/run_record_details.dart';
 import '../run_conditions/conditions_controller.dart';
 import '../run_conditions/widgets/conditions_panel.dart';
+import '../run_share/run_share_screen.dart';
 import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
-import 'widgets/run_route_layer.dart';
-
-// 지도 타일만 채도를 낮추고 밝게 처리하여 위치 마커의 대비를 유지합니다.
-const _lightMapFilter = ColorFilter.matrix([
-  0.318899,
-  0.527818,
-  0.053284,
-  0,
-  25.5,
-  0.156899,
-  0.689818,
-  0.053284,
-  0,
-  25.5,
-  0.156899,
-  0.527818,
-  0.215284,
-  0,
-  25.5,
-  0,
-  0,
-  0,
-  1,
-  0,
-]);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.controller,
-    this.tileProvider,
+    this.mapBridgeFactory,
     this.conditionsController,
     this.isActive = true,
     super.key,
   });
   final LiveMapController controller;
-  final TileProvider? tileProvider;
+  final MapBridgeFactory? mapBridgeFactory;
   final ConditionsController? conditionsController;
   final bool isActive;
 
@@ -58,20 +34,25 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  final _map = MapController();
-  final _tileReset = StreamController<void>.broadcast();
-  late final TileProvider _tileProvider;
+  static const _overviewZoom = 15.5;
+  static const _runningZoom = 16.5;
+  final _map = RunMapController();
   bool _mapReady = false;
   bool _following = true;
-  bool _tileError = false;
   bool _endingRun = false;
   String? _selectedId;
   bool _foreground = true;
+  late bool _hasRun;
+  double? _pendingZoom;
+  bool _animateZoom = false;
+
+  double get _recommendedZoom =>
+      widget.controller.runSession == null ? _overviewZoom : _runningZoom;
 
   @override
   void initState() {
     super.initState();
-    _tileProvider = widget.tileProvider ?? NetworkTileProvider();
+    _hasRun = widget.controller.runSession != null;
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_changed);
     widget.conditionsController?.setActive(widget.isActive);
@@ -82,13 +63,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _changed() {
     if (!mounted) return;
+    final hasRun = widget.controller.runSession != null;
+    if (hasRun != _hasRun) {
+      _hasRun = hasRun;
+      _following = true;
+      _pendingZoom = _recommendedZoom;
+      _animateZoom = hasRun;
+    }
     final position = widget.controller.position;
     widget.conditionsController?.setLocation(position);
     if (_following && _mapReady && position != null) {
       _map.move(
         LatLng(position.latitude, position.longitude),
-        _map.camera.zoom,
+        _pendingZoom ?? _map.camera.zoom,
+        animate: _animateZoom,
       );
+      _pendingZoom = null;
+      _animateZoom = false;
     }
     setState(() {});
   }
@@ -117,20 +108,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ) ==
               true;
       if (confirmed != true || !mounted) return;
-      final summary = await widget.controller.finishRun();
-      if (!mounted || summary == null) return;
-      final record = RunRecord(
-        id: summary.clientRunId,
-        clientRunId: summary.clientRunId,
-        startedAt: summary.startedAt,
-        endedAt: summary.endedAt,
-        distanceMeters: summary.distanceMeters.round(),
-        durationSeconds: summary.duration.inSeconds,
-        pendingSync: widget.controller.runHistory.isPending(
-          summary.clientRunId,
-        ),
+      final summary = await widget.controller.finishRun(
+        temperatureAtEnd: (endedAt) => widget.conditionsController
+            ?.temperatureAt(widget.controller.position, endedAt),
       );
-      await showDialog<void>(
+      if (!mounted || summary == null) return;
+      final history = widget.controller.runHistory;
+      RunRecord currentRecord() =>
+          history.visibleRecords
+              .where((record) => record.clientRunId == summary.clientRunId)
+              .firstOrNull ??
+          RunRecord.pending(summary);
+      final record = currentRecord();
+      final action = await showDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(record.pendingSync ? '기기에 저장됨' : '러닝 완료'),
@@ -138,11 +128,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: RunRecordDetails(record: record),
           ),
           actions: [
+            TextButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, 'share'),
+              icon: const Icon(Icons.ios_share),
+              label: const Text('공유'),
+            ),
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _openHistory();
-              },
+              onPressed: () => Navigator.pop(dialogContext, 'history'),
               child: const Text('내 기록'),
             ),
             TextButton(
@@ -152,6 +144,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
       );
+      if (!mounted || !history.service.isCurrentOwner) return;
+      if (action == 'history') {
+        _openHistory();
+      } else if (action == 'share') {
+        final service = history.service;
+        final client = service is SupabaseRunRecordService
+            ? service.client
+            : null;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => RunShareScreen(
+              record: currentRecord(),
+              isCurrentOwner: () => service.isCurrentOwner,
+              loadRoute: () async => summary.route,
+              ownerChanges: client?.auth.onAuthStateChange,
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _endingRun = false);
     }
@@ -200,7 +211,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.conditionsController?.setActive(false);
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_changed);
-    unawaited(_tileReset.close());
     _map.dispose();
     super.dispose();
   }
@@ -217,138 +227,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Expanded(
           child: Stack(
             children: [
-              FlutterMap(
-                mapController: _map,
-                options: MapOptions(
-                  initialCenter: position == null
-                      ? const LatLng(37.5665, 126.9780)
-                      : LatLng(position.latitude, position.longitude),
-                  initialZoom: 15,
-                  minZoom: 3,
-                  maxZoom: 19,
-                  onMapReady: () {
-                    _mapReady = true;
-                    _changed();
-                  },
-                  onPositionChanged: (_, gesture) {
-                    if (gesture && _following) {
-                      setState(() => _following = false);
-                    }
-                  },
-                  onTap: (_, point) => setState(() => _selectedId = null),
-                ),
-                children: [
-                  TileLayer(
-                    reset: _tileReset.stream,
-                    urlTemplate: const String.fromEnvironment(
-                      'MAP_TILE_URL',
-                      defaultValue:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    ),
-                    userAgentPackageName: 'com.runspot.runquest',
-                    tileProvider: _tileProvider,
-                    maxNativeZoom: 19,
-                    tileBuilder: (context, tile, image) => ColorFiltered(
-                      colorFilter: _lightMapFilter,
-                      child: tile,
-                    ),
-                    errorTileCallback: (_, error, stack) {
-                      if (_tileError) return;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) setState(() => _tileError = true);
-                      });
-                    },
-                  ),
-                  if (state.runSession != null)
-                    RunRouteLayer(segments: state.runSession!.routeSegments),
-                  MarkerLayer(
-                    markers: [
-                      if (position != null)
-                        Marker(
-                          point: LatLng(position.latitude, position.longitude),
-                          width: 48,
-                          height: 48,
-                          child: Semantics(
-                            label: '내 현재 위치',
-                            child: Container(
-                              margin: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.blue,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 4,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 6,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      for (final runner in state.runners)
-                        Marker(
-                          point: LatLng(runner.latitude, runner.longitude),
-                          width: 48,
-                          height: 48,
-                          child: IconButton.filled(
-                            tooltip: runner.nickname,
-                            style: IconButton.styleFrom(
-                              backgroundColor: runner.id == _selectedId
-                                  ? AppColors.ink
-                                  : const Color(0xFF16836F),
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(
-                                color: Colors.white,
-                                width: 2,
-                              ),
-                            ),
-                            onPressed: () =>
-                                setState(() => _selectedId = runner.id),
-                            icon: const Icon(Icons.directions_run),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Material(
-                      color: Colors.white,
-                      child: InkWell(
-                        onTap: () => launchUrl(
-                          Uri.parse(
-                            const String.fromEnvironment(
-                              'MAP_ATTRIBUTION_URL',
-                              defaultValue:
-                                  'https://www.openstreetmap.org/copyright',
-                            ),
-                          ),
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
-                          ),
-                          child: Text(
-                            String.fromEnvironment(
-                              'MAP_ATTRIBUTION',
-                              defaultValue: '\u00a9 OpenStreetMap contributors',
-                            ),
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                        ),
+              RunMap(
+                controller: _map,
+                bridgeFactory: widget.mapBridgeFactory,
+                position: position == null
+                    ? null
+                    : LatLng(position.latitude, position.longitude),
+                segments:
+                    state.runSession?.routeSegments
+                        .map(
+                          (s) => s
+                              .map((p) => LatLng(p.latitude, p.longitude))
+                              .toList(),
+                        )
+                        .toList() ??
+                    const [],
+                markers: state.runners
+                    .map(
+                      (r) => RunMapMarker(
+                        id: r.id,
+                        point: LatLng(r.latitude, r.longitude),
+                        nickname: r.nickname,
+                        selected: r.id == _selectedId,
                       ),
-                    ),
-                  ),
-                ],
+                    )
+                    .toList(),
+                onReady: () {
+                  _mapReady = true;
+                  _pendingZoom = _recommendedZoom;
+                  _changed();
+                },
+                onGesture: () {
+                  if (_following) setState(() => _following = false);
+                },
+                onTap: () => setState(() => _selectedId = null),
+                onMarkerTap: (id) => setState(() => _selectedId = id),
               ),
-              if (state.locating || state.locationFailure != null || _tileError)
+              if (state.locating || state.locationFailure != null)
                 Positioned(
                   left: 12,
                   right: 12,
@@ -372,8 +287,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             child: Text(
                               state.locating
                                   ? '현재 위치 확인 중'
-                                  : state.locationFailure?.message ??
-                                        '지도를 불러오지 못했습니다.',
+                                  : state.locationFailure!.message,
                             ),
                           ),
                           if (!state.locating)
@@ -390,10 +304,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     ),
                                   );
                                 } else {
-                                  setState(() {
-                                    _tileError = false;
-                                  });
-                                  _tileReset.add(null);
                                   unawaited(state.start());
                                 }
                               },
@@ -409,7 +319,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 child: IconButton.filled(
                   tooltip: '내 위치로 이동',
                   onPressed: () {
-                    setState(() => _following = true);
+                    setState(() {
+                      _following = true;
+                      _pendingZoom = _recommendedZoom;
+                    });
                     _changed();
                     if (position == null) unawaited(state.start());
                   },

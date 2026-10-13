@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../home/models/live_runner.dart';
+import '../run_history/models/run_temperature.dart';
 import 'data/conditions_service.dart';
 import 'models/running_conditions.dart';
 
@@ -24,6 +25,31 @@ class ConditionsController extends ChangeNotifier {
 
   DateTime get now => _clock();
 
+  static String? _areaFor(LocationFix? location) =>
+      location != null && location.isUsable
+      ? '${(location.latitude * 100).round()}:${(location.longitude * 100).round()}'
+      : null;
+
+  RunTemperature? temperatureAt(LocationFix? location, DateTime endedAt) {
+    final area = _areaFor(location);
+    final weather = data?.weather;
+    if (_disposed ||
+        area == null ||
+        area != _area ||
+        weather?.temperature == null ||
+        weather?.observedAt == null ||
+        !RunningConditions.isFresh(weather!.observedAt, endedAt) ||
+        !weather.temperature!.isFinite ||
+        weather.temperature! < -80 ||
+        weather.temperature! > 60) {
+      return null;
+    }
+    return RunTemperature(
+      celsius: weather.temperature!,
+      observedAt: weather.observedAt!,
+    );
+  }
+
   void setActive(bool value) {
     if (_disposed || value == _active) return;
     _active = value;
@@ -40,9 +66,7 @@ class ConditionsController extends ChangeNotifier {
   void setLocation(LocationFix? location) {
     if (_disposed) return;
     _location = location;
-    final area = location != null && location.isUsable
-        ? '${(location.latitude * 100).round()}:${(location.longitude * 100).round()}'
-        : null;
+    final area = _areaFor(location);
     if (_area == area) return;
     _area = area;
     _generation++;

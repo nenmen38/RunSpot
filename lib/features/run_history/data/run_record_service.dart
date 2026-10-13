@@ -39,7 +39,7 @@ class SupabaseRunRecordService implements RunRecordService {
     // 계정 전환 중에도 측정한 계정의 세션으로만 요청을 전송합니다.
     final row = await client
         .rpc(
-          'save_my_run_with_route',
+          'save_my_run_with_temperature',
           params: {
             'client_id': summary.clientRunId,
             'start_time': summary.startedAt.toUtc().toIso8601String(),
@@ -47,6 +47,9 @@ class SupabaseRunRecordService implements RunRecordService {
             'distance_metres': summary.distanceMeters.round(),
             'active_seconds': summary.duration.inSeconds,
             'route_segments': summary.route.toJson(),
+            'temperature_c': summary.temperature?.celsius,
+            'temperature_observed_at': summary.temperature?.observedAt
+                .toIso8601String(),
           },
         )
         .setHeader('Authorization', 'Bearer ${session.accessToken}');
@@ -72,7 +75,9 @@ class SupabaseRunRecordService implements RunRecordService {
     final session = _requireOwner();
     final rows = await client
         .from('runs')
-        .select('id,client_run_id,started_at,ended_at,distance_m,duration_sec')
+        .select(
+          'id,client_run_id,started_at,ended_at,distance_m,duration_sec,temperature_c,temperature_observed_at',
+        )
         .eq('user_id', session.user.id)
         .order('started_at', ascending: false)
         .order('id', ascending: false)

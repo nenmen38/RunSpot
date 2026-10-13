@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <style>
+    html,body,#map { margin:0; width:100%; height:100%; background:#f8fafc; overflow:hidden; }
+    .point { box-sizing:border-box; width:28px; height:28px; border:4px solid white; border-radius:50%; background:#3086ff; box-shadow:0 1px 6px #0004; }
+    .runner { width:44px; height:44px; border:2px solid white; border-radius:50%; background:#16836f; color:white; font:700 14px sans-serif; padding:0; }
+    .runner.selected { background:#202428; }
+    .endpoint { font:700 14px sans-serif; background:white; color:#16836f; border:2px solid currentColor; padding:3px 6px; border-radius:4px; }
+    .endpoint.end { color:#c13647; }
+  </style>
+</head>
+<body><div id="map"></div>
+<script>
+'use strict';
+const emit = data => { if (window.RunSpotMap) window.RunSpotMap.postMessage(JSON.stringify(data)); };
+window.mapLoadFailed = () => emit({type:'error'});
+window.createRunspotMap = () => {
+  if (!window.kakao || !kakao.maps) { window.mapLoadFailed(); return; }
+  kakao.maps.load(() => {
+    const container = document.getElementById('map');
+    const map = new kakao.maps.Map(container, {center:new kakao.maps.LatLng(37.5665,126.978),level:5});
+    map.setMinLevel(1); map.setMaxLevel(14);
+    let revision = -1, geometry = '', own = null;
+    const runners = new Map();
+    let lines = [], ends = [];
+    const point = xy => new kakao.maps.LatLng(xy[0],xy[1]);
+    const level = zoom => Math.max(1,Math.min(14,Math.round(20-zoom)));
+    function overlay(xy, element, zIndex) {
+      return new kakao.maps.CustomOverlay({map,position:point(xy),content:element,xAnchor:.5,yAnchor:.5,zIndex});
+    }
+    const gesture = () => emit({type:'gesture'});
+    kakao.maps.event.addListener(map,'dragstart',gesture);
+    container.addEventListener('touchstart',e => {if(e.touches.length>1) gesture();},{passive:true});
+    container.addEventListener('wheel',gesture,{passive:true});
+    container.addEventListener('dblclick',gesture);
+    kakao.maps.event.addListener(map,'click',() => emit({type:'tap'}));
+    kakao.maps.event.addListener(map,'idle',() => {
+      const center = map.getCenter();
+      emit({type:'camera',latitude:center.getLat(),longitude:center.getLng(),zoom:20-map.getLevel()});
+    });
+    const observer = new ResizeObserver(() => {const center=map.getCenter(); map.relayout(); map.setCenter(center);});
+    observer.observe(container);
+    window.runspotMap = {update(data) {
+      if (data.position) {
+        if (!own) {const element=document.createElement('div'); element.className='point'; element.setAttribute('aria-label','내 현재 위치'); own=overlay(data.position,element,5);}
+        else own.setPosition(point(data.position));
+      } else if (own) {own.setMap(null); own=null;}
+      const ids = new Set(data.markers.map(m=>m.id));
+      for (const [id,entry] of runners) {if(!ids.has(id)){entry.overlay.setMap(null);runners.delete(id);}}
+      for (const marker of data.markers) {
+        let entry=runners.get(marker.id);
+        if(!entry){
+          const element=document.createElement('button'); element.type='button';
+          element.addEventListener('click',e=>{e.stopPropagation();emit({type:'marker',id:marker.id});});
+          entry={element,overlay:overlay(marker.point,element,6)}; runners.set(marker.id,entry);
+        }
+        entry.element.className=marker.selected?'runner selected':'runner';
+        entry.element.textContent=marker.nickname.slice(0,2);
+        entry.element.title=marker.nickname;
+        entry.element.setAttribute('aria-label',marker.nickname);
+        entry.overlay.setPosition(point(marker.point));
+      }
+      const nextGeometry=JSON.stringify([data.segments,data.endpoints]);
+      if(nextGeometry!==geometry){
+        geometry=nextGeometry;
+        for(const line of lines) line.setMap(null);
+        for(const end of ends) end.setMap(null);
+        lines=[];ends=[];
+        for(const segment of data.segments){if(segment.length<2)continue;
+          const path=segment.map(point);
+          for(const [strokeColor,strokeWeight] of [['#ffffff',8],['#16836f',5]])
+            lines.push(new kakao.maps.Polyline({map,path,strokeColor,strokeWeight,strokeOpacity:1}));
+        }
+        const points=data.segments.flat();
+        if(data.endpoints&&points.length){
+          const first=points[0],last=points[points.length-1];
+          const marker=(xy,text,end)=>{const element=document.createElement('div');element.className=end?'endpoint end':'endpoint';element.textContent=text;ends.push(overlay(xy,element,7));};
+          marker(first,'출발',false);
+          if(first[0]!==last[0]||first[1]!==last[1])marker(last,'도착',true);
+        }
+      }
+      const camera=data.camera;
+      if(camera.revision!==revision){
+        revision=camera.revision;
+        if(camera.type==='fit'&&camera.points.length){
+          const bounds=new kakao.maps.LatLngBounds(); camera.points.forEach(p=>bounds.extend(point(p)));
+          map.setBounds(bounds,camera.padding,camera.padding,camera.padding,camera.padding);
+          if(map.getLevel()<level(camera.maxZoom))map.setLevel(level(camera.maxZoom));
+        }else if(camera.type==='move'){
+          const target=point(camera.center),targetLevel=level(camera.zoom);
+          if(camera.animate===true){
+            map.jump(target,targetLevel,{animate:{duration:700}});
+          }else{
+            if(map.getLevel()!==targetLevel)map.setLevel(targetLevel);
+            const center=map.getCenter();
+            if(center.getLat()!==target.getLat()||center.getLng()!==target.getLng())map.setCenter(target);
+          }
+        }
+      }
+    }};
+    emit({type:'ready'});
+  });
+};
+</script>
+<script src="__KAKAO_SDK_URL__" onload="createRunspotMap()" onerror="mapLoadFailed()"></script>
+</body></html>

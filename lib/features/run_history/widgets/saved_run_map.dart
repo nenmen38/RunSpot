@@ -1,70 +1,36 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../../shared/maps/run_map.dart';
 import '../models/run_route.dart';
 
 class SavedRunMap extends StatefulWidget {
-  const SavedRunMap({required this.route, this.tileProvider, super.key});
+  const SavedRunMap({required this.route, this.mapBridgeFactory, super.key});
   final RunRoute route;
-  final TileProvider? tileProvider;
-
+  final MapBridgeFactory? mapBridgeFactory;
   @override
   State<SavedRunMap> createState() => _SavedRunMapState();
 }
 
 class _SavedRunMapState extends State<SavedRunMap> {
-  final _map = MapController();
-  final _resetTiles = StreamController<void>.broadcast();
-  late final _segments = widget.route.segments;
-  late final _points = _segments.expand((segment) => segment).toList();
-  late final _fit = CameraFit.coordinates(
-    coordinates: _points,
-    padding: const EdgeInsets.all(40),
-    maxZoom: 17,
-  );
-  late final _polylines = _segments
-      .where((segment) => segment.length > 1)
-      .map(
-        (segment) => Polyline(
-          points: segment,
-          color: const Color(0xFF16836F),
-          strokeWidth: 5,
-          borderColor: Colors.white,
-          borderStrokeWidth: 2,
-        ),
-      )
-      .toList();
-  bool _tileError = false;
+  final _map = RunMapController();
+  void _fit() => _map.fit(widget.route.segments.expand((s) => s));
+  @override
+  void initState() {
+    super.initState();
+    _fit();
+  }
 
-  void _onTileError() {
-    if (_tileError) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_tileError) setState(() => _tileError = true);
-    });
+  @override
+  void didUpdateWidget(covariant SavedRunMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.route != widget.route) _fit();
   }
 
   @override
   void dispose() {
     _map.dispose();
-    unawaited(_resetTiles.close());
     super.dispose();
   }
-
-  Marker _marker(LatLng point, IconData icon, Color color) => Marker(
-    point: point,
-    width: 36,
-    height: 36,
-    child: Icon(
-      icon,
-      color: color,
-      size: 32,
-      shadows: const [Shadow(color: Colors.white, blurRadius: 3)],
-    ),
-  );
 
   @override
   Widget build(BuildContext context) => Column(
@@ -73,69 +39,11 @@ class _SavedRunMapState extends State<SavedRunMap> {
         height: 320,
         child: Stack(
           children: [
-            FlutterMap(
-              mapController: _map,
-              options: MapOptions(
-                initialCenter: _points.first,
-                initialZoom: 17,
-                initialCameraFit: _fit,
-                minZoom: 0,
-                maxZoom: 19,
-                interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                ),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: const String.fromEnvironment(
-                    'MAP_TILE_URL',
-                    defaultValue:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  ),
-                  userAgentPackageName: 'com.runspot.runquest',
-                  maxNativeZoom: 19,
-                  tileProvider: widget.tileProvider,
-                  reset: _resetTiles.stream,
-                  errorTileCallback: (_, _, _) => _onTileError(),
-                ),
-                IgnorePointer(child: PolylineLayer(polylines: _polylines)),
-                MarkerLayer(
-                  markers: [
-                    _marker(
-                      _points.first,
-                      Icons.trip_origin,
-                      const Color(0xFF16836F),
-                    ),
-                    if (_points.last != _points.first)
-                      _marker(
-                        _points.last,
-                        Icons.flag,
-                        const Color(0xFFC13647),
-                      ),
-                  ],
-                ),
-                RichAttributionWidget(
-                  attributions: [
-                    TextSourceAttribution(
-                      const String.fromEnvironment(
-                        'MAP_ATTRIBUTION',
-                        defaultValue: 'OpenStreetMap contributors',
-                      ),
-                      onTap: () => unawaited(
-                        launchUrl(
-                          Uri.parse(
-                            const String.fromEnvironment(
-                              'MAP_ATTRIBUTION_URL',
-                              defaultValue:
-                                  'https://www.openstreetmap.org/copyright',
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            RunMap(
+              controller: _map,
+              segments: widget.route.segments,
+              endpoints: true,
+              bridgeFactory: widget.mapBridgeFactory,
             ),
             Positioned(
               top: 8,
@@ -145,26 +53,10 @@ class _SavedRunMapState extends State<SavedRunMap> {
                 child: IconButton(
                   tooltip: '전체 경로 보기',
                   icon: const Icon(Icons.fit_screen),
-                  onPressed: () => _map.fitCamera(_fit),
+                  onPressed: _fit,
                 ),
               ),
             ),
-            if (_tileError)
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Material(
-                  color: Colors.white,
-                  child: TextButton.icon(
-                    onPressed: () {
-                      setState(() => _tileError = false);
-                      _resetTiles.add(null);
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('지도 다시 불러오기'),
-                  ),
-                ),
-              ),
           ],
         ),
       ),

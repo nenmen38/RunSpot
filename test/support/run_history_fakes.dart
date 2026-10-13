@@ -39,6 +39,7 @@ class FakeRunRecordService implements RunRecordService {
       endedAt: summary.endedAt,
       distanceMeters: summary.distanceMeters.round(),
       durationSeconds: summary.duration.inSeconds,
+      temperature: summary.temperature,
     );
     records.insert(0, record);
     routes[record.id] = summary.route;

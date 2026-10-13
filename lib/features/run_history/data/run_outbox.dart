@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../home/models/run_session.dart';
 import '../models/run_route.dart';
+import '../models/run_temperature.dart';
 
 class RunOutboxException implements Exception {
   const RunOutboxException(this.message);
@@ -55,7 +56,7 @@ class SqliteRunOutbox implements RunOutbox {
   Future<Database> _create() async => _factory.openDatabase(
     await _databasePath(),
     options: OpenDatabaseOptions(
-      version: 2,
+      version: 3,
       singleInstance: false,
       onConfigure: (db) async {
         await db.execute('PRAGMA synchronous = FULL');
@@ -71,6 +72,7 @@ class SqliteRunOutbox implements RunOutbox {
             distance_m REAL NOT NULL CHECK(distance_m >= 0),
             duration_us INTEGER NOT NULL CHECK(duration_us >= 0),
             route_json TEXT NOT NULL DEFAULT '[]',
+            temperature_json TEXT,
             PRIMARY KEY(namespace, owner_id, client_run_id)
           )
         ''');
@@ -79,6 +81,11 @@ class SqliteRunOutbox implements RunOutbox {
         if (oldVersion < 2) {
           await db.execute(
             "ALTER TABLE pending_runs ADD COLUMN route_json TEXT NOT NULL DEFAULT '[]'",
+          );
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            'ALTER TABLE pending_runs ADD COLUMN temperature_json TEXT',
           );
         }
       },
@@ -90,10 +97,12 @@ class SqliteRunOutbox implements RunOutbox {
     if (!summary.distanceMeters.isFinite ||
         summary.distanceMeters < 0 ||
         summary.duration.isNegative ||
-        !summary.endedAt.isAfter(summary.startedAt)) {
+        !summary.endedAt.isAfter(summary.startedAt) ||
+        (summary.temperature != null &&
+            !summary.temperature!.isFreshAt(summary.endedAt))) {
       throw const RunOutboxException('러닝 기록의 측정값을 확인해 주세요.');
     }
-    final row = <String, Object>{
+    final row = <String, Object?>{
       'namespace': namespace,
       'owner_id': ownerId,
       'client_run_id': summary.clientRunId,
@@ -102,6 +111,9 @@ class SqliteRunOutbox implements RunOutbox {
       'distance_m': summary.distanceMeters,
       'duration_us': summary.duration.inMicroseconds,
       'route_json': jsonEncode(summary.route.toJson()),
+      'temperature_json': summary.temperature == null
+          ? null
+          : jsonEncode(summary.temperature!.toJson()),
     };
     try {
       final db = await _open();
@@ -150,6 +162,12 @@ class SqliteRunOutbox implements RunOutbox {
               distanceMeters: (row['distance_m'] as num).toDouble(),
               duration: Duration(microseconds: row['duration_us'] as int),
               route: RunRoute.fromJson(jsonDecode(row['route_json'] as String)),
+              temperature: row['temperature_json'] == null
+                  ? null
+                  : RunTemperature.fromJson(
+                      jsonDecode(row['temperature_json'] as String)
+                          as Map<String, dynamic>,
+                    ),
             ),
           )
           .toList();

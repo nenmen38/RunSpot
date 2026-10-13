@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
 import 'package:runquest/features/run_history/models/run_route.dart';
+import 'package:runquest/features/run_history/models/run_temperature.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 String session(String owner, String token) => jsonEncode({
@@ -66,7 +67,7 @@ void main() {
     final service = SupabaseRunRecordService(client);
     final saved = await service.save(summary);
     expect(saved.distanceMeters, 5000);
-    expect(request.url.path, '/rest/v1/rpc/save_my_run_with_route');
+    expect(request.url.path, '/rest/v1/rpc/save_my_run_with_temperature');
     expect(request.headers['authorization'], 'Bearer token-a');
     expect(jsonDecode(request.body), {
       'client_id': summary.clientRunId,
@@ -75,6 +76,8 @@ void main() {
       'distance_metres': 5000,
       'active_seconds': 1500,
       'route_segments': summary.route.toJson(),
+      'temperature_c': null,
+      'temperature_observed_at': null,
     });
   });
 
@@ -102,6 +105,48 @@ void main() {
     await expectLater(service.save(summary), throwsA(isA<AuthException>()));
     expect(request.headers['authorization'], 'Bearer token-a');
     await expectLater(service.save(summary), throwsA(isA<AuthException>()));
+  });
+
+  test('종료 시점 관측 기온을 그대로 전송하고 응답에서 복원합니다', () async {
+    final temperature = RunTemperature(
+      celsius: -3.2,
+      observedAt: summary.endedAt,
+    );
+    late http.Request request;
+    final client = SupabaseClient(
+      'https://example.supabase.co',
+      '테스트용 공개 키',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((value) async {
+        request = value;
+        return http.Response(
+          jsonEncode({...row, ...temperature.toJson()}),
+          200,
+            request: value,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(session('owner', 'token-a'));
+    final saved = await SupabaseRunRecordService(client).save(
+      RunSummary(
+        clientRunId: summary.clientRunId,
+        startedAt: summary.startedAt,
+        endedAt: summary.endedAt,
+        distanceMeters: summary.distanceMeters,
+        duration: summary.duration,
+        route: summary.route,
+        temperature: temperature,
+      ),
+    );
+    final params = jsonDecode(request.body) as Map<String, dynamic>;
+    expect(params['temperature_c'], -3.2);
+    expect(
+      params['temperature_observed_at'],
+      temperature.observedAt.toIso8601String(),
+    );
+    expect(saved.temperature!.toJson(), temperature.toJson());
   });
 
   test('내 기록만 날짜와 식별자로 정렬하여 페이지 조회합니다', () async {

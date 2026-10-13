@@ -1,8 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 
+import '../../shared/maps/run_map.dart';
+
+import '../run_feedback/data/run_feedback_service.dart';
+import '../run_feedback/run_feedback_panel.dart';
+import '../run_share/run_share_screen.dart';
+import 'data/run_record_service.dart';
 import 'models/run_record.dart';
 import 'models/run_route.dart';
 import 'run_history_controller.dart';
@@ -13,12 +18,14 @@ class RunRecordDetailScreen extends StatefulWidget {
   const RunRecordDetailScreen({
     required this.record,
     required this.controller,
-    this.tileProvider,
+    this.mapBridgeFactory,
+    this.feedbackService,
     super.key,
   });
   final RunRecord record;
   final RunHistoryController controller;
-  final TileProvider? tileProvider;
+  final MapBridgeFactory? mapBridgeFactory;
+  final RunFeedbackService? feedbackService;
 
   @override
   State<RunRecordDetailScreen> createState() => _RunRecordDetailScreenState();
@@ -54,7 +61,41 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
     builder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('러닝 기록')),
+      appBar: AppBar(
+        title: const Text('러닝 기록'),
+        actions: [
+          IconButton(
+            tooltip: '러닝 기록 공유',
+            icon: const Icon(Icons.ios_share),
+            onPressed: !widget.controller.service.isCurrentOwner
+                ? null
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => RunShareScreen(
+                        record: widget.controller.visibleRecords.firstWhere(
+                          (record) =>
+                              record.clientRunId == widget.record.clientRunId,
+                          orElse: () => widget.record,
+                        ),
+                        isCurrentOwner: () =>
+                            widget.controller.service.isCurrentOwner,
+                        loadRoute: () =>
+                            widget.controller.loadRoute(widget.record),
+                        ownerChanges:
+                            widget.controller.service
+                                is SupabaseRunRecordService
+                            ? (widget.controller.service
+                                      as SupabaseRunRecordService)
+                                  .client
+                                  .auth
+                                  .onAuthStateChange
+                            : null,
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
       body: !widget.controller.service.isCurrentOwner
           ? const Center(child: Text('로그인 상태를 확인해 주세요.'))
           : ListView(
@@ -108,7 +149,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                 else
                   SavedRunMap(
                     route: _route!,
-                    tileProvider: widget.tileProvider,
+                    mapBridgeFactory: widget.mapBridgeFactory,
                   ),
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -120,6 +161,16 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                     ),
                   ),
                 ),
+                if (!widget.record.pendingSync &&
+                    widget.feedbackService != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    child: RunFeedbackPanel(
+                      key: ValueKey(widget.record.id),
+                      runId: widget.record.id,
+                      service: widget.feedbackService!,
+                    ),
+                  ),
               ],
             ),
     ),

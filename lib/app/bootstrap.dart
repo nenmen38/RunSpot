@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../firebase_options.dart';
+import '../features/run_share/data/share_photo_service.dart';
 import 'local_config_loader.dart';
 
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -23,6 +24,7 @@ class AppStartupException implements Exception {
 
 Future<void> initializeApp() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await discardInterruptedSharePhoto();
   final localConfig = await _loadFallbackConfig();
   final supabaseUrl = _requiredSupabaseUrl(
     _supabaseUrl,

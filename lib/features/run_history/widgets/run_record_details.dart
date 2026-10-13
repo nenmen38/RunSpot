@@ -38,6 +38,12 @@ class RunRecordDetails extends StatelessWidget {
         formatRunDuration(Duration(seconds: record.durationSeconds)),
       ),
       _metric('평균 페이스', formatRunPace(record)),
+      _metric('종료 시 기온', record.temperature?.label ?? '자료 없음'),
+      if (record.temperature != null)
+        Text(
+          '기온 관측 ${formatRunDate(record.temperature!.observedAt)}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
     ],
   );
 
