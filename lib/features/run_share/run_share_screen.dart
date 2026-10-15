@@ -10,6 +10,7 @@ import 'data/run_share_service.dart';
 import 'data/share_image_renderer.dart';
 import 'data/share_photo_service.dart';
 import 'models/share_route.dart';
+import 'models/share_layout.dart';
 import 'widgets/share_text_color_control.dart';
 
 class RunShareScreen extends StatefulWidget {
@@ -41,6 +42,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
   bool _dark = false;
   bool _photoOverlay = false;
   Color? _textColor;
+  ShareLayout _layout = ShareLayout.centered;
   bool _includeRoute = false;
   bool _busy = false;
   bool _confirming = false;
@@ -110,6 +112,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
         height: height,
         textColor: _textColor,
         photoOverlay: _photoOverlay,
+        layout: _layout,
       );
       if (mounted && widget.isCurrentOwner() && height == _imageHeight) {
         setState(() => _png = bytes);
@@ -192,7 +195,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
         scrollable: true,
         title: const Text('경로 포함'),
         content: const Text(
-          '출발·도착 주변 300m와 지도·주소는 제외합니다. 남은 경로 모양에서도 위치를 유추할 수 있습니다.',
+          '지도·주소 없이 달린 경로의 선 모양만 표시합니다. 경로 모양에서도 위치를 유추할 수 있습니다.',
         ),
         actions: [
           TextButton(
@@ -217,10 +220,10 @@ class _RunShareScreenState extends State<RunShareScreen> {
       _error = null;
     });
     try {
-      _route ??= ShareRoute.protected(await widget.loadRoute());
+      _route ??= ShareRoute.shape(await widget.loadRoute());
       if (!mounted || !widget.isCurrentOwner()) return;
       if (_route!.isEmpty) {
-        setState(() => _error = '보호 구역을 제외한 공유 경로가 부족합니다.');
+        setState(() => _error = '선으로 표시할 이동 경로가 부족합니다.');
         return;
       }
       setState(() => _includeRoute = true);
@@ -445,6 +448,47 @@ class _RunShareScreenState extends State<RunShareScreen> {
           onChanged: _busy ? null : _selectPhotoOverlay,
         ),
       const SizedBox(height: 16),
+      const Text('공유 템플릿'),
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 160,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: ShareLayout.values.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
+          itemBuilder: (context, index) {
+            final layout = ShareLayout.values[index];
+            return ChoiceChip(
+              label: SizedBox(
+                width: 108,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 64,
+                      height: 88,
+                      child: CustomPaint(painter: _TemplatePreview(layout)),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(layout.label),
+                  ],
+                ),
+              ),
+              tooltip: layout.description,
+              showCheckmark: false,
+              selected: _layout == layout,
+              onSelected: _busy
+                  ? null
+                  : (selected) async {
+                      if (!selected || !widget.isCurrentOwner()) return;
+                      setState(() => _layout = layout);
+                      await _render();
+                    },
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 16),
       ShareTextColorControl(
         color: _textColor,
         automaticColor: _dark || _photo != null
@@ -476,4 +520,55 @@ class _RunShareScreenState extends State<RunShareScreen> {
         ),
     ],
   );
+}
+
+class _TemplatePreview extends CustomPainter {
+  const _TemplatePreview(this.layout);
+  final ShareLayout layout;
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(6)),
+      Paint()..color = const Color(0xFFF8FAFC),
+    );
+    canvas.save();
+    canvas.scale(size.width / 1080, size.height / 1920);
+    final composition = layout.compose(1920, hasRoute: true);
+    if (composition.panel case final panel?) {
+      canvas.drawRect(panel, Paint()..color = const Color(0xFFE1E6EA));
+    }
+    if (composition.route case final bounds?) {
+      final side = bounds.shortestSide;
+      final center = bounds.center;
+      final path = Path()
+        ..moveTo(center.dx - side * .35, center.dy + side * .3)
+        ..lineTo(center.dx - side * .2, center.dy - side * .3)
+        ..lineTo(center.dx + side * .35, center.dy - side * .1)
+        ..lineTo(center.dx + side * .15, center.dy + side * .3);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFF16836F)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 22,
+      );
+    }
+    for (final slot in composition.texts) {
+      final width = slot.rect.width * (slot.bold ? .78 : .45);
+      final x =
+          slot.rect.left + (slot.centered ? (slot.rect.width - width) / 2 : 0);
+      canvas.drawRect(
+        Rect.fromLTWH(x, slot.rect.top, width, slot.size * .8),
+        Paint()
+          ..color = slot.isLabel
+              ? const Color(0xFF929CA3)
+              : const Color(0xFF202428),
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_TemplatePreview oldDelegate) =>
+      oldDelegate.layout != layout;
 }

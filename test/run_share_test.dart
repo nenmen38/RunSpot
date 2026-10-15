@@ -17,6 +17,8 @@ import 'package:runquest/features/run_share/run_share_screen.dart';
 
 import 'share_photo_test.dart' show photoBytes;
 
+import 'package:runquest/features/run_share/models/share_layout.dart';
+
 final record = RunRecord(
   id: 'private-id',
   clientRunId: 'private-client',
@@ -38,6 +40,7 @@ class Renderer extends ShareImageRenderer {
   double height = 0;
   Color? textColor;
   bool photoOverlay = false;
+  ShareLayout selectedLayout = ShareLayout.centered;
   @override
   Future<Uint8List> render(
     RunRecord record, {
@@ -47,11 +50,13 @@ class Renderer extends ShareImageRenderer {
     double height = 1920,
     Color? textColor,
     bool photoOverlay = false,
+    ShareLayout layout = ShareLayout.centered,
   }) async {
     options.add((route: route));
     this.height = height;
     this.textColor = textColor;
     this.photoOverlay = photoOverlay;
+    selectedLayout = layout;
     this.background = background;
     this.dark = dark;
     if (fail) throw StateError('실패');
@@ -102,40 +107,57 @@ void main() {
       throwsStateError,
     );
   });
-  test('짧거나 정지한 경로는 공유 선을 만들지 않습니다', () {
-    expect(ShareRoute.protected(const RunRoute.empty()).isEmpty, isTrue);
+  test('빈 경로와 정지한 경로는 공유 선을 만들지 않습니다', () {
+    expect(ShareRoute.shape(const RunRoute.empty()).isEmpty, isTrue);
     expect(
-      ShareRoute.protected(
+      ShareRoute.shape(
         RunRoute([
-          [const LatLng(37, 127), const LatLng(37.0001, 127)],
+          [const LatLng(37, 127), const LatLng(37, 127)],
         ]),
       ).isEmpty,
       isTrue,
     );
   });
-  test('보호 반경을 제거하고 좌표를 0~1의 선 모양으로 정규화합니다', () {
-    final protected = ShareRoute.protected(route);
-    expect(
-      protected.segments.single.length,
-      lessThan(route.segments.single.length),
-    );
-    expect(protected.isEmpty, isFalse);
-    for (final point in protected.segments.expand((s) => s)) {
+  testWidgets('300m의 짧은 기록도 공유 이미지에 경로 선을 그립니다', (tester) async {
+    final shortRoute = RunRoute([
+      List.generate(16, (i) => LatLng(37 + i * .00018, 127)),
+    ]);
+    final shape = ShareRoute.shape(shortRoute);
+    expect(shape.segments.single, hasLength(16));
+    await tester.runAsync(() async {
+      final bytes = await ShareImageRenderer().render(record, route: shape);
+      final codec = await ui.instantiateImageCodec(bytes);
+      final image = (await codec.getNextFrame()).image;
+      try {
+        final pixels = (await image.toByteData())!.buffer.asUint8List();
+        final index = (500 * 1080 + 540) * 4;
+        expect(pixels.sublist(index, index + 3), [32, 36, 40]);
+      } finally {
+        image.dispose();
+        codec.dispose();
+      }
+    });
+  });
+  test('전체 경로를 좌표 정보 없는 0~1의 선 모양으로 정규화합니다', () {
+    final shape = ShareRoute.shape(route);
+    expect(shape.segments.single.length, equals(route.segments.single.length));
+    expect(shape.isEmpty, isFalse);
+    for (final point in shape.segments.expand((s) => s)) {
       expect(point.dx, inInclusiveRange(0, 1));
       expect(point.dy, inInclusiveRange(0, 1));
     }
   });
-  test('단절·긴 좌표 간격·보호 반경을 재통과한 구간은 연결하지 않습니다', () {
+  test('단절과 긴 좌표 간격은 연결하지 않습니다', () {
     final segment = route.segments.single;
     final interrupted = RunRoute([segment.take(30), segment.skip(32)]);
-    expect(ShareRoute.protected(interrupted).segments, hasLength(2));
+    expect(ShareRoute.shape(interrupted).segments, hasLength(2));
     final crossing = RunRoute([
       segment
           .take(30)
           .followedBy([const LatLng(37, 127)])
           .followedBy(segment.skip(32)),
     ]);
-    expect(ShareRoute.protected(crossing).segments, hasLength(2));
+    expect(ShareRoute.shape(crossing).segments, hasLength(2));
   });
   testWidgets('PNG는 1080px이며 식별자·날짜·선택하지 않은 경로를 담지 않습니다', (tester) async {
     await tester.runAsync(() async {
@@ -161,7 +183,7 @@ void main() {
       codec.dispose();
       final full = await renderer.render(
         record,
-        route: ShareRoute.protected(route),
+        route: ShareRoute.shape(route),
         height: 2341,
       );
       final fullCodec = await ui.instantiateImageCodec(full);
@@ -315,7 +337,7 @@ void main() {
           final bytes = await ShareImageRenderer().render(
             record,
             height: height,
-            route: includeRoute ? ShareRoute.protected(route) : null,
+            route: includeRoute ? ShareRoute.shape(route) : null,
           );
           final codec = await ui.instantiateImageCodec(bytes);
           final image = (await codec.getNextFrame()).image;
@@ -412,6 +434,52 @@ void main() {
     );
   });
 
+  test('모든 템플릿은 화면 비율과 경로 유무에 관계없이 이미지 안에 배치됩니다', () {
+    for (final height in [1512.0, 1920.0, 2341.0, 3240.0]) {
+      for (final layout in ShareLayout.values) {
+        for (final hasRoute in [false, true]) {
+          final composition = layout.compose(height, hasRoute: hasRoute);
+          for (final bounds in [
+            ...composition.texts.map((slot) => slot.rect),
+            if (composition.route != null) composition.route!,
+            if (composition.panel != null) composition.panel!,
+          ]) {
+            expect(bounds.left, greaterThanOrEqualTo(0));
+            expect(bounds.top, greaterThanOrEqualTo(0));
+            expect(bounds.right, lessThanOrEqualTo(1080));
+            expect(bounds.bottom, lessThanOrEqualTo(height));
+          }
+        }
+      }
+    }
+  });
+  testWidgets('다섯 공유 템플릿을 선택하면 이미지에 반영합니다', (tester) async {
+    final renderer = Renderer();
+    await show(tester, renderer, settings: true);
+    for (final layout in ShareLayout.values) {
+      final chip = find.widgetWithText(ChoiceChip, layout.label);
+      await tester.ensureVisible(chip);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(renderer.selectedLayout, layout);
+    }
+  });
+  testWidgets('다섯 템플릿은 서로 다른 이미지를 생성합니다', (tester) async {
+    await tester.runAsync(() async {
+      final images = <Uint8List>[];
+      for (final layout in ShareLayout.values) {
+        final image = await ShareImageRenderer().render(
+          record,
+          route: ShareRoute.shape(route),
+          layout: layout,
+        );
+        for (final previous in images) {
+          expect(image, isNot(previous));
+        }
+        images.add(image);
+      }
+    });
+  });
   testWidgets('글자 색 견본·직접 입력·취소·자동 복원을 공유 이미지에 반영합니다', (tester) async {
     final renderer = Renderer();
     await show(tester, renderer, settings: true);
@@ -449,7 +517,7 @@ void main() {
     expect(renderer.textColor, isNull);
   });
 
-  testWidgets('글자 색은 PNG 픽셀에 남고 낮은 대비는 윤곽선으로 보완합니다', (tester) async {
+  testWidgets('글자 색은 유지하고 사진과 낮은 대비에서도 글씨 테두리를 그리지 않습니다', (tester) async {
     await tester.runAsync(() async {
       Future<Uint8List> pixels(Color color, {ui.Image? photo}) async {
         final bytes = await ShareImageRenderer().render(
@@ -479,14 +547,14 @@ void main() {
         count(await pixels(const Color(0xFF1540A0)), 21, 64, 160),
         greaterThan(500),
       );
-      expect(count(await pixels(Colors.white), 23, 26, 29), greaterThan(100));
+      expect(count(await pixels(Colors.white), 23, 26, 29), 0);
       final photo = await decodeSharePhoto(await photoBytes());
       try {
         final data = await pixels(const Color(0xFF171A1D), photo: photo);
         final index = (100 * 1080 + 1000) * 4;
         expect(data[index], 244);
         expect(data[index + 1], 67);
-        expect(count(data, 255, 255, 255), greaterThan(100));
+        expect(count(data, 255, 255, 255), 0);
       } finally {
         photo.dispose();
       }
@@ -510,7 +578,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(renderer.textColor, Colors.black);
   });
-  testWidgets('경로는 경고 확인 뒤 보호 처리하여 포함하고 다시 제외합니다', (tester) async {
+  testWidgets('경로는 경고 확인 뒤 선 모양으로 포함하고 다시 제외합니다', (tester) async {
     final renderer = Renderer();
     await show(tester, renderer, settings: true);
     await tester.tap(find.text('경로 포함'));

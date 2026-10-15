@@ -21,15 +21,14 @@ class ConditionsPanel extends StatelessWidget {
         RunningSuitability.unknown => const Color(0xFF657079),
       };
       final weather = data?.weather, dust = data?.dust;
-      final stale =
-          data != null &&
-          ((weather != null &&
-                  !RunningConditions.isFresh(
-                    weather.observedAt,
-                    controller.now,
-                  )) ||
-              (dust != null &&
-                  !RunningConditions.isFresh(dust.observedAt, controller.now)));
+      final freshWeather =
+          RunningConditions.isFresh(weather?.observedAt, controller.now)
+          ? weather
+          : null;
+      final freshDust =
+          RunningConditions.isFresh(dust?.observedAt, controller.now)
+          ? dust
+          : null;
       return Material(
         color: Colors.white,
         child: Container(
@@ -64,12 +63,9 @@ class ConditionsPanel extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       controller.error ??
-                          data?.refreshNotice ??
                           (data == null
                               ? '현재 위치 확인 중'
-                              : stale
-                              ? '오래되거나 시각이 올바르지 않은 관측 자료'
-                              : '${weather?.temperature?.toStringAsFixed(1) ?? "—"}°C · ${weather?.precipitationLabel ?? "날씨 자료 없음"} · 초미세 ${DustObservation.gradeLabel(DustObservation.grade(dust?.pm25, fine: true))}'),
+                              : '${freshWeather?.temperature?.toStringAsFixed(1) ?? "—"}°C · ${freshWeather?.precipitationLabel ?? "날씨 자료 없음"} · 초미세 ${DustObservation.gradeLabel(DustObservation.grade(freshDust?.pm25, fine: true))}'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF606872),
@@ -77,6 +73,14 @@ class ConditionsPanel extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (data?.refreshNotice != null)
+                      Text(
+                        data!.refreshNotice!,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF606872),
+                        ),
+                      ),
                     if (data?.refreshNotice != null)
                       Text(
                         '날씨 ${_time(weather?.observedAt)} · 미세먼지 ${_time(dust?.observedAt)}',

@@ -7,6 +7,7 @@ import '../../../shared/formatters/run_format.dart';
 import '../../run_history/models/run_record.dart';
 import '../../run_history/widgets/run_record_details.dart';
 import '../models/share_route.dart';
+import '../models/share_layout.dart';
 
 class ShareImageRenderer {
   Future<Uint8List> render(
@@ -17,12 +18,13 @@ class ShareImageRenderer {
     double height = 1920,
     Color? textColor,
     bool photoOverlay = false,
+    ShareLayout layout = ShareLayout.centered,
   }) async {
     if (!height.isFinite || height < 1512 || height > 3240) {
       throw const FormatException('공유 이미지 크기가 올바르지 않습니다.');
     }
     const width = 1080.0;
-    const inset = 72.0;
+    const inset = 48.0;
     const contentWidth = width - inset * 2;
     final onDark = dark || background != null;
     final foreground =
@@ -40,18 +42,6 @@ class ShareImageRenderer {
     final canvas = Canvas(recorder);
     final photo = background?.clone();
     final scrim = lightInk ? const Color(0x8C000000) : const Color(0x8CFFFFFF);
-    final solidBackground = onDark
-        ? const Color(0xFF22282C)
-        : const Color(0xFFF8FAFC);
-    final comparisonBackground = photo == null
-        ? solidBackground
-        : Color.alphaBlend(scrim, lightInk ? Colors.white : Colors.black);
-    final inkLuminance = foreground.computeLuminance();
-    final backdropLuminance = comparisonBackground.computeLuminance();
-    final contrast = inkLuminance > backdropLuminance
-        ? (inkLuminance + .05) / (backdropLuminance + .05)
-        : (backdropLuminance + .05) / (inkLuminance + .05);
-    final needsOutline = photo != null || contrast < 4.5;
     canvas.drawColor(
       onDark ? const Color(0xFF22282C) : const Color(0xFFF8FAFC),
       BlendMode.src,
@@ -88,40 +78,20 @@ class ShareImageRenderer {
       double maxWidth = contentWidth,
       bool centered = false,
     }) {
-      TextPainter painter(double fontSize, {bool outline = false}) =>
-          TextPainter(
-            text: TextSpan(
-              text: value,
-              style: TextStyle(
-                color: outline ? null : color ?? foreground,
-                foreground: outline
-                    ? (Paint()
-                        ..style = PaintingStyle.stroke
-                        ..strokeWidth = 3
-                        ..color = lightInk
-                            ? const Color(0xFF171A1D)
-                            : Colors.white)
-                    : null,
-                fontSize: fontSize,
-                fontWeight: weight,
-                height: 1.25,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                shadows: photo == null || outline
-                    ? null
-                    : [
-                        Shadow(
-                          color: lightInk
-                              ? const Color(0x99000000)
-                              : const Color(0x99FFFFFF),
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-              ),
-            ),
-            textDirection: TextDirection.ltr,
-            maxLines: 1,
-          )..layout();
+      TextPainter painter(double fontSize) => TextPainter(
+        text: TextSpan(
+          text: value,
+          style: TextStyle(
+            color: color ?? foreground,
+            fontSize: fontSize,
+            fontWeight: weight,
+            height: 1.25,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
       var fontSize = size;
       var text = painter(size);
       if (text.width > maxWidth) {
@@ -132,35 +102,34 @@ class ShareImageRenderer {
       final position = centered
           ? Offset(offset.dx + (maxWidth - text.width) / 2, offset.dy)
           : offset;
-      if (needsOutline) {
-        final outline = painter(fontSize, outline: true);
-        outline.paint(canvas, position);
-        outline.dispose();
-      }
       text.paint(canvas, position);
       text.dispose();
     }
 
-    const metricsHeight = 405.0;
-    const routeSide = 520.0;
-    const routeGap = 80.0;
-    final hasRoute = route != null && !route.isEmpty;
-    final groupHeight = metricsHeight + (hasRoute ? routeSide + routeGap : 0);
-    final groupTop = (height - groupHeight) / 2;
-    final metricsTop = groupTop + (hasRoute ? routeSide + routeGap : 0);
-    if (hasRoute) {
-      const side = routeSide;
-      final left = (width - side) / 2;
-      final top = groupTop;
+    final composition = layout.compose(
+      height,
+      hasRoute: route != null && !route.isEmpty,
+    );
+    if (composition.panel case final panel?) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(panel, const Radius.circular(32)),
+        Paint()
+          ..color = lightInk
+              ? const Color(0xB322282C)
+              : const Color(0xDDF8FAFC),
+      );
+    }
+    if (composition.route case final bounds?) {
+      final side = bounds.shortestSide;
+      final left = bounds.center.dx - side / 2;
+      final top = bounds.center.dy - side / 2;
       final paint = Paint()
-        ..color = (photo != null ? lightInk : onDark)
-            ? const Color(0xFF7AE6C5)
-            : const Color(0xFF16836F)
-        ..strokeWidth = 9
+        ..color = foreground
+        ..strokeWidth = (side * .04).clamp(20.0, 32.0)
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
-      for (final segment in route.segments) {
+      for (final segment in route!.segments) {
         final path = Path();
         for (var i = 0; i < segment.length; i++) {
           final point = Offset(
@@ -176,52 +145,28 @@ class ShareImageRenderer {
         canvas.drawPath(path, paint);
       }
     }
-
-    label(
-      '거리',
-      30,
-      Offset(inset, metricsTop),
-      color: secondary,
-      centered: true,
-    );
-    label(
-      (record.distanceMeters / 1000).toStringAsFixed(2),
-      168,
-      Offset(inset, metricsTop + 35),
-      weight: FontWeight.w900,
-      centered: true,
-    );
-    label(
-      'km',
-      32,
-      Offset(inset, metricsTop + 225),
-      color: secondary,
-      centered: true,
-    );
-    const gap = 24.0;
-    const columnWidth = (contentWidth - gap * 2) / 3;
-    final values = [
-      ('시간', formatRunDuration(Duration(seconds: record.durationSeconds))),
-      ('평균 페이스', formatRunPace(record)),
-      ('기온', record.temperature?.label ?? '--'),
-    ];
-    for (var i = 0; i < values.length; i++) {
-      final x = inset + i * (columnWidth + gap);
+    final values = <ShareField, String>{
+      ShareField.distanceLabel: '거리',
+      ShareField.distance: (record.distanceMeters / 1000).toStringAsFixed(2),
+      ShareField.unit: 'km',
+      ShareField.durationLabel: '시간',
+      ShareField.duration: formatRunDuration(
+        Duration(seconds: record.durationSeconds),
+      ),
+      ShareField.paceLabel: '평균 페이스',
+      ShareField.pace: formatRunPace(record),
+      ShareField.temperatureLabel: '기온',
+      ShareField.temperature: record.temperature?.label ?? '--',
+    };
+    for (final slot in composition.texts) {
       label(
-        values[i].$2,
-        50,
-        Offset(x, metricsTop + 295),
-        weight: FontWeight.w700,
-        maxWidth: columnWidth,
-        centered: true,
-      );
-      label(
-        values[i].$1,
-        28,
-        Offset(x, metricsTop + 365),
-        color: secondary,
-        maxWidth: columnWidth,
-        centered: true,
+        values[slot.field]!,
+        slot.size,
+        slot.rect.topLeft,
+        maxWidth: slot.rect.width,
+        centered: slot.centered,
+        weight: slot.bold ? FontWeight.w900 : FontWeight.w500,
+        color: slot.isLabel ? secondary : foreground,
       );
     }
 

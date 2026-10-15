@@ -233,6 +233,25 @@ void main() {
     expect(controller.data, isNull);
     expect(controller.error, contains('현재 위치'));
   });
+  testWidgets('미세먼지 갱신 실패 시 최신 날씨와 오류 안내를 함께 표시합니다', (tester) async {
+    final controller =
+        ConditionsController(FakeConditionsService(), clock: () => now)
+          ..data = RunningConditions(
+            fetchedAt: now,
+            weather: fixture(now, temp: 19.3).weather,
+            dust: fixture(now, age: const Duration(days: 2)).dust,
+            dustError: 'provider_unavailable',
+          );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ConditionsPanel(controller: controller)),
+      ),
+    );
+    expect(find.text('조건 판단 불가'), findsOneWidget);
+    expect(find.text('19.3°C · 강수 없음 · 초미세 자료 없음'), findsOneWidget);
+    expect(find.text('최신 관측 자료를 갱신하지 못했습니다.'), findsOneWidget);
+  });
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
     testWidgets('러닝 환경과 상세가 ${size.width} 너비에 맞습니다', (tester) async {
       await tester.binding.setSurfaceSize(size);

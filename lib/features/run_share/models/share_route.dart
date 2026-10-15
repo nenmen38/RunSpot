@@ -11,10 +11,8 @@ class ShareRoute {
   final List<List<Offset>> segments;
   bool get isEmpty => segments.isEmpty;
 
-  factory ShareRoute.protected(RunRoute route) {
+  factory ShareRoute.shape(RunRoute route) {
     if (route.isEmpty) return ShareRoute._([]);
-    final start = route.segments.first.first;
-    final end = route.segments.last.last;
     const distance = Distance();
     final safe = <List<LatLng>>[];
     for (final segment in route.segments) {
@@ -25,11 +23,7 @@ class ShareRoute {
       }
 
       for (final point in segment) {
-        // 안전 여유 60m와 최대 연결 길이 50m로 선도 보호 반경 300m를 통과하지 않습니다.
-        if (distance(start, point) < 360 || distance(end, point) < 360) {
-          finish();
-          continue;
-        }
+        // 일시 정지와 긴 위치 단절은 선으로 연결하지 않습니다.
         if (current.isNotEmpty && distance(current.last, point) > 50) finish();
         current.add(point);
       }
