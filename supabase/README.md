@@ -27,6 +27,7 @@
 12. `migrations/20261011185117_optional_phone_verification.sql`: 선택 전화번호 인증의 본인 상태 조회. 이메일 기반 소셜 권한을 바꾸거나 인증 상태를 직접 쓰는 기능은 추가하지 않습니다.
 13. `migrations/20261013002352_run_feedback_quota.sql`: AI 피드백의 본인 조회, 계정별 72시간·전체 호출 예산과 서버 전용 예약·결과 저장.
 14. `migrations/20261013012622_run_temperature_snapshot.sql`: 종료 기온·관측 시각과 본인 저장 RPC. 기존 기록·경로 저장 RPC는 유지하고 과거 기온을 추정해 채우지 않습니다.
+15. `migrations/20261019000100_run_rewards.sql`: 러닝 경험치·레벨. 기록 저장과 같은 트랜잭션에서 보상을 한 번만 계산하고 본인 진행도·기록별 보상 조회 RPC를 추가합니다. 기존 기록에는 소급 지급하지 않습니다.
 
 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
@@ -111,6 +112,7 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20261011185117_optional_phone_verification.sql \
   -f supabase/migrations/20261013002352_run_feedback_quota.sql \
   -f supabase/migrations/20261013012622_run_temperature_snapshot.sql \
+  -f supabase/migrations/20261019000100_run_rewards.sql \
   -f supabase/tests/test_registration.sql \
   -f supabase/tests/registration.sql \
   -f supabase/tests/security.sql \
@@ -123,7 +125,8 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/tests/email_verification.sql \
   -f supabase/tests/optional_phone_verification.sql \
   -f supabase/tests/run_feedback.sql \
-  -f supabase/tests/run_temperature.sql
+  -f supabase/tests/run_temperature.sql \
+  -f supabase/tests/run_rewards.sql
 ```
 
 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
@@ -226,6 +229,13 @@ TEMPERATURE_TEST_PSQL=<psql_경로> \
 deno test --allow-env=TEMPERATURE_TEST_SOCKET,TEMPERATURE_TEST_PSQL \
   --allow-run=<psql_경로> supabase/tests/temperature_concurrency_test.ts
 ```
+
+## 러닝 경험치·레벨
+
+- `public.runs` 삽입 트리거가 비공개 `run_rewards`에 기록당 보상을 한 번만 저장합니다. 앱은 경험치를 쓰지 않고 `my_progress()`, `my_run_reward(requested_run_id)`로 본인 값만 조회합니다. 재전송·응답 유실 후 재조회해도 같은 결과를 반환합니다.
+- 보상은 `10 + 100m당 1XP`, 기록당 최대 300XP, 종료일(한국 시간) 기준 하루 최대 500XP입니다. 300m 미만, 평균 속도 6.5m/s 초과, 종료 7일 뒤 전송된 기록은 저장하되 0XP와 사유를 남깁니다. 계정별 잠금으로 동시 저장의 한도 계산을 직렬화합니다.
+- 레벨 L에서 다음 레벨까지 `100 + 50×(L-1)`XP가 필요하며 최대 Lv.99입니다. 기기 측정값 기반의 참고 보상이며 검증 상태나 랭킹에 반영하지 않습니다. 수치는 초기 제안값이므로 운영 전 서비스 기준과 맞추세요.
+- 보상 도입 전 기록과 타인 기록은 모두 `unavailable`로 응답해 존재 여부를 드러내지 않습니다.
 
 ## AI 러닝 피드백
 

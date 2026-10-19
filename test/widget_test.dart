@@ -22,6 +22,9 @@ import 'support/map_fakes.dart';
 import 'support/run_history_fakes.dart';
 import 'support/friend_fakes.dart';
 import 'support/conditions_fakes.dart';
+import 'support/progress_fakes.dart';
+
+import 'package:runquest/features/progress/models/run_progress.dart';
 
 class ServerIdRecordService extends FakeRunRecordService {
   @override
@@ -102,6 +105,7 @@ void main() {
     WidgetTester tester,
     Size size, {
     FakeRunRecordService? recordService,
+    FakeProgressService? progressService,
   }) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -126,6 +130,7 @@ void main() {
             mapBridgeFactory: FakeMapBridge.new,
             friendService: FakeFriendService(),
             conditionsController: conditions,
+            progressService: progressService,
           ),
         ),
       ),
@@ -494,6 +499,59 @@ void main() {
       await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       expect(find.text('러닝 시작'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  for (final offline in [false, true]) {
+    testWidgets('러닝 종료 결과에 경험치 보상과 레벨 상승을 표시합니다: 오프라인 $offline', (
+      tester,
+    ) async {
+      const levelUp = RunReward(
+        xp: 70,
+        levelBefore: 1,
+        levelAfter: 2,
+        progress: testProgress,
+      );
+      final progress = FakeProgressService(defaultReward: levelUp);
+      final controller = await showApp(
+        tester,
+        const Size(320, 568),
+        recordService: ServerIdRecordService(),
+        progressService: progress,
+      );
+      final service = controller.runHistory.service as FakeRunRecordService;
+      if (offline) {
+        service.saveFailure = const SocketException('오프라인');
+        service.listFailure = const SocketException('오프라인');
+      }
+      await tester.tap(find.text('러닝 시작'));
+      await tester.pump();
+      await tester.tap(find.text('러닝 종료'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('종료'));
+      await tester.pump();
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      expect(find.text('러닝 보상'), findsOneWidget);
+      if (offline) {
+        expect(find.text('서버에 저장되면 경험치가 지급돼요.'), findsOneWidget);
+        expect(progress.rewardRequests, isEmpty);
+      } else {
+        expect(progress.rewardRequests, ['server-record-id']);
+        expect(find.text('+70 XP'), findsOneWidget);
+        expect(find.text('레벨 업!'), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('확인'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('프로필').last);
+      await tester.pumpAndSettle();
+      expect(find.text('새내기 러너 · 누적 130 XP'), findsOneWidget);
+      expect(find.text('30 / 150 XP'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
   }
