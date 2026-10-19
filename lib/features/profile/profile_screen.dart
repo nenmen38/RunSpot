@@ -3,14 +3,21 @@ import 'package:runquest/features/profile/data/achievements.dart';
 import 'package:runquest/features/profile/privacy_controls.dart';
 import 'package:runquest/features/profile/widgets/achievement_row.dart';
 import 'package:runquest/features/profile/widgets/quick_stats.dart';
+import 'package:runquest/features/progress/data/progress_service.dart';
+import 'package:runquest/features/progress/widgets/profile_level_card.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/shared/widgets/page_layout.dart';
 import 'package:runquest/shared/widgets/panel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({required this.onHistoryTap, super.key});
+  const ProfileScreen({
+    required this.onHistoryTap,
+    this.progressService,
+    super.key,
+  });
   final VoidCallback onHistoryTap;
+  final ProgressService? progressService;
 
   @override
   Widget build(BuildContext context) {
@@ -49,23 +56,18 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '내 프로필',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            Text(
-                              'Lv.12 꾸준한 러너',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
+                        child: Text(
+                          '내 프로필',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
                       const Icon(Icons.ios_share, color: AppColors.blue),
                     ],
                   ),
+                  if (progressService != null) ...[
+                    const SizedBox(height: 12),
+                    ProfileLevelCard(service: progressService!),
+                  ],
                   const SizedBox(height: 12),
                   const PrivacyControls(),
                   const SizedBox(height: 10),

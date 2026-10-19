@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/maps/run_map.dart';
+import '../progress/data/progress_service.dart';
+import '../progress/widgets/run_reward_section.dart';
 import '../run_history/data/run_record_service.dart';
 import '../run_history/models/run_record.dart';
 import '../run_history/run_history_screen.dart';
@@ -21,12 +23,14 @@ class HomeScreen extends StatefulWidget {
     required this.controller,
     this.mapBridgeFactory,
     this.conditionsController,
+    this.progressService,
     this.isActive = true,
     super.key,
   });
   final LiveMapController controller;
   final MapBridgeFactory? mapBridgeFactory;
   final ConditionsController? conditionsController;
+  final ProgressService? progressService;
   final bool isActive;
 
   @override
@@ -125,7 +129,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (dialogContext) => AlertDialog(
           title: Text(record.pendingSync ? '기기에 저장됨' : '러닝 완료'),
           content: SingleChildScrollView(
-            child: RunRecordDetails(record: record),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                RunRecordDetails(record: record),
+                if (widget.progressService case final progress?)
+                  RunRewardSection(
+                    service: progress,
+                    runId: record.id,
+                    pendingSync: record.pendingSync,
+                  ),
+              ],
+            ),
           ),
           actions: [
             TextButton.icon(

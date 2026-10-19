@@ -9,6 +9,7 @@ import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
+import 'package:runquest/features/progress/data/progress_service.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
@@ -26,6 +27,7 @@ class RunQuestShell extends StatefulWidget {
     this.mapBridgeFactory,
     this.friendService,
     this.conditionsController,
+    this.progressService,
     super.key,
   });
 
@@ -33,6 +35,7 @@ class RunQuestShell extends StatefulWidget {
   final MapBridgeFactory? mapBridgeFactory;
   final FriendService? friendService;
   final ConditionsController? conditionsController;
+  final ProgressService? progressService;
 
   @override
   State<RunQuestShell> createState() => _RunQuestShellState();
@@ -42,6 +45,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   int _tab = 0;
   late final LiveMapController _map;
   ConditionsController? _conditions;
+  ProgressService? _progress;
   int _rankingMode = 0;
   ReviewCase _review = const ReviewCase(
     user: 'speed_ghost',
@@ -57,11 +61,13 @@ class _RunQuestShellState extends State<RunQuestShell> {
     if (widget.mapController != null) {
       _map = widget.mapController!;
       _conditions = widget.conditionsController;
+      _progress = widget.progressService;
     } else {
       final client = Supabase.instance.client;
       _conditions =
           widget.conditionsController ??
           ConditionsController(SupabaseConditionsService(client));
+      _progress = widget.progressService ?? SupabaseProgressService(client);
       final records = SupabaseRunRecordService(client);
       _map = LiveMapController(
         locationService: DeviceLocationService(),
@@ -112,7 +118,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         friendService: widget.friendService,
         onProfileTap: () => setState(() => _tab = 2),
       ),
-      ProfileScreen(onHistoryTap: _openHistory),
+      ProfileScreen(onHistoryTap: _openHistory, progressService: _progress),
       AdminScreen(review: _review, onAction: _setReviewStatus),
     ];
 
@@ -125,6 +131,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
               child: HomeScreen(
                 controller: _map,
                 conditionsController: _conditions,
+                progressService: _progress,
                 isActive: _tab == 0,
                 mapBridgeFactory: widget.mapBridgeFactory,
               ),
