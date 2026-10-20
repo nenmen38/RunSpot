@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:runquest/features/profile/data/achievements.dart';
+import 'package:runquest/features/profile/data/statistics_service.dart';
 import 'package:runquest/features/profile/privacy_controls.dart';
 import 'package:runquest/features/profile/widgets/achievement_row.dart';
 import 'package:runquest/features/profile/widgets/quick_stats.dart';
@@ -14,10 +15,12 @@ class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
     required this.onHistoryTap,
     this.progressService,
+    this.statisticsService,
     super.key,
   });
   final VoidCallback onHistoryTap;
   final ProgressService? progressService;
+  final StatisticsService? statisticsService;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +86,8 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            const QuickStats(),
+            if (statisticsService != null)
+              QuickStats(service: statisticsService!),
             const SizedBox(height: 10),
             Panel(
               child: Column(

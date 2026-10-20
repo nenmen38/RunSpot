@@ -3,7 +3,7 @@
 ## 현재 상태
 
 - 연결된 프로젝트: `RunSpot` (`rtdlluilhkcdghoakyrp`). 별도 운영 프로젝트 구분은 미확인입니다.
-- 원격 적용: 2026-10-13 기준 러닝 종료 기온 저장까지 마이그레이션 18개와 `run-feedback` 함수 반영 완료.
+- 원격 적용: 2026-10-20 기준 개인 통계·친구 주간 거리 집계까지 마이그레이션 20개와 `run-feedback` 함수 반영 완료.
 - 약관 제거는 서버에 수동 반영된 함수·권한과 테이블 제거 상태를 확인한 뒤 누락된 적용 이력만 정리했습니다. 실시간 지도와 기록 저장은 CLI로 적용했습니다.
 - 로컬 PostgreSQL 16에서 인증 대역을 사용해 기록 저장·중복 방지·본인 조회 및 기존 보안·지도 권한 테스트 통과.
 - 원격 DB에서도 기록 저장·재시도·타인 조회 차단을 트랜잭션 안에서 검증했고, 검증용 기록은 롤백했습니다.
@@ -28,6 +28,7 @@
 13. `migrations/20261013002352_run_feedback_quota.sql`: AI 피드백의 본인 조회, 계정별 72시간·전체 호출 예산과 서버 전용 예약·결과 저장.
 14. `migrations/20261013012622_run_temperature_snapshot.sql`: 종료 기온·관측 시각과 본인 저장 RPC. 기존 기록·경로 저장 RPC는 유지하고 과거 기온을 추정해 채우지 않습니다.
 15. `migrations/20261019000100_run_rewards.sql`: 러닝 경험치·레벨. 기록 저장과 같은 트랜잭션에서 보상을 한 번만 계산하고 본인 진행도·기록별 보상 조회 RPC를 추가합니다. 기존 기록에는 소급 지급하지 않습니다.
+16. `migrations/20261020065459_run_statistics_and_friend_ranking.sql`: 개인 통계·친구 주간 거리 집계 조회와 종료 시각 인덱스. 사용자 배포 승인 후 연결된 RunSpot 서버에 적용했습니다.
 
 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
@@ -79,7 +80,7 @@ supabase db push
 - 비공개 Storage 버킷 생성과 별도 Storage RLS. 객체 경로 문자열만 저장해도 접근 제어가 생기지는 않습니다.
 - Storage 원본 삭제, 탈퇴 시 객체 정리 및 보관 만료 작업. DB 행 삭제가 파일 삭제를 수행하지 않습니다.
 - 공개 경로 생성 시 시작·종료 주변 및 사용자가 지정한 보호 구역을 제거하고 위치 유추 위험을 평가합니다.
-- 랭킹은 검증된 기록·참여 동의·공개 범위·차단을 반영하는 서버 조회로 추가합니다.
+- 검증된 기록과 별도 참여 동의를 사용하는 공식 경쟁 랭킹은 후속 작업입니다. 현재 친구 주간 랭킹은 기존 프로필 공개 범위를 따르는 저장된 개인 측정 거리 비교입니다.
 
 완료된 개인 측정 경로는 비공개 JSON 좌표로 저장합니다. 기존 객체 경로 참조용 테이블은 유지하며 향후 대용량 파일 저장에 사용할 수 있습니다. 대규모 공간 검색은 전용 스키마의 PostGIS와 공간 인덱스로 확장해야 합니다.
 공유 경로는 원본 파일 경로를 노출하지 않고 별도의 가공된 폴리라인만 저장합니다.
@@ -113,6 +114,7 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20261013002352_run_feedback_quota.sql \
   -f supabase/migrations/20261013012622_run_temperature_snapshot.sql \
   -f supabase/migrations/20261019000100_run_rewards.sql \
+  -f supabase/migrations/20261020065459_run_statistics_and_friend_ranking.sql \
   -f supabase/tests/test_registration.sql \
   -f supabase/tests/registration.sql \
   -f supabase/tests/security.sql \
@@ -126,7 +128,8 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/tests/optional_phone_verification.sql \
   -f supabase/tests/run_feedback.sql \
   -f supabase/tests/run_temperature.sql \
-  -f supabase/tests/run_rewards.sql
+  -f supabase/tests/run_rewards.sql \
+  -f supabase/tests/run_statistics.sql
 ```
 
 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
@@ -328,3 +331,14 @@ group by b.provider,b.max_requests;
 참고: [마이그레이션](https://supabase.com/docs/guides/deployment/database-migrations),
 [행 수준 보안](https://supabase.com/docs/guides/database/postgres/row-level-security),
 [저장소 접근 제어](https://supabase.com/docs/guides/storage/security/access-control).
+
+## 개인 통계·친구 주간 거리 조회
+
+- `my_run_statistics()`는 활성 계정의 본인 기록 전체에서 주간 거리, 누적 완료 수, 페이스 계산용 누적 거리·활동 시간을 반환합니다. 개인 기록에는 이메일 인증을 요구하지 않습니다. 0 거리·0 활동 시간 기록은 횟수에 포함하고 페이스에서만 제외합니다.
+- `friend_weekly_ranking()`은 이메일 인증·닉네임 등록을 완료한 활성 계정에 본인과 공개 가능한 수락 친구의 주간 누적 거리를 반환합니다. 비공개·차단·정지·미인증·미수락·비친구는 제외하며 같은 거리는 `rank()`로 공동 순위를 부여합니다. 기록 없는 친구는 0m입니다.
+- 한국 시간 월요일 0시를 기준으로 `ended_at`을 반개구간으로 조회하고 미래 기록을 제외합니다. 서버 세션 시간대와 앱의 기록 목록 페이지 수에 의존하지 않습니다. `runs(user_id, ended_at)` 인덱스를 추가합니다.
+- 랭킹은 `rejected` 기록을 제외하고 `pending` 개인 측정값을 포함하는 친구 간 거리 비교입니다. 개인 원본·경로의 본인 전용 정책과 기록 검증 상태는 바꾸지 않습니다. 공개 응답에는 사용자 식별자와 개별 러닝 시각을 넣지 않습니다.
+- 공개 함수는 호출자 권한으로 비노출 스키마의 검사·집계 함수에 연결하며 비로그인 실행 권한을 회수합니다. 내부 함수도 로그인·계정 상태를 검사하고 빈 검색 경로를 사용합니다. 기존 함수와 테이블을 삭제하거나 수정하지 않습니다.
+- `tests/run_statistics.sql`은 주간 경계·미래 기록·0 거리·0 시간·누적 통계·공동 순위·비공개·차단 양방향·친구 삭제·미인증·정지·비로그인·원본 접근 차단을 검증합니다. 기존 마이그레이션 적용 뒤 새 마이그레이션과 함께 실행합니다.
+
+검증 결과: 격리된 PostgreSQL 16의 SQL 테스트 15개와 앱 테스트 254개가 통과했습니다. 전체 정적 검사에는 기존 `lib/screens/profile_screen.dart` 안내 4건만 남아 있으며 새 코드 관련 항목은 없습니다. 사용자의 명시적 배포 승인 후 2026-10-20 연결된 RunSpot 프로젝트에 적용했습니다. 읽기 전용 트랜잭션으로 실제 기록과 개인 통계의 일치, 랭킹 응답, 비로그인 실행 차단, 타인 원본 기록 차단을 확인했습니다. 배포 후 새 보안 점검 항목은 없으며 검증용 계정·러닝 기록은 추가하지 않았습니다.

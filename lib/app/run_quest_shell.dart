@@ -9,6 +9,7 @@ import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
+import 'package:runquest/features/profile/data/statistics_service.dart';
 import 'package:runquest/features/progress/data/progress_service.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
@@ -17,6 +18,7 @@ import 'package:runquest/features/run_history/run_history_screen.dart';
 import 'package:runquest/features/run_conditions/conditions_controller.dart';
 import 'package:runquest/features/run_conditions/data/conditions_service.dart';
 import 'package:runquest/features/social/data/friend_service.dart';
+import 'package:runquest/features/social/data/ranking_service.dart';
 import 'package:runquest/features/social/social_screen.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,6 +30,8 @@ class RunQuestShell extends StatefulWidget {
     this.friendService,
     this.conditionsController,
     this.progressService,
+    this.statisticsService,
+    this.rankingService,
     super.key,
   });
 
@@ -36,6 +40,8 @@ class RunQuestShell extends StatefulWidget {
   final FriendService? friendService;
   final ConditionsController? conditionsController;
   final ProgressService? progressService;
+  final StatisticsService? statisticsService;
+  final RankingService? rankingService;
 
   @override
   State<RunQuestShell> createState() => _RunQuestShellState();
@@ -46,7 +52,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
   late final LiveMapController _map;
   ConditionsController? _conditions;
   ProgressService? _progress;
-  int _rankingMode = 0;
+  StatisticsService? _statistics;
+  RankingService? _ranking;
   ReviewCase _review = const ReviewCase(
     user: 'speed_ghost',
     reason: '순간 속도 34.2km/h 감지',
@@ -62,12 +69,17 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _map = widget.mapController!;
       _conditions = widget.conditionsController;
       _progress = widget.progressService;
+      _statistics = widget.statisticsService;
+      _ranking = widget.rankingService;
     } else {
       final client = Supabase.instance.client;
       _conditions =
           widget.conditionsController ??
           ConditionsController(SupabaseConditionsService(client));
       _progress = widget.progressService ?? SupabaseProgressService(client);
+      _statistics =
+          widget.statisticsService ?? SupabaseStatisticsService(client);
+      _ranking = widget.rankingService ?? SupabaseRankingService(client);
       final records = SupabaseRunRecordService(client);
       _map = LiveMapController(
         locationService: DeviceLocationService(),
@@ -113,12 +125,15 @@ class _RunQuestShellState extends State<RunQuestShell> {
   Widget build(BuildContext context) {
     final pages = [
       SocialScreen(
-        rankingMode: _rankingMode,
-        onModeChanged: (value) => setState(() => _rankingMode = value),
+        rankingService: _ranking,
         friendService: widget.friendService,
         onProfileTap: () => setState(() => _tab = 2),
       ),
-      ProfileScreen(onHistoryTap: _openHistory, progressService: _progress),
+      ProfileScreen(
+        onHistoryTap: _openHistory,
+        progressService: _progress,
+        statisticsService: _statistics,
+      ),
       AdminScreen(review: _review, onAction: _setReviewStatus),
     ];
 

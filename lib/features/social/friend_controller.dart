@@ -23,6 +23,7 @@ class FriendController extends ChangeNotifier {
   bool loading = false;
   bool searching = false;
   bool loaded = false;
+  int revision = 0;
   bool searched = false;
   bool canInteract = false;
   String? busyUserId;
@@ -128,6 +129,7 @@ class FriendController extends ChangeNotifier {
     } finally {
       if (!_disposed && generation == _loadGeneration) {
         loading = false;
+        ++revision;
         notifyListeners();
       }
     }

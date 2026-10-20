@@ -4,6 +4,7 @@ import 'package:runquest/features/social/models/friend_entry.dart';
 import 'package:runquest/features/social/social_screen.dart';
 
 import 'support/friend_fakes.dart';
+import 'support/statistics_fakes.dart';
 
 void main() {
   Future<void> showSocial(
@@ -21,8 +22,7 @@ void main() {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: SocialScreen(
-                rankingMode: 0,
-                onModeChanged: (_) {},
+                rankingService: FakeRankingService(),
                 friendService: service,
                 onProfileTap: onProfile,
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'data/friend_service.dart';
+import 'data/ranking_service.dart';
 import 'friend_controller.dart';
 import 'widgets/friend_list.dart';
 import 'widgets/friend_ranking.dart';
@@ -9,15 +10,13 @@ import 'widgets/friend_search.dart';
 
 class SocialScreen extends StatefulWidget {
   const SocialScreen({
-    required this.rankingMode,
-    required this.onModeChanged,
+    this.rankingService,
     this.friendService,
     this.onProfileTap,
     super.key,
   });
 
-  final int rankingMode;
-  final ValueChanged<int> onModeChanged;
+  final RankingService? rankingService;
   final FriendService? friendService;
   final VoidCallback? onProfileTap;
 
@@ -28,11 +27,15 @@ class SocialScreen extends StatefulWidget {
 class _SocialScreenState extends State<SocialScreen>
     with WidgetsBindingObserver {
   late final FriendController _friends;
+  late final RankingService _ranking;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _ranking =
+        widget.rankingService ??
+        SupabaseRankingService(Supabase.instance.client);
     _friends = FriendController(
       widget.friendService ?? SupabaseFriendService(Supabase.instance.client),
     );
@@ -121,10 +124,7 @@ class _SocialScreenState extends State<SocialScreen>
                 FriendList(controller: _friends, requests: false),
                 FriendList(controller: _friends, requests: true),
                 FriendSearch(controller: _friends),
-                FriendRanking(
-                  mode: widget.rankingMode,
-                  onModeChanged: widget.onModeChanged,
-                ),
+                FriendRanking(service: _ranking, revision: _friends.revision),
               ],
             ),
           ),
