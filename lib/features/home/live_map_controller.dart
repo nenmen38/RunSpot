@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../run_history/run_history_controller.dart';
 import '../run_history/models/run_temperature.dart';
+import '../profile/data/run_sharing_preference_service.dart';
 
 import 'data/live_runner_service.dart';
 import 'data/location_service.dart';
@@ -17,11 +18,23 @@ class LiveMapController extends ChangeNotifier {
     required this.locationService,
     required this.runnerService,
     required this.runHistory,
+    this.sharingPreferenceService,
   });
 
   final LocationService locationService;
   final LiveRunnerService runnerService;
   final RunHistoryController runHistory;
+  final RunSharingPreferenceService? sharingPreferenceService;
+  bool shareWhileRunning = false;
+  bool loadingSharingPreference = false;
+  bool savingSharingPreference = false;
+  String? sharingPreferenceError;
+  bool _preferenceLoaded = false;
+  bool? _unsavedPreference;
+  int _preferenceGeneration = 0;
+
+  bool get sharingPreferenceLoaded =>
+      sharingPreferenceService == null || _preferenceLoaded;
   LocationFix? position;
   List<LiveRunner> runners = [];
   LocationFailure? locationFailure;
@@ -51,6 +64,107 @@ class LiveMapController extends ChangeNotifier {
     onFailure: (error) => unawaited(_locationLost(error)),
   );
   Future<void> _writes = Future.value();
+
+  bool get canShareLocation =>
+      !_disposed &&
+      _active &&
+      !startingRun &&
+      !savingRun &&
+      (sharingPreferenceService == null ||
+          (sharingPreferenceLoaded &&
+              shareWhileRunning &&
+              sharingPreferenceService!.isCurrentOwner)) &&
+      runSession?.isRunning == true &&
+      locationFailure == null &&
+      position?.isUsable == true;
+
+  Future<void> loadSharingPreference() async {
+    final service = sharingPreferenceService;
+    if (_disposed ||
+        service == null ||
+        loadingSharingPreference ||
+        savingSharingPreference) {
+      return;
+    }
+    final generation = ++_preferenceGeneration;
+    loadingSharingPreference = true;
+    sharingPreferenceError = null;
+    _notify();
+    try {
+      final enabled = await service.load().timeout(const Duration(seconds: 15));
+      if (_disposed || generation != _preferenceGeneration) return;
+      if (!service.isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+      shareWhileRunning = enabled;
+      _preferenceLoaded = true;
+    } catch (_) {
+      if (_disposed || generation != _preferenceGeneration) return;
+      shareWhileRunning = false;
+      _preferenceLoaded = false;
+      sharingPreferenceError = '위치 공유 설정을 불러오지 못했습니다. 공유는 꺼진 상태로 유지합니다.';
+    } finally {
+      if (!_disposed && generation == _preferenceGeneration) {
+        loadingSharingPreference = false;
+        _notify();
+        unawaited(_applySharingPreference());
+      }
+    }
+  }
+
+  Future<void> setShareWhileRunning(bool enabled) async {
+    if (_disposed ||
+        loadingSharingPreference ||
+        savingSharingPreference ||
+        !sharingPreferenceLoaded) {
+      return;
+    }
+    final generation = ++_preferenceGeneration;
+    savingSharingPreference = true;
+    sharingPreferenceError = null;
+    _unsavedPreference = enabled;
+    // 끄기는 저장 응답보다 먼저 적용하여 저장 실패 시에도 추가 전송을 막습니다.
+    if (!enabled) {
+      shareWhileRunning = false;
+      if (sharing || changingSharing) unawaited(setSharing(false));
+    }
+    _notify();
+    try {
+      final service = sharingPreferenceService;
+      if (service != null) {
+        if (!service.isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+        await service.save(enabled).timeout(const Duration(seconds: 15));
+        if (!service.isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+      }
+      if (_disposed || generation != _preferenceGeneration) return;
+      shareWhileRunning = enabled;
+      _unsavedPreference = null;
+    } catch (_) {
+      if (_disposed || generation != _preferenceGeneration) return;
+      shareWhileRunning = false;
+      sharingPreferenceError = '위치 공유 설정을 저장하지 못했습니다. 공유는 꺼진 상태로 유지합니다.';
+      if (sharing || changingSharing) unawaited(setSharing(false));
+    } finally {
+      if (!_disposed && generation == _preferenceGeneration) {
+        savingSharingPreference = false;
+        _notify();
+        unawaited(_applySharingPreference());
+      }
+    }
+  }
+
+  Future<void> retrySharingPreference() => _unsavedPreference != null
+      ? setShareWhileRunning(_unsavedPreference!)
+      : loadSharingPreference();
+
+  Future<void> _applySharingPreference() async {
+    if (_disposed || loadingSharingPreference || savingSharingPreference) {
+      return;
+    }
+    if (!shareWhileRunning) {
+      if (sharing || changingSharing) await setSharing(false);
+    } else if (canShareLocation && !sharing && !changingSharing) {
+      await setSharing(true);
+    }
+  }
 
   LocationTrackingMode get _trackingMode {
     if (_disposed || locationFailure != null) {
@@ -95,6 +209,7 @@ class LiveMapController extends ChangeNotifier {
 
   Future<void> start() async {
     if (_disposed || locating || !_active) return;
+    if (!sharingPreferenceLoaded) unawaited(loadSharingPreference());
     locating = true;
     locationFailure = null;
     _notify();
@@ -180,6 +295,7 @@ class LiveMapController extends ChangeNotifier {
       return;
     }
     startingRun = true;
+    if (!sharingPreferenceLoaded) unawaited(loadSharingPreference());
     final generation = _runStartGeneration = ++_activityGeneration;
     runError = null;
     _notify();
@@ -222,6 +338,7 @@ class LiveMapController extends ChangeNotifier {
         startingRun = false;
         await _syncTracking();
         _notify();
+        if (shareWhileRunning) unawaited(_applySharingPreference());
       }
     }
   }
@@ -231,6 +348,7 @@ class LiveMapController extends ChangeNotifier {
     runSession!.pause();
     _activityGeneration++;
     _runTimer?.cancel();
+    if (sharing || changingSharing) unawaited(setSharing(false));
     unawaited(_syncTracking());
     _notify();
   }
@@ -276,6 +394,11 @@ class LiveMapController extends ChangeNotifier {
 
   Future<void> setSharing(bool value) async {
     if (_disposed || (value && (changingSharing || !_active))) return;
+    if (value && !canShareLocation) {
+      sharingError = '러닝 중 정확한 현재 위치가 확인될 때만 공유할 수 있습니다.';
+      _notify();
+      return;
+    }
     final generation = ++_generation;
     changingSharing = true;
     sharingError = null;
@@ -290,17 +413,18 @@ class LiveMapController extends ChangeNotifier {
         await _enqueue(runnerService.stopSharing);
         return;
       }
+      if (!canShareLocation || generation != _generation) return;
       final fix = position;
       if (fix == null || !fix.isUsable) {
         sharingError = '정확한 현재 위치를 확인한 뒤 공유할 수 있습니다.';
         return;
       }
       await _enqueue(() async {
-        if (!_disposed && _active && generation == _generation) {
+        if (canShareLocation && generation == _generation) {
           await runnerService.publish(fix);
         }
       });
-      if (_disposed || !_active || generation != _generation) return;
+      if (!canShareLocation || generation != _generation) return;
       sharing = true;
       _lastPublished = DateTime.now();
       await runnerService.connect(_scheduleRefresh, (value) {
@@ -337,7 +461,9 @@ class LiveMapController extends ChangeNotifier {
   Future<void> _publish() async {
     final fix = position;
     final generation = _generation;
-    if (fix == null ||
+    if (!canShareLocation ||
+        !sharing ||
+        fix == null ||
         !fix.isUsable ||
         (_lastPublished != null &&
             DateTime.now().difference(_lastPublished!) <
@@ -347,7 +473,7 @@ class LiveMapController extends ChangeNotifier {
     _lastPublished = DateTime.now();
     try {
       await _enqueue(() async {
-        if (!_disposed && _active && sharing && generation == _generation) {
+        if (canShareLocation && sharing && generation == _generation) {
           await runnerService.publish(fix);
         }
       });
@@ -361,12 +487,14 @@ class LiveMapController extends ChangeNotifier {
   }
 
   void _scheduleRefresh() {
-    if (_disposed || !sharing || _refreshTimer?.isActive == true) return;
+    if (!canShareLocation || !sharing || _refreshTimer?.isActive == true) {
+      return;
+    }
     _refreshTimer = Timer(const Duration(seconds: 1), refresh);
   }
 
   Future<void> refresh() async {
-    if (_disposed || !sharing || _refreshing || !_active) return;
+    if (!canShareLocation || !sharing || _refreshing) return;
     _refreshing = true;
     final generation = _generation;
     final radius = radiusMeters;
@@ -411,6 +539,7 @@ class LiveMapController extends ChangeNotifier {
       } else {
         await start();
       }
+      if (shareWhileRunning) unawaited(_applySharingPreference());
     } else {
       _heartbeat?.cancel();
       _runTimer?.cancel();
@@ -436,6 +565,7 @@ class LiveMapController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _preferenceGeneration++;
     _generation++;
     _activityGeneration++;
     _heartbeat?.cancel();

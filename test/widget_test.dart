@@ -267,9 +267,42 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('프로필 공유 설정으로 러닝 중에만 자동 공유하고 끄면 즉시 중단합니다', (tester) async {
+    final controller = await showApp(tester, const Size(390, 844));
+    expect(find.byType(Switch), findsNothing);
+    await tester.tap(find.text('프로필').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('러닝 시 위치 공유'));
+    await tester.tap(find.text('러닝 시 위치 공유'));
+    await tester.pumpAndSettle();
+    expect(controller.shareWhileRunning, isTrue);
+    expect(controller.sharing, isFalse);
+    await tester.tap(find.text('홈').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('러닝 시작'));
+    await tester.pumpAndSettle();
+    expect(controller.sharing, isTrue);
+    await tester.tap(find.text('일시 정지'));
+    await tester.pumpAndSettle();
+    expect(controller.sharing, isFalse);
+    await tester.tap(find.text('러닝 계속'));
+    await tester.pumpAndSettle();
+    expect(controller.sharing, isTrue);
+    await tester.tap(find.text('프로필').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('러닝 시 위치 공유'));
+    await tester.tap(find.text('러닝 시 위치 공유'));
+    await tester.pumpAndSettle();
+    expect(controller.sharing, isFalse);
+    expect(controller.shareWhileRunning, isFalse);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('다른 탭을 다녀와도 지도와 공유 상태를 유지합니다', (tester) async {
     final controller = await showApp(tester, const Size(390, 844));
-    await tester.tap(find.byType(Switch));
+    await controller.setShareWhileRunning(true);
+    await tester.tap(find.text('러닝 시작'));
     await tester.pumpAndSettle();
     expect(controller.sharing, isTrue);
     await tester.tap(find.text('소셜').last);

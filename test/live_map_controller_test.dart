@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/models/live_runner.dart';
+import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -46,6 +47,81 @@ void main() {
     expect(controller.position!.latitude, 37.567);
     expect(service.actions, isEmpty);
   });
+
+  test('러닝 시작 전에는 위치가 있어도 공유와 주변 조회를 허용하지 않습니다', () async {
+    await controller.start();
+    expect(controller.position, isNotNull);
+    expect(controller.canShareLocation, isFalse);
+    await controller.setSharing(true);
+    await controller.refresh();
+    expect(controller.sharing, isFalse);
+    expect(service.actions, isEmpty);
+    expect(service.lastRadius, isNull);
+    expect(service.onChanged, isNull);
+  });
+
+  test('일시 정지 시 공유를 중단하고 러닝을 계속해도 자동 공개하지 않습니다', () async {
+    await controller.startRun();
+    expect(controller.canShareLocation, isTrue);
+    await controller.setSharing(true);
+    controller.pauseRun();
+    expect(controller.sharing, isFalse);
+    expect(controller.canShareLocation, isFalse);
+    await Future<void>.delayed(Duration.zero);
+    await controller.setSharing(true);
+    location.updates.add(testFix(latitude: 37.568));
+    await Future<void>.delayed(Duration.zero);
+    expect(service.actions, ['publish', 'stop']);
+    expect(controller.runners, isEmpty);
+    await controller.startRun();
+    expect(controller.canShareLocation, isTrue);
+    expect(controller.sharing, isFalse);
+    expect(service.actions, ['publish', 'stop']);
+    await controller.setSharing(true);
+    expect(controller.sharing, isTrue);
+    expect(service.actions, ['publish', 'stop', 'publish']);
+  });
+
+  test('공유 준비 중 일시 정지하면 위치를 전송하지 않습니다', () async {
+    await controller.startRun();
+    service.pendingDisconnect = Completer<void>();
+    final sharing = controller.setSharing(true);
+    await Future<void>.delayed(Duration.zero);
+    controller.pauseRun();
+    service.pendingDisconnect!.complete();
+    await sharing;
+    await Future<void>.delayed(Duration.zero);
+    expect(service.actions, ['stop']);
+    expect(controller.sharing, isFalse);
+    expect(controller.changingSharing, isFalse);
+    expect(service.onChanged, isNull);
+  });
+
+  for (final finish in [false, true]) {
+    test('위치 전송 중 ${finish ? '종료' : '일시 정지'}하면 마지막 서버 작업은 삭제입니다', () async {
+      await controller.startRun();
+      service.pendingPublish = Completer<void>();
+      final sharing = controller.setSharing(true);
+      await Future<void>.delayed(Duration.zero);
+      Future<RunSummary?>? ending;
+      if (finish) {
+        ending = controller.finishRun();
+      } else {
+        controller.pauseRun();
+      }
+      expect(controller.sharing, isFalse);
+      service.pendingPublish!.complete();
+      await sharing;
+      await ending;
+      await Future<void>.delayed(Duration.zero);
+      expect(service.actions, ['publish', 'stop']);
+      expect(controller.sharing, isFalse);
+      expect(controller.changingSharing, isFalse);
+      expect(service.onChanged, isNull);
+      await controller.setSharing(true);
+      expect(service.actions, ['publish', 'stop']);
+    });
+  }
 
   test('러닝 시작은 위치를 공개하지 않고 종료 후 새 측정을 시작합니다', () async {
     await controller.startRun();
@@ -281,7 +357,7 @@ void main() {
 
   test('정확도가 낮은 위치는 공유하지 않습니다', () async {
     location.fix = testFix(accuracy: 300);
-    await controller.start();
+    await controller.startRun();
     await controller.setSharing(true);
     expect(controller.sharing, isFalse);
     expect(service.actions, isEmpty);
@@ -298,7 +374,7 @@ void main() {
         updatedAt: DateTime.now(),
       ),
     ];
-    await controller.start();
+    await controller.startRun();
     await controller.setSharing(true);
     expect(controller.sharing, isTrue);
     expect(controller.connected, isTrue);
@@ -310,7 +386,7 @@ void main() {
   });
 
   test('전송 중 공유를 꺼도 마지막 서버 작업은 삭제입니다', () async {
-    await controller.start();
+    await controller.startRun();
     service.pendingPublish = Completer<void>();
     final startSharing = controller.setSharing(true);
     await Future<void>.delayed(Duration.zero);
@@ -323,10 +399,10 @@ void main() {
   });
 
   test('백그라운드 전환 시 공유를 중단하고 복귀해도 자동 공개하지 않습니다', () async {
-    await controller.start();
+    await controller.startRun();
     await controller.setSharing(true);
     await controller.setActive(false);
-    expect(location.activeWatches, 0);
+    expect(location.activeWatches, 1);
     expect(controller.sharing, isFalse);
     expect(controller.runners, isEmpty);
     expect(service.actions.last, 'stop');
@@ -336,7 +412,7 @@ void main() {
   });
 
   test('공유 해제 응답이 늦어도 복귀 후의 현재 위치를 지우지 않습니다', () async {
-    await controller.start();
+    await controller.startRun();
     await controller.setSharing(true);
     service.pendingStop = Completer<void>();
     final background = controller.setActive(false);
@@ -354,7 +430,7 @@ void main() {
       message: '이메일 인증이 필요합니다.',
       code: '42501',
     );
-    await controller.start();
+    await controller.startRun();
     await controller.setSharing(true);
     expect(controller.sharing, isFalse);
     expect(controller.sharingError, '이메일 인증이 필요합니다.');
@@ -362,7 +438,7 @@ void main() {
   });
 
   test('공유 중 GPS 정확도가 나빠지면 마지막 위치를 삭제합니다', () async {
-    await controller.start();
+    await controller.startRun();
     await controller.setSharing(true);
     location.updates.add(testFix(accuracy: 500));
     await Future<void>.delayed(Duration.zero);
@@ -372,7 +448,7 @@ void main() {
   });
 
   test('실시간 변경 신호로 갱신하고 연결 중단 시 이전 위치를 숨깁니다', () async {
-    await controller.start();
+    await controller.startRun();
     await controller.setSharing(true);
     service.runners = [
       LiveRunner(

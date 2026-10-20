@@ -408,7 +408,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           Text(
                             state.sharing
                                 ? '주변 러너 ${state.runners.length}명'
-                                : '내 위치만 표시 중',
+                                : state.shareWhileRunning
+                                ? '러닝 중에만 공유합니다.'
+                                : '프로필에서 러닝 시 위치 공유를 설정하세요.',
                           ),
                         ],
                       ),
@@ -419,12 +421,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                    Switch(
-                      value: state.sharing,
-                      onChanged: state.changingSharing || position == null
-                          ? null
-                          : state.setSharing,
-                    ),
                   ],
                 ),
                 if (state.sharing && !state.connected) const Text('실시간 연결 중'),

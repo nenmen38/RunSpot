@@ -3,7 +3,7 @@
 ## 현재 상태
 
 - 연결된 프로젝트: `RunSpot` (`rtdlluilhkcdghoakyrp`). 별도 운영 프로젝트 구분은 미확인입니다.
-- 원격 적용: 2026-10-20 기준 개인 통계·친구 주간 거리 집계까지 마이그레이션 20개와 `run-feedback` 함수 반영 완료.
+- 원격 적용: 2026-10-20 기준 러닝 시 자동 위치 공유 설정까지 마이그레이션 21개와 `run-feedback` 함수 반영 완료.
 - 약관 제거는 서버에 수동 반영된 함수·권한과 테이블 제거 상태를 확인한 뒤 누락된 적용 이력만 정리했습니다. 실시간 지도와 기록 저장은 CLI로 적용했습니다.
 - 로컬 PostgreSQL 16에서 인증 대역을 사용해 기록 저장·중복 방지·본인 조회 및 기존 보안·지도 권한 테스트 통과.
 - 원격 DB에서도 기록 저장·재시도·타인 조회 차단을 트랜잭션 안에서 검증했고, 검증용 기록은 롤백했습니다.
@@ -29,6 +29,7 @@
 14. `migrations/20261013012622_run_temperature_snapshot.sql`: 종료 기온·관측 시각과 본인 저장 RPC. 기존 기록·경로 저장 RPC는 유지하고 과거 기온을 추정해 채우지 않습니다.
 15. `migrations/20261019000100_run_rewards.sql`: 러닝 경험치·레벨. 기록 저장과 같은 트랜잭션에서 보상을 한 번만 계산하고 본인 진행도·기록별 보상 조회 RPC를 추가합니다. 기존 기록에는 소급 지급하지 않습니다.
 16. `migrations/20261020065459_run_statistics_and_friend_ranking.sql`: 개인 통계·친구 주간 거리 집계 조회와 종료 시각 인덱스. 사용자 배포 승인 후 연결된 RunSpot 서버에 적용했습니다.
+17. `migrations/20261020125728_run_location_preferences.sql`: 본인 전용 러닝 자동 위치 공유 설정과 접근 정책. 사용자 배포 승인 후 연결된 RunSpot 서버에 적용했습니다.
 
 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
@@ -115,6 +116,7 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20261013012622_run_temperature_snapshot.sql \
   -f supabase/migrations/20261019000100_run_rewards.sql \
   -f supabase/migrations/20261020065459_run_statistics_and_friend_ranking.sql \
+  -f supabase/migrations/20261020125728_run_location_preferences.sql \
   -f supabase/tests/test_registration.sql \
   -f supabase/tests/registration.sql \
   -f supabase/tests/security.sql \
@@ -129,7 +131,8 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
   -f supabase/tests/run_feedback.sql \
   -f supabase/tests/run_temperature.sql \
   -f supabase/tests/run_rewards.sql \
-  -f supabase/tests/run_statistics.sql
+  -f supabase/tests/run_statistics.sql \
+  -f supabase/tests/run_location_preferences.sql
 ```
 
 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
@@ -342,3 +345,12 @@ group by b.provider,b.max_requests;
 - `tests/run_statistics.sql`은 주간 경계·미래 기록·0 거리·0 시간·누적 통계·공동 순위·비공개·차단 양방향·친구 삭제·미인증·정지·비로그인·원본 접근 차단을 검증합니다. 기존 마이그레이션 적용 뒤 새 마이그레이션과 함께 실행합니다.
 
 검증 결과: 격리된 PostgreSQL 16의 SQL 테스트 15개와 앱 테스트 254개가 통과했습니다. 전체 정적 검사에는 기존 `lib/screens/profile_screen.dart` 안내 4건만 남아 있으며 새 코드 관련 항목은 없습니다. 사용자의 명시적 배포 승인 후 2026-10-20 연결된 RunSpot 프로젝트에 적용했습니다. 읽기 전용 트랜잭션으로 실제 기록과 개인 통계의 일치, 랭킹 응답, 비로그인 실행 차단, 타인 원본 기록 차단을 확인했습니다. 배포 후 새 보안 점검 항목은 없으며 검증용 계정·러닝 기록은 추가하지 않았습니다.
+
+## 러닝 시 자동 위치 공유 설정
+
+- `run_location_preferences`는 계정별 `enabled` 설정만 보관합니다. 기존 계정은 행이 없으면 꺼짐으로 해석하며 새 행의 기본값도 꺼짐입니다. 앱은 프로필에서 저장하고 러닝 시작·재개 시 적용합니다.
+- 기본 테이블 접근을 회수한 뒤 로그인 계정에 조회·생성·수정만 허용하고, 모든 정책에서 본인 식별자와 활성 계정을 확인합니다. 타인의 설정 조회·수정·생성, 소유권 변경과 클라이언트의 직접 삭제는 차단합니다. 이메일 인증이나 프로필 공개 범위는 변경하지 않습니다.
+- `20261020125728_run_location_preferences.sql`은 새 설정 테이블과 본인 전용 정책만 추가합니다. 기존 위치 공유·친구·기록 테이블과 정책은 변경하지 않습니다. 사용자 배포 승인 후 2026-10-20 연결된 RunSpot 프로젝트에 적용했습니다. 기본 미동의 상태·비로그인 조회 차단·본인 저장 권한과 타인 설정 비노출을 확인했으며 새 보안 점검 항목은 없습니다.
+- `tests/run_location_preferences.sql`은 기본값, 본인 저장, 계정 분리, 소유권 변경, 비로그인·정지 계정 차단을 검증합니다.
+
+프로필 자동 공유 설정 검증: 앱 테스트 270개·로컬 SQL 테스트 16개·변경 코드 정적 검사를 통과했습니다. 실제 사용자 설정과 위치 공유 동의는 검증 과정에서 켜지 않았습니다.

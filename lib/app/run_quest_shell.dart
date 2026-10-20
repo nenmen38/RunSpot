@@ -10,6 +10,7 @@ import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
 import 'package:runquest/features/profile/data/statistics_service.dart';
+import 'package:runquest/features/profile/data/run_sharing_preference_service.dart';
 import 'package:runquest/features/progress/data/progress_service.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
 import 'package:runquest/features/run_history/data/run_record_service.dart';
@@ -82,6 +83,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _ranking = widget.rankingService ?? SupabaseRankingService(client);
       final records = SupabaseRunRecordService(client);
       _map = LiveMapController(
+        sharingPreferenceService: SupabaseRunSharingPreferenceService(client),
         locationService: DeviceLocationService(),
         runnerService: SupabaseLiveRunnerService(client),
         runHistory: RunHistoryController(
@@ -133,6 +135,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         onHistoryTap: _openHistory,
         progressService: _progress,
         statisticsService: _statistics,
+        mapController: _map,
       ),
       AdminScreen(review: _review, onAction: _setReviewStatus),
     ];

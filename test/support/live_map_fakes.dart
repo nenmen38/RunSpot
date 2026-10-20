@@ -82,6 +82,7 @@ class FakeRunnerService implements LiveRunnerService {
   Object? publishFailure;
   Completer<void>? pendingPublish;
   Completer<void>? pendingStop;
+  Completer<void>? pendingDisconnect;
   void Function()? onChanged;
   void Function(bool)? onConnection;
   int? lastRadius;
@@ -117,6 +118,7 @@ class FakeRunnerService implements LiveRunnerService {
 
   @override
   Future<void> disconnect() async {
+    if (pendingDisconnect != null) await pendingDisconnect!.future;
     onChanged = null;
     onConnection = null;
   }

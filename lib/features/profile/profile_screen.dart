@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../home/live_map_controller.dart';
+import 'widgets/run_sharing_control.dart';
+
 import 'package:runquest/features/profile/data/achievements.dart';
 import 'package:runquest/features/profile/data/statistics_service.dart';
 import 'package:runquest/features/profile/privacy_controls.dart';
@@ -16,11 +20,13 @@ class ProfileScreen extends StatelessWidget {
     required this.onHistoryTap,
     this.progressService,
     this.statisticsService,
+    this.mapController,
     super.key,
   });
   final VoidCallback onHistoryTap;
   final ProgressService? progressService;
   final StatisticsService? statisticsService;
+  final LiveMapController? mapController;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +79,10 @@ class ProfileScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 12),
                   const PrivacyControls(),
+                  if (mapController != null) ...[
+                    const SizedBox(height: 10),
+                    RunSharingControl(controller: mapController!),
+                  ],
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
