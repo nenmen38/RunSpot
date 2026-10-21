@@ -19,11 +19,26 @@ class RunControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = controller.runSession;
     final running = session?.isRunning == true;
-    final waiting = busy || controller.startingRun || controller.savingRun;
+    final waiting =
+        busy ||
+        controller.startingRun ||
+        controller.savingRun ||
+        controller.groupPreparing ||
+        controller.groupPrepared;
     final finished = session?.isFinished == true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (controller.groupPreparing || controller.groupPrepared)
+          Row(
+            children: [
+              const Expanded(child: Text('그룹 출발 준비 중입니다. 앱을 열어 두세요.')),
+              TextButton(
+                onPressed: controller.cancelGroupPreparation,
+                child: const Text('준비 취소'),
+              ),
+            ],
+          ),
         if (session != null) ...[
           const SizedBox(height: 8),
           Align(

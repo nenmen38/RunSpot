@@ -36,7 +36,7 @@ values ('30000000-0000-0000-0000-000000000001','test','test');
 insert into runspot_private.user_roles(user_id,role)
 values ('00000000-0000-0000-0000-000000000003','admin');
 select pg_temp.assert_true((select count(*)=5 from public.route_presets),'프리셋 초기 데이터');
-select pg_temp.assert_true((select count(*)=3 from public.achievement_definitions),'업적 초기 데이터');
+select pg_temp.assert_true((select count(*)=6 from public.achievement_definitions),'기존 업적과 실제 러닝 업적 정의');
 
 set local role anon;
 select pg_temp.assert_true(pg_temp.denied('select * from public.profiles'),'비로그인 조회 차단');

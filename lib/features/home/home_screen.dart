@@ -14,6 +14,8 @@ import '../run_history/widgets/run_record_details.dart';
 import '../run_conditions/conditions_controller.dart';
 import '../run_conditions/widgets/conditions_panel.dart';
 import '../run_share/run_share_screen.dart';
+import '../social/data/block_service.dart';
+import '../social/widgets/block_button.dart';
 import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
@@ -24,6 +26,7 @@ class HomeScreen extends StatefulWidget {
     this.mapBridgeFactory,
     this.conditionsController,
     this.progressService,
+    this.blockService,
     this.isActive = true,
     super.key,
   });
@@ -31,6 +34,7 @@ class HomeScreen extends StatefulWidget {
   final MapBridgeFactory? mapBridgeFactory;
   final ConditionsController? conditionsController;
   final ProgressService? progressService;
+  final BlockService? blockService;
   final bool isActive;
 
   @override
@@ -372,10 +376,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       subtitle: Text(
                         '${_distance(selected.distanceMeters)} 거리',
                       ),
-                      trailing: IconButton(
-                        tooltip: '닫기',
-                        icon: const Icon(Icons.close),
-                        onPressed: () => setState(() => _selectedId = null),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.blockService case final service?)
+                            BlockButton(
+                              service: service,
+                              userId: selected.id,
+                              nickname: selected.nickname,
+                              onChanged: () {
+                                setState(() => _selectedId = null);
+                                state.hideBlockedRunner(selected.id);
+                                unawaited(state.refresh());
+                              },
+                            ),
+                          IconButton(
+                            tooltip: '닫기',
+                            icon: const Icon(Icons.close),
+                            onPressed: () => setState(() => _selectedId = null),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -434,6 +454,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     state.runners.isEmpty &&
                     state.sharingError == null)
                   const Text('주변에 위치를 공유 중인 러너가 없습니다.'),
+                if (state.recoveredRun)
+                  const Text(
+                    '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
+                  ),
                 RunControls(
                   controller: state,
                   busy: _endingRun,

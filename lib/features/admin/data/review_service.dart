@@ -1,0 +1,64 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class IntegrityReview {
+  IntegrityReview.fromJson(Map<String, dynamic> json)
+    : id = json['id'] as String,
+      nickname = json['nickname'] as String,
+      distance = json['distance_m'] as int,
+      seconds = json['duration_sec'] as int,
+      risk = json['risk'] as int;
+  final String id;
+  final String nickname;
+  final int distance;
+  final int seconds;
+  final int risk;
+}
+
+abstract interface class ReviewService {
+  bool get isCurrentOwner;
+  Future<List<IntegrityReview>> load();
+  Future<void> resolve(
+    String id, {
+    required bool approved,
+    required String note,
+  });
+}
+
+class SupabaseReviewService implements ReviewService {
+  SupabaseReviewService(this.client) : _owner = client.auth.currentUser?.id;
+  final SupabaseClient client;
+  final String? _owner;
+  @override
+  bool get isCurrentOwner =>
+      _owner != null && client.auth.currentSession?.user.id == _owner;
+  Future<dynamic> _rpc(String name, [Map<String, dynamic>? params]) async {
+    if (!isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+    final session = client.auth.currentSession!;
+    final result = await client
+        .rpc(name, params: params)
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    if (!isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+    return result;
+  }
+
+  @override
+  Future<List<IntegrityReview>> load() async =>
+      (await _rpc('review_cases') as List)
+          .map(
+            (row) =>
+                IntegrityReview.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
+          .toList();
+  @override
+  Future<void> resolve(
+    String id, {
+    required bool approved,
+    required String note,
+  }) async {
+    await _rpc('resolve_review', {
+      'case_id': id,
+      'decision': approved ? 'approved' : 'rejected',
+      'note': note,
+    });
+  }
+}

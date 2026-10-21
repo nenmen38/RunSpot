@@ -2,22 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'data/friend_service.dart';
+import 'data/block_service.dart';
 import 'data/ranking_service.dart';
 import 'friend_controller.dart';
 import 'widgets/friend_list.dart';
 import 'widgets/friend_ranking.dart';
 import 'widgets/friend_search.dart';
+import '../group_running/group_controller.dart';
+import '../group_running/group_running_screen.dart';
 
 class SocialScreen extends StatefulWidget {
   const SocialScreen({
     this.rankingService,
     this.friendService,
+    this.blockService,
+    this.groupController,
     this.onProfileTap,
     super.key,
   });
 
   final RankingService? rankingService;
   final FriendService? friendService;
+  final BlockService? blockService;
+  final GroupController? groupController;
   final VoidCallback? onProfileTap;
 
   @override
@@ -77,6 +84,19 @@ class _SocialScreenState extends State<SocialScreen>
                     : _friends.refresh,
                 icon: const Icon(Icons.refresh),
               ),
+              if (widget.groupController case final controller?)
+                IconButton(
+                  tooltip: '함께 달리기',
+                  icon: const Icon(Icons.directions_run),
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => GroupRunningScreen(
+                        controller: controller,
+                        friends: _friends,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
           TabBar(
@@ -121,9 +141,20 @@ class _SocialScreenState extends State<SocialScreen>
           Expanded(
             child: TabBarView(
               children: [
-                FriendList(controller: _friends, requests: false),
-                FriendList(controller: _friends, requests: true),
-                FriendSearch(controller: _friends),
+                FriendList(
+                  controller: _friends,
+                  requests: false,
+                  blockService: widget.blockService,
+                ),
+                FriendList(
+                  controller: _friends,
+                  requests: true,
+                  blockService: widget.blockService,
+                ),
+                FriendSearch(
+                  controller: _friends,
+                  blockService: widget.blockService,
+                ),
                 FriendRanking(service: _ranking, revision: _friends.revision),
               ],
             ),

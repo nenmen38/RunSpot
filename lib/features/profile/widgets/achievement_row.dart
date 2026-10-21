@@ -41,6 +41,10 @@ class AchievementRow extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 5),
+              if (achievement.achievedAt case final date?)
+                Text(
+                  '달성 ${date.toLocal().year}.${date.toLocal().month}.${date.toLocal().day}',
+                ),
               LinearProgressIndicator(
                 value: achievement.progress,
                 minHeight: 6,

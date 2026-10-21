@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../friend_controller.dart';
+import '../data/block_service.dart';
+import 'block_button.dart';
 import '../models/friend_entry.dart';
 
 class FriendList extends StatelessWidget {
   const FriendList({
     required this.controller,
     required this.requests,
+    this.blockService,
     super.key,
   });
   final FriendController controller;
   final bool requests;
+  final BlockService? blockService;
 
   @override
   Widget build(BuildContext context) {
@@ -25,18 +29,30 @@ class FriendList extends StatelessWidget {
             _Heading('받은 요청', received.length),
             if (received.isEmpty) const _Empty('받은 요청이 없습니다.'),
             for (final entry in received)
-              FriendRow(entry: entry, controller: controller),
+              FriendRow(
+                entry: entry,
+                controller: controller,
+                blockService: blockService,
+              ),
             const Divider(height: 24),
             _Heading('보낸 요청', sent.length),
             if (sent.isEmpty) const _Empty('보낸 요청이 없습니다.'),
             for (final entry in sent)
-              FriendRow(entry: entry, controller: controller),
+              FriendRow(
+                entry: entry,
+                controller: controller,
+                blockService: blockService,
+              ),
           ] else ...[
             _Heading('내 친구', controller.friends.length),
             if (controller.friends.isEmpty && controller.loaded)
               const _Empty('아직 친구가 없습니다.'),
             for (final entry in controller.friends)
-              FriendRow(entry: entry, controller: controller),
+              FriendRow(
+                entry: entry,
+                controller: controller,
+                blockService: blockService,
+              ),
           ],
         ],
       ),
@@ -66,9 +82,15 @@ class _Empty extends StatelessWidget {
 }
 
 class FriendRow extends StatelessWidget {
-  const FriendRow({required this.entry, required this.controller, super.key});
+  const FriendRow({
+    required this.entry,
+    required this.controller,
+    this.blockService,
+    super.key,
+  });
   final FriendEntry entry;
   final FriendController controller;
+  final BlockService? blockService;
 
   Future<void> _confirmRemoval(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -162,6 +184,16 @@ class FriendRow extends StatelessWidget {
                 icon: const Icon(Icons.person_remove_outlined),
               ),
             },
+          if (blockService case final service?)
+            BlockButton(
+              service: service,
+              userId: entry.userId,
+              nickname: entry.nickname,
+              onChanged: () {
+                controller.queryChanged('');
+                controller.refresh();
+              },
+            ),
         ],
       ),
     );

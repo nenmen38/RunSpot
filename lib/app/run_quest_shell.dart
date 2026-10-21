@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import '../shared/maps/run_map.dart';
 
 import 'package:runquest/features/admin/admin_screen.dart';
-import 'package:runquest/features/admin/models/review_case.dart';
+import 'package:runquest/features/admin/data/review_service.dart';
+import 'package:runquest/features/profile/data/achievement_service.dart';
+import 'package:runquest/features/group_running/data/group_service.dart';
+import 'package:runquest/features/group_running/group_controller.dart';
 import 'package:runquest/features/home/data/live_runner_service.dart';
 import 'package:runquest/features/home/data/location_service.dart';
+import 'package:runquest/features/home/data/run_checkpoint_store.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
@@ -19,6 +23,7 @@ import 'package:runquest/features/run_history/run_history_screen.dart';
 import 'package:runquest/features/run_conditions/conditions_controller.dart';
 import 'package:runquest/features/run_conditions/data/conditions_service.dart';
 import 'package:runquest/features/social/data/friend_service.dart';
+import 'package:runquest/features/social/data/block_service.dart';
 import 'package:runquest/features/social/data/ranking_service.dart';
 import 'package:runquest/features/social/social_screen.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
@@ -55,13 +60,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
   ProgressService? _progress;
   StatisticsService? _statistics;
   RankingService? _ranking;
-  ReviewCase _review = const ReviewCase(
-    user: 'speed_ghost',
-    reason: '순간 속도 34.2km/h 감지',
-    summary: '10.02km · 22:18 · 페이스 변동 1.2%',
-    risk: 92,
-    status: '검토 필요',
-  );
+  BlockService? _blocks;
+  AchievementService? _achievements;
+  ReviewService? _reviews;
+  GroupController? _groups;
 
   @override
   void initState() {
@@ -74,6 +76,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _ranking = widget.rankingService;
     } else {
       final client = Supabase.instance.client;
+      _blocks = SupabaseBlockService(client);
+      _achievements = SupabaseAchievementService(client);
+      _reviews = SupabaseReviewService(client);
       _conditions =
           widget.conditionsController ??
           ConditionsController(SupabaseConditionsService(client));
@@ -83,6 +88,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _ranking = widget.rankingService ?? SupabaseRankingService(client);
       final records = SupabaseRunRecordService(client);
       _map = LiveMapController(
+        checkpointStore: SqliteRunCheckpointStore(
+          ownerId: records.ownerId,
+          namespace: client.rest.url,
+        ),
         sharingPreferenceService: SupabaseRunSharingPreferenceService(client),
         locationService: DeviceLocationService(),
         runnerService: SupabaseLiveRunnerService(client),
@@ -94,25 +103,17 @@ class _RunQuestShellState extends State<RunQuestShell> {
           ),
         ),
       );
+      _groups = GroupController(SupabaseGroupService(client), _map);
     }
   }
 
   @override
   void dispose() {
+    _groups?.dispose();
     if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
     super.dispose();
-  }
-
-  void _setReviewStatus(String status) {
-    setState(() => _review = _review.copyWith(status: status));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_review.user}님에게 "$status" 알림을 보냈습니다.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _openHistory() {
@@ -129,6 +130,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       SocialScreen(
         rankingService: _ranking,
         friendService: widget.friendService,
+        blockService: _blocks,
+        groupController: _groups,
         onProfileTap: () => setState(() => _tab = 2),
       ),
       ProfileScreen(
@@ -136,8 +139,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
         progressService: _progress,
         statisticsService: _statistics,
         mapController: _map,
+        blockService: _blocks,
+        achievementService: _achievements,
       ),
-      AdminScreen(review: _review, onAction: _setReviewStatus),
+      AdminScreen(service: _reviews),
     ];
 
     return Scaffold(
@@ -150,6 +155,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
                 controller: _map,
                 conditionsController: _conditions,
                 progressService: _progress,
+                blockService: _blocks,
                 isActive: _tab == 0,
                 mapBridgeFactory: widget.mapBridgeFactory,
               ),

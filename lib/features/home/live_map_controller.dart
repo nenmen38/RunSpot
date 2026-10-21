@@ -10,6 +10,7 @@ import '../profile/data/run_sharing_preference_service.dart';
 import 'data/live_runner_service.dart';
 import 'data/location_service.dart';
 import 'data/location_tracker.dart';
+import 'data/run_checkpoint_store.dart';
 import 'models/live_runner.dart';
 import 'models/run_session.dart';
 
@@ -19,11 +20,71 @@ class LiveMapController extends ChangeNotifier {
     required this.runnerService,
     required this.runHistory,
     this.sharingPreferenceService,
+    this.checkpointStore,
   });
 
   final LocationService locationService;
   final LiveRunnerService runnerService;
   final RunHistoryController runHistory;
+  final RunCheckpointStore? checkpointStore;
+  Future<void>? _restoring;
+  bool _recoveryLoaded = false;
+  bool recoveredRun = false;
+  Timer? _checkpointTimer;
+  Future<void> _checkpointWrites = Future.value();
+
+  Future<void> restoreRun() =>
+      _restoring ??= _restoreRun().whenComplete(() => _restoring = null);
+
+  Future<void> _restoreRun() async {
+    if (_recoveryLoaded || checkpointStore == null) {
+      _recoveryLoaded = true;
+      return;
+    }
+    if (!runHistory.service.isCurrentOwner) return;
+    try {
+      final checkpoint = await checkpointStore!.load();
+      if (_disposed || !runHistory.service.isCurrentOwner) return;
+      if (checkpoint != null && runSession == null) {
+        runSession = RunSession.restore(
+          checkpoint.summary,
+          finished: checkpoint.finished,
+        );
+        recoveredRun = true;
+      }
+      _recoveryLoaded = true;
+    } catch (_) {
+      runError = '진행 중 러닝을 복구하지 못했습니다. 다시 시도해 주세요.';
+    }
+    _notify();
+  }
+
+  Future<void> _saveCheckpoint() async {
+    final session = runSession;
+    if (checkpointStore == null ||
+        session == null ||
+        _disposed ||
+        !runHistory.service.isCurrentOwner) {
+      return;
+    }
+    final checkpoint = RunCheckpoint(
+      session.checkpoint(),
+      finished: session.isFinished,
+    );
+    final write = _checkpointWrites.then(
+      (_) => checkpointStore!.save(checkpoint),
+    );
+    _checkpointWrites = write.catchError((Object _) {});
+    try {
+      await write;
+    } catch (_) {
+      if (!_disposed) {
+        runError = '진행 중 러닝을 기기에 보관하지 못했습니다. 저장 공간을 확인해 주세요.';
+        _notify();
+      }
+    }
+  }
+
   final RunSharingPreferenceService? sharingPreferenceService;
   bool shareWhileRunning = false;
   bool loadingSharingPreference = false;
@@ -37,11 +98,94 @@ class LiveMapController extends ChangeNotifier {
       sharingPreferenceService == null || _preferenceLoaded;
   LocationFix? position;
   List<LiveRunner> runners = [];
+  int _runnerRevision = 0;
   LocationFailure? locationFailure;
   String? sharingError;
   String? runError;
   RunSession? runSession;
   bool startingRun = false;
+  bool groupPreparing = false;
+  bool groupPrepared = false;
+
+  Future<bool> prepareGroupRun() async {
+    await restoreRun();
+    if (_disposed ||
+        !_active ||
+        !_recoveryLoaded ||
+        runSession != null ||
+        startingRun ||
+        groupPreparing) {
+      return false;
+    }
+    groupPreparing = true;
+    final generation = ++_activityGeneration;
+    try {
+      final fix = await locationService.current(requestPermission: true);
+      if (_disposed ||
+          !_active ||
+          generation != _activityGeneration ||
+          !fix.isUsable) {
+        return false;
+      }
+      locationFailure = null;
+      final ready = await _tracker.setMode(
+        LocationTrackingMode.recording,
+        waitForFix: true,
+      );
+      if (_disposed ||
+          !_active ||
+          generation != _activityGeneration ||
+          ready?.isUsable != true ||
+          runSession != null) {
+        return false;
+      }
+      position = ready;
+      groupPrepared = true;
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      groupPreparing = false;
+      if (!groupPrepared) unawaited(_syncTracking());
+      _notify();
+    }
+  }
+
+  Future<void> cancelGroupPreparation() async {
+    if (groupPrepared || groupPreparing) _activityGeneration++;
+    groupPreparing = false;
+    groupPrepared = false;
+    if (!_disposed) await _syncTracking();
+    _notify();
+  }
+
+  Future<String?> startPreparedGroupRun() async {
+    final fix = position;
+    if (_disposed ||
+        !_active ||
+        !groupPrepared ||
+        runSession != null ||
+        fix?.isUsable != true ||
+        locationFailure != null ||
+        !runHistory.service.isCurrentOwner) {
+      return null;
+    }
+    groupPrepared = false;
+    runSession = RunSession(fix!);
+    final clientRunId = runSession!.clientRunId;
+    _startTimers();
+    await _saveCheckpoint();
+    if (!_disposed && checkpointStore != null) {
+      _checkpointTimer ??= Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => unawaited(_saveCheckpoint()),
+      );
+    }
+    _notify();
+    if (shareWhileRunning) unawaited(_applySharingPreference());
+    return clientRunId;
+  }
+
   bool savingRun = false;
   bool locating = false;
   bool sharing = false;
@@ -171,6 +315,7 @@ class LiveMapController extends ChangeNotifier {
       return LocationTrackingMode.stopped;
     }
     if (runSession?.isRunning == true ||
+        ((_active && (groupPreparing || groupPrepared))) ||
         (startingRun &&
             _active &&
             _runStartGeneration == _activityGeneration)) {
@@ -185,7 +330,9 @@ class LiveMapController extends ChangeNotifier {
     } catch (_) {
       if (_disposed) return;
       locationFailure = const LocationFailure(LocationProblem.unavailable);
+      groupPrepared = false;
       runSession?.pause();
+      unawaited(_saveCheckpoint());
       _runTimer?.cancel();
       position = null;
       if (sharing || changingSharing) unawaited(setSharing(false));
@@ -208,6 +355,8 @@ class LiveMapController extends ChangeNotifier {
   }
 
   Future<void> start() async {
+    if (_disposed || locating || !_active) return;
+    await restoreRun();
     if (_disposed || locating || !_active) return;
     if (!sharingPreferenceLoaded) unawaited(loadSharingPreference());
     locating = true;
@@ -276,7 +425,9 @@ class LiveMapController extends ChangeNotifier {
   Future<void> _locationLost(LocationFailure error) async {
     if (_disposed) return;
     locationFailure = error;
+    groupPrepared = false;
     runSession?.pause();
+    unawaited(_saveCheckpoint());
     _runTimer?.cancel();
     _activityGeneration++;
     position = null;
@@ -286,9 +437,13 @@ class LiveMapController extends ChangeNotifier {
   }
 
   Future<void> startRun() async {
+    await restoreRun();
+    if (!_recoveryLoaded || !runHistory.service.isCurrentOwner) return;
     if (_disposed ||
         !_active ||
         startingRun ||
+        groupPreparing ||
+        groupPrepared ||
         savingRun ||
         runSession?.isRunning == true ||
         runSession?.isFinished == true) {
@@ -323,6 +478,14 @@ class LiveMapController extends ChangeNotifier {
         runSession!.resume(ready);
       }
       _startTimers();
+      recoveredRun = false;
+      await _saveCheckpoint();
+      if (!_disposed && checkpointStore != null) {
+        _checkpointTimer ??= Timer.periodic(
+          const Duration(seconds: 5),
+          (_) => unawaited(_saveCheckpoint()),
+        );
+      }
     } on LocationFailure catch (error) {
       if (!_disposed && generation == _activityGeneration) {
         runError = error.message;
@@ -346,6 +509,7 @@ class LiveMapController extends ChangeNotifier {
   void pauseRun() {
     if (runSession == null) return;
     runSession!.pause();
+    unawaited(_saveCheckpoint());
     _activityGeneration++;
     _runTimer?.cancel();
     if (sharing || changingSharing) unawaited(setSharing(false));
@@ -358,7 +522,11 @@ class LiveMapController extends ChangeNotifier {
   }) async {
     final session = runSession;
     if (_disposed || session == null || savingRun) return null;
+    savingRun = true;
+    _checkpointTimer?.cancel();
+    _checkpointTimer = null;
     final summary = session.finish(temperatureAtEnd: temperatureAtEnd);
+    await _saveCheckpoint();
     _activityGeneration++;
     _runTimer?.cancel();
     unawaited(_syncTracking());
@@ -369,8 +537,16 @@ class LiveMapController extends ChangeNotifier {
       // 위치 공유 정리 중 연결이 끊겨도 완료 기록의 기기 저장은 지연하지 않습니다.
       if (sharing || changingSharing) unawaited(setSharing(false));
       await runHistory.save(summary);
+      if (checkpointStore != null) {
+        final cleared = _checkpointWrites.then((_) => checkpointStore!.clear());
+        _checkpointWrites = cleared.catchError((Object _) {});
+        await cleared;
+      }
       if (_disposed) return null;
       runSession = null;
+      recoveredRun = false;
+      _checkpointTimer?.cancel();
+      _checkpointTimer = null;
       return summary;
     } catch (error) {
       if (!_disposed) {
@@ -498,12 +674,14 @@ class LiveMapController extends ChangeNotifier {
     _refreshing = true;
     final generation = _generation;
     final radius = radiusMeters;
+    final revision = _runnerRevision;
     try {
       final result = await runnerService.nearby(radius);
       if (!_disposed &&
           sharing &&
           generation == _generation &&
-          radius == radiusMeters) {
+          radius == radiusMeters &&
+          revision == _runnerRevision) {
         runners = result;
         sharingError = null;
         _notify();
@@ -516,6 +694,7 @@ class LiveMapController extends ChangeNotifier {
       }
     } finally {
       _refreshing = false;
+      if (revision != _runnerRevision) unawaited(refresh());
     }
   }
 
@@ -525,6 +704,13 @@ class LiveMapController extends ChangeNotifier {
     runners = [];
     _notify();
     _scheduleRefresh();
+  }
+
+  void hideBlockedRunner(String userId) {
+    // 차단 이전에 시작한 지도 조회 응답에서도 해당 러너가 되살아나지 않게 합니다.
+    _runnerRevision++;
+    runners = runners.where((runner) => runner.id != userId).toList();
+    _notify();
   }
 
   Future<void> setActive(bool active) async {
@@ -541,6 +727,8 @@ class LiveMapController extends ChangeNotifier {
       }
       if (shareWhileRunning) unawaited(_applySharingPreference());
     } else {
+      groupPrepared = false;
+      unawaited(_saveCheckpoint());
       _heartbeat?.cancel();
       _runTimer?.cancel();
       // 개인 측정은 유지하지만 공개 위치는 즉시 비공개로 전환합니다.
@@ -564,6 +752,9 @@ class LiveMapController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _checkpointTimer?.cancel();
+    runSession?.pause();
+    unawaited(_saveCheckpoint());
     _disposed = true;
     _preferenceGeneration++;
     _generation++;
@@ -572,6 +763,11 @@ class LiveMapController extends ChangeNotifier {
     _refreshTimer?.cancel();
     _runTimer?.cancel();
     runSession?.pause();
+    unawaited(
+      _checkpointWrites
+          .then((_) => checkpointStore?.close())
+          .catchError((Object _) {}),
+    );
     unawaited(_tracker.close().catchError((Object _) {}));
     unawaited(runnerService.disconnect().catchError((Object _) {}));
     unawaited(_enqueue(runnerService.stopSharing).catchError((Object _) {}));

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../friend_controller.dart';
+import '../data/block_service.dart';
 import 'friend_list.dart';
 
 class FriendSearch extends StatefulWidget {
-  const FriendSearch({required this.controller, super.key});
+  const FriendSearch({required this.controller, this.blockService, super.key});
   final FriendController controller;
+  final BlockService? blockService;
   @override
   State<FriendSearch> createState() => _FriendSearchState();
 }
@@ -80,7 +82,11 @@ class _FriendSearchState extends State<FriendSearch> {
                   child: Text('검색 결과가 없습니다.', textAlign: TextAlign.center),
                 ),
               for (final entry in controller.results)
-                FriendRow(entry: entry, controller: controller),
+                FriendRow(
+                  entry: entry,
+                  controller: controller,
+                  blockService: widget.blockService,
+                ),
             ],
           ),
         ),

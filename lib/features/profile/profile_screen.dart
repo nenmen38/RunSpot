@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../home/live_map_controller.dart';
+import '../social/data/block_service.dart';
+import '../social/blocked_users_screen.dart';
 
-import 'package:runquest/features/profile/data/achievements.dart';
+import 'data/achievement_service.dart';
+import 'models/achievement.dart';
+import '../../shared/widgets/account_query_panel.dart';
+
 import 'package:runquest/features/profile/data/statistics_service.dart';
 import 'package:runquest/features/profile/privacy_controls.dart';
 import 'package:runquest/features/profile/widgets/achievement_row.dart';
@@ -20,12 +25,16 @@ class ProfileScreen extends StatelessWidget {
     this.progressService,
     this.statisticsService,
     this.mapController,
+    this.blockService,
+    this.achievementService,
     super.key,
   });
   final VoidCallback onHistoryTap;
   final ProgressService? progressService;
   final StatisticsService? statisticsService;
   final LiveMapController? mapController;
+  final BlockService? blockService;
+  final AchievementService? achievementService;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +53,20 @@ class ProfileScreen extends StatelessWidget {
               onTap: onHistoryTap,
             ),
             const SizedBox(height: 12),
+            if (blockService case final service?)
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: const Text('차단한 사용자'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  await Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => BlockedUsersScreen(service: service),
+                    ),
+                  );
+                  if (service.isCurrentOwner) await mapController?.refresh();
+                },
+              ),
             Panel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,11 +126,24 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.military_tech_outlined,
                   ),
                   const SizedBox(height: 10),
-                  for (final item in achievements)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: AchievementRow(achievement: item),
-                    ),
+                  if (achievementService case final service?)
+                    AccountQueryPanel<List<Achievement>>(
+                      source: service,
+                      load: service.load,
+                      isCurrentOwner: () => service.isCurrentOwner,
+                      errorMessage: '업적을 불러오지 못했습니다.',
+                      builder: (context, items) => Column(
+                        children: [
+                          for (final item in items)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: AchievementRow(achievement: item),
+                            ),
+                        ],
+                      ),
+                    )
+                  else
+                    const Text('업적을 조회할 수 없습니다.'),
                 ],
               ),
             ),

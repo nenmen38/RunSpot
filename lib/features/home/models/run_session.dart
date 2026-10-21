@@ -31,14 +31,17 @@ class RunSummary {
 
 class RunSession {
   RunSession(LocationFix start, {DateTime Function()? paceNow})
-    : _pace = RunPace(now: paceNow) {
+    : _pace = RunPace(now: paceNow),
+      _clientRunId = const Uuid().v4(),
+      _startedAt = DateTime.now().toUtc() {
     _startSegment(start);
     _clock.start();
   }
 
   final _clock = Stopwatch();
-  final _clientRunId = const Uuid().v4();
-  final _startedAt = DateTime.now().toUtc();
+  final String _clientRunId;
+  final DateTime _startedAt;
+  Duration _restoredDuration = Duration.zero;
   final RunPace _pace;
   final _segments = <List<LocationFix>>[];
   List<LocationFix>? _segment;
@@ -48,14 +51,55 @@ class RunSession {
   double _distanceMeters = 0;
 
   bool get isRunning => _clock.isRunning;
+  String get clientRunId => _clientRunId;
   bool get isFinished => _summary != null;
-  Duration get duration => _clock.elapsed;
+  Duration get duration => _restoredDuration + _clock.elapsed;
   double get distanceMeters => _distanceMeters;
   Duration? get currentPace => isRunning ? _pace.current : null;
   Duration? get averagePace => calculateRunPace(distanceMeters, duration);
   List<List<LocationFix>> get routeSegments =>
       _routeSnapshot ??= List<List<LocationFix>>.unmodifiable(
         _segments.map((segment) => List<LocationFix>.unmodifiable(segment)),
+      );
+
+  RunSession.restore(RunSummary checkpoint, {bool finished = false})
+    : _pace = RunPace(),
+      _clientRunId = checkpoint.clientRunId,
+      _startedAt = checkpoint.startedAt {
+    _restoredDuration = checkpoint.duration;
+    _distanceMeters = checkpoint.distanceMeters;
+    _summary = finished ? checkpoint : null;
+    for (final segment in checkpoint.route.segments) {
+      _segments.add(
+        segment
+            .map(
+              (point) => LocationFix(
+                latitude: point.latitude,
+                longitude: point.longitude,
+                accuracy: 0,
+                recordedAt: checkpoint.endedAt,
+              ),
+            )
+            .toList(),
+      );
+    }
+    // 복구된 경로는 표시만 하고 재개 시 새 구간으로 측정합니다.
+  }
+
+  RunSummary checkpoint() =>
+      _summary ??
+      RunSummary(
+        clientRunId: _clientRunId,
+        startedAt: _startedAt,
+        endedAt: DateTime.now().toUtc(),
+        distanceMeters: distanceMeters,
+        duration: duration,
+        route: RunRoute(
+          _segments.map(
+            (segment) =>
+                segment.map((fix) => LatLng(fix.latitude, fix.longitude)),
+          ),
+        ),
       );
 
   void _startSegment(LocationFix fix) {
