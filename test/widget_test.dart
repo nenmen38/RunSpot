@@ -11,6 +11,7 @@ import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
+import 'package:runquest/features/profile/widgets/run_sharing_control.dart';
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/run_history/models/run_record.dart';
@@ -61,6 +62,8 @@ class MemoryAuthStorage extends GotrueAsyncStorage {
 }
 
 void main() {
+  var sharingEligible = false;
+  setUp(() => sharingEligible = false);
   setUpAll(() async {
     await Supabase.initialize(
       url: 'https://example.supabase.co',
@@ -75,10 +78,14 @@ void main() {
       httpClient: MockClient(
         (request) async => http.Response(
           request.url.path.endsWith('/my_email_verified')
-              ? 'false'
-              : jsonEncode({'visibility': 'private', 'nickname': null}),
+              ? jsonEncode(sharingEligible)
+              : jsonEncode({
+                  'visibility': sharingEligible ? 'friends' : 'private',
+                  'nickname': sharingEligible ? '러너' : null,
+                }),
           200,
           headers: {'content-type': 'application/json'},
+          request: request,
         ),
       ),
     );
@@ -267,13 +274,44 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('미인증 프로필에서는 켜기를 누른 경우에만 인증 안내를 표시합니다', (tester) async {
+    final controller = await showApp(tester, const Size(390, 844));
+    await tester.tap(find.text('프로필').last);
+    await tester.pumpAndSettle();
+    const problem = '이메일 인증 후 위치 공유를 켤 수 있습니다.';
+    expect(
+      tester
+          .widget<RunSharingControl>(find.byType(RunSharingControl))
+          .enablingProblem,
+      problem,
+    );
+    expect(find.text(problem), findsNothing);
+    await tester.ensureVisible(find.text('러닝 중 위치 공유'));
+    await tester.tap(find.text('러닝 중 위치 공유'));
+    await tester.pumpAndSettle();
+    expect(find.text(problem), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(controller.shareWhileRunning, isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('프로필 공유 설정으로 러닝 중에만 자동 공유하고 끄면 즉시 중단합니다', (tester) async {
+    sharingEligible = true;
     final controller = await showApp(tester, const Size(390, 844));
     expect(find.byType(Switch), findsNothing);
     await tester.tap(find.text('프로필').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('러닝 시 위치 공유'));
-    await tester.tap(find.text('러닝 시 위치 공유'));
+    expect(find.text('공개 설정을 불러오지 못했습니다.'), findsNothing);
+    expect(
+      tester
+          .widget<RunSharingControl>(find.byType(RunSharingControl))
+          .enablingProblem,
+      isNull,
+    );
+    await tester.ensureVisible(find.text('러닝 중 위치 공유'));
+    await tester.tap(find.text('러닝 중 위치 공유'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('켜기'));
     await tester.pumpAndSettle();
     expect(controller.shareWhileRunning, isTrue);
     expect(controller.sharing, isFalse);
@@ -290,8 +328,8 @@ void main() {
     expect(controller.sharing, isTrue);
     await tester.tap(find.text('프로필').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('러닝 시 위치 공유'));
-    await tester.tap(find.text('러닝 시 위치 공유'));
+    await tester.ensureVisible(find.text('러닝 중 위치 공유'));
+    await tester.tap(find.text('러닝 중 위치 공유'));
     await tester.pumpAndSettle();
     expect(controller.sharing, isFalse);
     expect(controller.shareWhileRunning, isFalse);

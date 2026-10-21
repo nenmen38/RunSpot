@@ -7,9 +7,12 @@ import '../auth/email_verification.dart';
 import '../auth/nickname.dart';
 import '../auth/phone_verification.dart';
 import '../auth/data/phone_verification_service.dart';
+import '../home/live_map_controller.dart';
+import 'widgets/run_sharing_control.dart';
 
 class PrivacyControls extends StatefulWidget {
-  const PrivacyControls({super.key});
+  const PrivacyControls({this.sharingController, super.key});
+  final LiveMapController? sharingController;
 
   @override
   State<PrivacyControls> createState() => _PrivacyControlsState();
@@ -22,6 +25,16 @@ class _PrivacyControlsState extends State<PrivacyControls> {
   String? _nickname;
   bool _busy = true;
   String? _error;
+
+  String? get _sharingProblem {
+    if (_busy || _error != null) return '공개 설정을 확인한 뒤 다시 시도해 주세요.';
+    if (!_verified) return '이메일 인증 후 위치 공유를 켤 수 있습니다.';
+    if (_nickname == null) return '닉네임을 등록한 뒤 위치 공유를 켜 주세요.';
+    if (_visibility != 'friends' && _visibility != 'public') {
+      return '친구 또는 전체 공개로 설정한 뒤 위치 공유를 켜 주세요.';
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -164,6 +177,13 @@ class _PrivacyControlsState extends State<PrivacyControls> {
           TextButton(
             onPressed: _busy ? null : _load,
             child: const Text('다시 시도'),
+          ),
+        ],
+        if (widget.sharingController != null) ...[
+          const SizedBox(height: 10),
+          RunSharingControl(
+            controller: widget.sharingController!,
+            enablingProblem: _sharingProblem,
           ),
         ],
       ],

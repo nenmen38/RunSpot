@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../home/live_map_controller.dart';
-import 'widgets/run_sharing_control.dart';
 
 import 'package:runquest/features/profile/data/achievements.dart';
 import 'package:runquest/features/profile/data/statistics_service.dart';
@@ -78,11 +77,7 @@ class ProfileScreen extends StatelessWidget {
                     ProfileLevelCard(service: progressService!),
                   ],
                   const SizedBox(height: 12),
-                  const PrivacyControls(),
-                  if (mapController != null) ...[
-                    const SizedBox(height: 10),
-                    RunSharingControl(controller: mapController!),
-                  ],
+                  PrivacyControls(sharingController: mapController),
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
