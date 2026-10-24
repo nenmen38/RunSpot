@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../shared/maps/run_map.dart';
+import '../features/board/board_screen.dart';
+import '../features/settings/settings_screen.dart';
 
 import 'package:runquest/features/admin/admin_screen.dart';
 import 'package:runquest/features/admin/data/review_service.dart';
@@ -136,13 +138,20 @@ class _RunQuestShellState extends State<RunQuestShell> {
       ),
       ProfileScreen(
         onHistoryTap: _openHistory,
+        onSettingsTap: () => Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => SettingsScreen(
+              adminBuilder: (_) => AdminScreen(service: _reviews),
+            ),
+          ),
+        ),
         progressService: _progress,
         statisticsService: _statistics,
         mapController: _map,
         blockService: _blocks,
         achievementService: _achievements,
       ),
-      AdminScreen(service: _reviews),
+      const BoardScreen(),
     ];
 
     return Scaffold(
@@ -191,9 +200,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
             label: '프로필',
           ),
           NavigationDestination(
-            icon: Icon(Icons.admin_panel_settings_outlined),
-            selectedIcon: Icon(Icons.admin_panel_settings),
-            label: '관리',
+            icon: Icon(Icons.forum_outlined),
+            selectedIcon: Icon(Icons.forum),
+            label: '게시판',
           ),
         ],
       ),

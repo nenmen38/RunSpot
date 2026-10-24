@@ -22,6 +22,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
     required this.onHistoryTap,
+    this.onSettingsTap,
     this.progressService,
     this.statisticsService,
     this.mapController,
@@ -30,6 +31,7 @@ class ProfileScreen extends StatelessWidget {
     super.key,
   });
   final VoidCallback onHistoryTap;
+  final VoidCallback? onSettingsTap;
   final ProgressService? progressService;
   final StatisticsService? statisticsService;
   final LiveMapController? mapController;
@@ -44,6 +46,17 @@ class ProfileScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const AppTopBar(title: '프로필', subtitle: '통계와 업적 공개 범위 설정'),
+            if (onSettingsTap != null)
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                leading: const Icon(
+                  Icons.settings_outlined,
+                  color: AppColors.blue,
+                ),
+                title: const Text('설정'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onSettingsTap,
+              ),
             const SizedBox(height: 12),
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
