@@ -65,3 +65,17 @@ test('기록 전체 범위는 SDK 영역 맞춤과 최대 확대 수준을 사�
   const f=documentFixture(),d=data();d.camera={type:'fit',revision:1,points:[[37,127],[38,128]],maxZoom:17,padding:40};f.update(d);
   assert.equal(f.map.bounds.points.length,2);assert.deepEqual(f.map.padding,[40,40,40,40]);assert.equal(f.map.level,3);
 });
+
+test('그룹은 인원수를 표시하고 분리되면 그룹 아이콘을 제거합니다',()=>{
+  const f=documentFixture(),d=data();
+  d.markers=[{id:'group:a:b',point:[37,127],nickname:'함께 달리기 2명',memberCount:2}];
+  f.update(d);
+  const group=f.overlays.find(o=>o.content.className==='runner group');
+  assert.equal(group.content.textContent,'2명');
+  assert.equal(group.content.attributes['aria-label'],'함께 달리기 2명');
+  group.content.listeners.click({stopPropagation(){}});
+  assert.equal(f.events.at(-1).id,'group:a:b');
+  f.update({...d,markers:[{id:'a',point:[37,127],nickname:'가나다'},{id:'b',point:[37.001,127],nickname:'라마바'}]});
+  assert.equal(group.map,null);
+  assert.equal(f.overlays.filter(o=>o.map&&o.content.className==='runner').length,2);
+});

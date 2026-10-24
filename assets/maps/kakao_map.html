@@ -7,6 +7,7 @@
     html,body,#map { margin:0; width:100%; height:100%; background:#f8fafc; overflow:hidden; }
     .point { box-sizing:border-box; width:28px; height:28px; border:4px solid white; border-radius:50%; background:#3086ff; box-shadow:0 1px 6px #0004; }
     .runner { width:44px; height:44px; border:2px solid white; border-radius:50%; background:#16836f; color:white; font:700 14px sans-serif; padding:0; }
+    .runner.group { background:#6750a4; width:50px; height:50px; }
     .runner.selected { background:#202428; }
     .endpoint { font:700 14px sans-serif; background:white; color:#16836f; border:2px solid currentColor; padding:3px 6px; border-radius:4px; }
     .endpoint.end { color:#c13647; }
@@ -57,8 +58,8 @@ window.createRunspotMap = () => {
           element.addEventListener('click',e=>{e.stopPropagation();emit({type:'marker',id:marker.id});});
           entry={element,overlay:overlay(marker.point,element,6)}; runners.set(marker.id,entry);
         }
-        entry.element.className=marker.selected?'runner selected':'runner';
-        entry.element.textContent=marker.nickname.slice(0,2);
+        entry.element.className='runner'+(marker.memberCount>1?' group':'')+(marker.selected?' selected':'');
+        entry.element.textContent=marker.memberCount>1?marker.memberCount+'명':marker.nickname.slice(0,2);
         entry.element.title=marker.nickname;
         entry.element.setAttribute('aria-label',marker.nickname);
         entry.overlay.setPosition(point(marker.point));

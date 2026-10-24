@@ -16,6 +16,9 @@ import '../run_conditions/widgets/conditions_panel.dart';
 import '../run_share/run_share_screen.dart';
 import '../social/data/block_service.dart';
 import '../social/widgets/block_button.dart';
+import '../group_running/group_controller.dart';
+import 'models/live_runner.dart';
+import 'models/runner_cluster.dart';
 import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
@@ -27,6 +30,7 @@ class HomeScreen extends StatefulWidget {
     this.conditionsController,
     this.progressService,
     this.blockService,
+    this.groupController,
     this.isActive = true,
     super.key,
   });
@@ -35,6 +39,7 @@ class HomeScreen extends StatefulWidget {
   final ConditionsController? conditionsController;
   final ProgressService? progressService;
   final BlockService? blockService;
+  final GroupController? groupController;
   final bool isActive;
 
   @override
@@ -63,10 +68,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _hasRun = widget.controller.runSession != null;
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_changed);
+    widget.groupController?.addListener(_groupChanged);
     widget.conditionsController?.setActive(widget.isActive);
     widget.conditionsController?.setLocation(widget.controller.position);
     unawaited(widget.controller.runHistory.setActive(true));
     unawaited(widget.controller.start());
+  }
+
+  void _groupChanged() {
+    if (mounted) setState(() {});
   }
 
   void _changed() {
@@ -219,6 +229,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.groupController != widget.groupController) {
+      oldWidget.groupController?.removeListener(_groupChanged);
+      widget.groupController?.addListener(_groupChanged);
+    }
     if (oldWidget.conditionsController != widget.conditionsController) {
       oldWidget.conditionsController?.setActive(false);
       widget.conditionsController?.setLocation(widget.controller.position);
@@ -231,6 +245,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.conditionsController?.setActive(false);
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_changed);
+    widget.groupController?.removeListener(_groupChanged);
     _map.dispose();
     super.dispose();
   }
@@ -242,6 +257,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final selected = state.runners
         .where((runner) => runner.id == _selectedId)
         .firstOrNull;
+    final groups = widget.groupController;
+    final ownerId = state.runHistory.service.ownerId;
+    final visible = [...state.runners];
+    if (state.sharing &&
+        position != null &&
+        position.isUsable &&
+        groups?.service.isCurrentOwner == true) {
+      visible.removeWhere((runner) => runner.id == ownerId);
+      visible.add(
+        LiveRunner(
+          id: ownerId,
+          nickname: '나',
+          latitude: position.latitude,
+          longitude: position.longitude,
+          distanceMeters: state.runSession?.distanceMeters ?? 0,
+          updatedAt: position.recordedAt,
+        ),
+      );
+    }
+    final clusters = clusterRunners(
+      visible,
+      groups?.service.isCurrentOwner == true ? groups!.groups : [],
+    );
+    final ownClustered = clusters.any(
+      (cluster) =>
+          cluster.members.length > 1 &&
+          cluster.members.any((member) => member.id == ownerId),
+    );
     return Column(
       children: [
         Expanded(
@@ -250,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               RunMap(
                 controller: _map,
                 bridgeFactory: widget.mapBridgeFactory,
-                position: position == null
+                position: position == null || ownClustered
                     ? null
                     : LatLng(position.latitude, position.longitude),
                 segments:
@@ -262,13 +305,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         )
                         .toList() ??
                     const [],
-                markers: state.runners
+                markers: clusters
+                    .where(
+                      (cluster) =>
+                          cluster.members.length > 1 ||
+                          cluster.members.single.id != ownerId,
+                    )
                     .map(
-                      (r) => RunMapMarker(
-                        id: r.id,
-                        point: LatLng(r.latitude, r.longitude),
-                        nickname: r.nickname,
-                        selected: r.id == _selectedId,
+                      (cluster) => RunMapMarker(
+                        id: cluster.id,
+                        point: cluster.point,
+                        nickname: cluster.members.length > 1
+                            ? '함께 달리기 ${cluster.members.length}명'
+                            : cluster.members.single.nickname,
+                        memberCount: cluster.members.length,
+                        selected: cluster.members.any(
+                          (member) => member.id == _selectedId,
+                        ),
                       ),
                     )
                     .toList(),
@@ -281,7 +334,59 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   if (_following) setState(() => _following = false);
                 },
                 onTap: () => setState(() => _selectedId = null),
-                onMarkerTap: (id) => setState(() => _selectedId = id),
+                onMarkerTap: (id) async {
+                  final cluster = clusters
+                      .where((item) => item.id == id)
+                      .firstOrNull;
+                  if (cluster == null) return;
+                  if (cluster.members.length == 1) {
+                    setState(() => _selectedId = id);
+                    return;
+                  }
+                  final member = await showModalBottomSheet<LiveRunner>(
+                    context: context,
+                    builder: (context) => SafeArea(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const ListTile(title: Text('함께 달리는 참여자')),
+                            for (final member in cluster.members)
+                              ListTile(
+                                leading: const Icon(Icons.directions_run),
+                                title: Text(member.nickname),
+                                subtitle: Text(
+                                  '${_distance(member.distanceMeters)} 거리',
+                                ),
+                                onTap: () => Navigator.pop(context, member),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                  if (!mounted ||
+                      member == null ||
+                      !state.runHistory.service.isCurrentOwner) {
+                    return;
+                  }
+                  // 선택하는 동안 공유가 중단된 참여자의 이전 위치는 사용하지 않습니다.
+                  final current = state.runners
+                      .where((runner) => runner.id == member.id)
+                      .firstOrNull;
+                  final target = member.id == ownerId ? state.position : null;
+                  if (current == null && target == null) return;
+                  setState(() {
+                    _selectedId = current?.id;
+                    _following = member.id == ownerId;
+                  });
+                  _map.move(
+                    current == null
+                        ? LatLng(target!.latitude, target.longitude)
+                        : LatLng(current.latitude, current.longitude),
+                    _runningZoom,
+                  );
+                },
               ),
               if (state.locating || state.locationFailure != null)
                 Positioned(

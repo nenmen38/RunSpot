@@ -16,16 +16,19 @@ class RunMapMarker {
     required this.point,
     required this.nickname,
     this.selected = false,
+    this.memberCount = 1,
   });
   final String id;
   final LatLng point;
   final String nickname;
   final bool selected;
+  final int memberCount;
   Map<String, Object?> toJson() => {
     'id': id,
     'point': [point.latitude, point.longitude],
     'nickname': nickname,
     'selected': selected,
+    'memberCount': memberCount,
   };
 }
 

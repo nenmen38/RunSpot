@@ -152,6 +152,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
             Offstage(
               offstage: _tab != 0,
               child: HomeScreen(
+                groupController: _groups,
                 controller: _map,
                 conditionsController: _conditions,
                 progressService: _progress,
