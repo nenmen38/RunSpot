@@ -143,7 +143,7 @@ void main() {
     expect(data.refreshNotice, '조회 한도에 도달했습니다. 저장된 관측 자료가 없습니다.');
     expect(data.assess(now).status, RunningSuitability.unknown);
   });
-  testWidgets('작은 화면에서도 호출 한도와 마지막 관측 시각을 표시합니다', (tester) async {
+  testWidgets('홈 요약은 간결하게 표시하고 한도와 관측 시각은 상세에서 확인합니다', (tester) async {
     tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -165,9 +165,9 @@ void main() {
         home: Scaffold(body: ConditionsPanel(controller: controller)),
       ),
     );
-    expect(find.text('조건 판단 불가'), findsOneWidget);
-    expect(find.text('조회 한도에 도달했습니다. 마지막 관측 자료입니다.'), findsOneWidget);
-    expect(find.textContaining('관측'), findsWidgets);
+    expect(find.text('확인 필요'), findsOneWidget);
+    expect(find.text('조회 한도에 도달했습니다. 마지막 관측 자료입니다.'), findsNothing);
+    expect(find.textContaining('관측'), findsNothing);
     await tester.tap(find.byTooltip('러닝 환경 상세'));
     await tester.pumpAndSettle();
     expect(find.text('공동 조회 한도에 도달하여 마지막 관측 자료를 표시합니다.'), findsOneWidget);
@@ -248,8 +248,12 @@ void main() {
         home: Scaffold(body: ConditionsPanel(controller: controller)),
       ),
     );
-    expect(find.text('조건 판단 불가'), findsOneWidget);
-    expect(find.text('19.3°C · 강수 없음 · 초미세 자료 없음'), findsOneWidget);
+    expect(find.text('확인 필요'), findsOneWidget);
+    expect(find.text('19.3°C'), findsOneWidget);
+    expect(find.text('초미세 --'), findsOneWidget);
+    expect(find.text('최신 관측 자료를 갱신하지 못했습니다.'), findsNothing);
+    await tester.tap(find.byTooltip('러닝 환경 상세'));
+    await tester.pumpAndSettle();
     expect(find.text('최신 관측 자료를 갱신하지 못했습니다.'), findsOneWidget);
   });
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
@@ -266,7 +270,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('러닝 조건 양호'), findsOneWidget);
+      expect(find.text('양호'), findsOneWidget);
       await tester.tap(find.byTooltip('러닝 환경 상세'));
       await tester.pumpAndSettle();
       expect(find.text('미세먼지'), findsWidgets);

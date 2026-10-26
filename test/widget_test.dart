@@ -159,7 +159,7 @@ void main() {
     expect(find.byTooltip('프로필 및 공개 설정'), findsNothing);
     expect(find.bySemanticsLabel('내 현재 위치'), findsOneWidget);
     expect(find.text('위치 공유'), findsOneWidget);
-    expect(find.text('러닝 조건 양호'), findsOneWidget);
+    expect(find.text('양호'), findsOneWidget);
     expect(find.text('러닝 시작'), findsOneWidget);
     expect(find.text('러닝 종료'), findsOneWidget);
     expect(find.text('코스'), findsNothing);
