@@ -60,7 +60,7 @@ insert into ids select id, client_run_id from public.runs where client_run_id in
 select pg_temp.assert_true((select public.my_run_reward(id) from ids
   where client_run_id='20000000-0000-0000-0000-000000000003') @> '{"xp":0,"reason":"too_short"}'::jsonb,'짧은 기록 무보상');
 select pg_temp.assert_true((select public.my_run_reward(id) from ids
-  where client_run_id='20000000-0000-0000-0000-000000000004') @> '{"xp":0,"reason":"too_fast"}'::jsonb,'비현실적 속도 무보상');
+  where client_run_id='20000000-0000-0000-0000-000000000004') @> '{"xp":0,"reason":"review_pending"}'::jsonb,'이상 속도 검토 중 보상 보류');
 
 -- 오래된 기록은 늦게 전송하면 보상하지 않습니다.
 select public.save_my_run('20000000-0000-0000-0000-000000000005',now()-interval '8 days 1 hour',now()-interval '8 days',5000,1500);

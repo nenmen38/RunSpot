@@ -42,7 +42,7 @@ from week w cross join lateral (values
 ) v(ended,distance,duration,status);
 insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec)
 select ('00000000-0000-0000-0000-' || lpad(n::text,12,'0'))::uuid,gen_random_uuid(),
-  w.start-interval '1 hour',w.start,case when n=102 then 3100 else 4000 end,1200
+  w.start-interval '1 hour',w.start,case when n=102 then 3000 else 4000 end,1200
 from generate_series(102,109) n cross join week w;
 
 set local role anon;
@@ -60,7 +60,7 @@ select pg_temp.assert_true(jsonb_array_length(public.friend_weekly_ranking()->'e
 select pg_temp.assert_true(public.friend_weekly_ranking()->'entries'->0 @>
  '{"rank":1,"nickname":"통계103","distance_m":4000,"is_me":false}'::jsonb,'거리 내림차순');
 select pg_temp.assert_true((select count(*)=2 from jsonb_array_elements(public.friend_weekly_ranking()->'entries') e
- where (e->>'rank')::int=2 and (e->>'distance_m')::int=3100),'같은 거리는 공동 순위');
+ where (e->>'rank')::int=2 and (e->>'distance_m')::int=3000),'보류 거리 제외 후 같은 거리는 공동 순위');
 select pg_temp.assert_true(public.friend_weekly_ranking()->'entries'->3 @>
  '{"rank":4,"nickname":"통계110","distance_m":0}'::jsonb,'공동 순위 뒤 순번과 기록 없는 친구');
 select pg_temp.assert_true((select count(*)=6 from public.runs),'친구 원본 기록 접근 차단 유지');
@@ -72,7 +72,7 @@ update public.profiles set visibility='private' where id='00000000-0000-0000-000
 set local role authenticated;
 select pg_temp.assert_true(jsonb_array_length(public.friend_weekly_ranking()->'entries')=2,'친구 삭제·비공개 전환 즉시 반영');
 select pg_temp.assert_true(public.friend_weekly_ranking()->'entries'->0 @>
- '{"rank":1,"is_me":true,"distance_m":3100}'::jsonb,'대상 제외 후 재순위');
+ '{"rank":1,"is_me":true,"distance_m":3000}'::jsonb,'대상 제외 후 재순위');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000112',true);
 select pg_temp.assert_true(public.my_run_statistics() @>
  '{"weekly_distance_m":0,"completed_runs":0,"pace_distance_m":0,"pace_duration_sec":0}'::jsonb,'기록 없는 개인 통계');

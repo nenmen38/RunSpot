@@ -1,17 +1,26 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../run_history/models/run_split.dart';
+import '../../run_history/models/run_motion_evidence.dart';
+
 class IntegrityReview {
   IntegrityReview.fromJson(Map<String, dynamic> json)
     : id = json['id'] as String,
       nickname = json['nickname'] as String,
       distance = json['distance_m'] as int,
       seconds = json['duration_sec'] as int,
-      risk = json['risk'] as int;
+      risk = json['risk'] as int,
+      rule = json['rule'] as String? ?? 'average_speed_over_6_5',
+      splits = RunSplit.decode(json['splits']),
+      motionEvidence = RunMotionEvidence.decode(json['motion_evidence']);
   final String id;
   final String nickname;
   final int distance;
   final int seconds;
   final int risk;
+  final String rule;
+  final List<RunSplit>? splits;
+  final List<RunMotionEvidence>? motionEvidence;
 }
 
 abstract interface class ReviewService {

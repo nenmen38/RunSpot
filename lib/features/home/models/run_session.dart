@@ -9,6 +9,9 @@ import '../../run_history/models/run_temperature.dart';
 
 import 'live_runner.dart';
 import 'run_pace.dart';
+import 'run_split_tracker.dart';
+import 'run_motion_tracker.dart';
+import '../../run_history/models/run_split.dart';
 
 class RunSummary {
   const RunSummary({
@@ -19,6 +22,8 @@ class RunSummary {
     required this.duration,
     this.route = const RunRoute.empty(),
     this.temperature,
+    this.splits,
+    this.motionSamples,
   });
   final String clientRunId;
   final DateTime startedAt;
@@ -27,6 +32,8 @@ class RunSummary {
   final Duration duration;
   final RunRoute route;
   final RunTemperature? temperature;
+  final List<RunSplit>? splits;
+  final List<List<num>>? motionSamples;
 }
 
 class RunSession {
@@ -34,10 +41,14 @@ class RunSession {
     : _pace = RunPace(now: paceNow),
       _clientRunId = const Uuid().v4(),
       _startedAt = DateTime.now().toUtc() {
+    _splits = RunSplitTracker();
+    _motion = RunMotionTracker(notBefore: _startedAt);
     _startSegment(start);
     _clock.start();
   }
 
+  RunSplitTracker? _splits;
+  RunMotionTracker? _motion = RunMotionTracker();
   final _clock = Stopwatch();
   final String _clientRunId;
   final DateTime _startedAt;
@@ -66,8 +77,21 @@ class RunSession {
     : _pace = RunPace(),
       _clientRunId = checkpoint.clientRunId,
       _startedAt = checkpoint.startedAt {
+    _motion = checkpoint.motionSamples == null
+        ? null
+        : RunMotionTracker(
+            restored: checkpoint.motionSamples,
+            notBefore: _startedAt,
+          );
     _restoredDuration = checkpoint.duration;
     _distanceMeters = checkpoint.distanceMeters;
+    if (checkpoint.splits != null) {
+      _splits = RunSplitTracker.restore(
+        checkpoint.splits!,
+        checkpoint.distanceMeters,
+        checkpoint.duration,
+      );
+    }
     _summary = finished ? checkpoint : null;
     for (final segment in checkpoint.route.segments) {
       _segments.add(
@@ -86,24 +110,30 @@ class RunSession {
     // 복구된 경로는 표시만 하고 재개 시 새 구간으로 측정합니다.
   }
 
-  RunSummary checkpoint() =>
-      _summary ??
-      RunSummary(
-        clientRunId: _clientRunId,
-        startedAt: _startedAt,
-        endedAt: DateTime.now().toUtc(),
-        distanceMeters: distanceMeters,
-        duration: duration,
-        route: RunRoute(
-          _segments.map(
-            (segment) =>
-                segment.map((fix) => LatLng(fix.latitude, fix.longitude)),
-          ),
+  RunSummary checkpoint() {
+    if (_summary != null) return _summary!;
+    final measuredDuration = duration;
+    return RunSummary(
+      clientRunId: _clientRunId,
+      startedAt: _startedAt,
+      endedAt: DateTime.now().toUtc(),
+      distanceMeters: distanceMeters,
+      duration: measuredDuration,
+      motionSamples: _motion?.snapshot(),
+      splits: _splits?.snapshot(distanceMeters, measuredDuration),
+      route: RunRoute(
+        _segments.map(
+          (segment) =>
+              segment.map((fix) => LatLng(fix.latitude, fix.longitude)),
         ),
-      );
+      ),
+    );
+  }
 
   void _startSegment(LocationFix fix) {
-    if (!fix.isUsable) {
+    _motion?.breakSegment();
+    _motion?.accept(fix);
+    if (!RunMotionTracker.usable(fix)) {
       _previous = null;
       _segment = null;
       _pace.clear();
@@ -118,7 +148,8 @@ class RunSession {
 
   void accept(LocationFix fix) {
     if (!isRunning) return;
-    if (!fix.isUsable) {
+    _motion?.accept(fix);
+    if (!RunMotionTracker.usable(fix)) {
       _previous = null;
       _segment = null;
       _pace.clear();
@@ -132,7 +163,8 @@ class RunSession {
     if (!fix.recordedAt.isAfter(previous.recordedAt)) return;
     // 위치가 끊긴 구간은 직선 거리로 추정해 더하지 않습니다.
     if (fix.recordedAt.difference(previous.recordedAt) >
-        const Duration(seconds: 30)) {
+            RunMotionTracker.maximumGap ||
+        RunMotionTracker.jumped(previous, fix)) {
       _startSegment(fix);
       return;
     }
@@ -148,6 +180,7 @@ class RunSession {
       return;
     }
     _distanceMeters += distance;
+    _splits?.advance(_distanceMeters, duration);
     _previous = fix;
     _segment!.add(fix);
     _routeSnapshot = null;
@@ -155,6 +188,7 @@ class RunSession {
   }
 
   void pause() {
+    _motion?.breakSegment();
     _clock.stop();
     _previous = null;
     _segment = null;
@@ -179,6 +213,8 @@ class RunSession {
       temperature: temperatureAtEnd?.call(endedAt),
       distanceMeters: _distanceMeters,
       duration: duration,
+      motionSamples: _motion?.snapshot(),
+      splits: _splits?.snapshot(distanceMeters, duration),
       route: RunRoute(
         _segments.map(
           (segment) =>

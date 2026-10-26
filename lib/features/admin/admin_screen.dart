@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../run_history/widgets/run_splits_panel.dart';
+import '../run_history/widgets/run_motion_evidence_panel.dart';
+
 import '../../shared/widgets/account_query_panel.dart';
 import 'data/review_service.dart';
 import 'widgets/staff_mfa_control.dart';
@@ -47,7 +50,7 @@ class _AdminScreenState extends State<AdminScreen> {
     return ListView(
       children: [
         Text('관리', style: Theme.of(context).textTheme.titleLarge),
-        const Text('평균 속도 6.5m/s 초과 기록을 검토합니다. 가장 오래된 대기 건부터 최대 100건 표시합니다.'),
+        const Text('확인이 필요한 기록'),
         if (service is SupabaseReviewService)
           StaffMfaControl(
             client: service.client,
@@ -80,7 +83,29 @@ class _AdminScreenState extends State<AdminScreen> {
                           Text(
                             '${(item.distance / 1000).toStringAsFixed(2)}km · ${item.seconds}초 · 위험도 ${item.risk}',
                           ),
-                          const Text('평균 이동 속도 6.5m/s 초과'),
+                          Text(
+                            item.rule == 'sustained_speed_over_6_5'
+                                ? '지속 속도 초과'
+                                : item.rule == 'split_speed_over_6_5'
+                                ? '구간 속도 초과'
+                                : '평균 속도 초과',
+                          ),
+                          if (item.motionEvidence?.isNotEmpty == true)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: RunMotionEvidencePanel(
+                                evidence: item.motionEvidence!,
+                                showAccuracy: true,
+                              ),
+                            ),
+                          if (item.splits?.isNotEmpty == true)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: RunSplitsPanel(
+                                splits: item.splits,
+                                motionEvidence: const [],
+                              ),
+                            ),
                           Wrap(
                             spacing: 8,
                             children: [

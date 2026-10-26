@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../shared/maps/run_map.dart';
+import '../features/social/blocked_users_screen.dart';
 import '../features/board/board_screen.dart';
 import '../features/settings/settings_screen.dart';
 
@@ -126,6 +127,15 @@ class _RunQuestShellState extends State<RunQuestShell> {
     );
   }
 
+  Future<void> _openBlockedUsers() async {
+    final service = _blocks;
+    if (service == null || !service.isCurrentOwner) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => BlockedUsersScreen(service: service)),
+    );
+    if (mounted && service.isCurrentOwner) await _map.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -141,6 +151,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
         onSettingsTap: () => Navigator.of(context).push<void>(
           MaterialPageRoute(
             builder: (_) => SettingsScreen(
+              onBlockedUsersTap: _blocks == null ? null : _openBlockedUsers,
+              isCurrentOwner: () => _map.runHistory.service.isCurrentOwner,
               adminBuilder: (_) => AdminScreen(service: _reviews),
             ),
           ),
@@ -148,7 +160,6 @@ class _RunQuestShellState extends State<RunQuestShell> {
         progressService: _progress,
         statisticsService: _statistics,
         mapController: _map,
-        blockService: _blocks,
         achievementService: _achievements,
       ),
       const BoardScreen(),

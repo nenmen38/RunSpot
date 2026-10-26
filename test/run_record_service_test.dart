@@ -67,7 +67,7 @@ void main() {
     final service = SupabaseRunRecordService(client);
     final saved = await service.save(summary);
     expect(saved.distanceMeters, 5000);
-    expect(request.url.path, '/rest/v1/rpc/save_my_run_with_temperature');
+    expect(request.url.path, '/rest/v1/rpc/save_my_run_with_splits');
     expect(request.headers['authorization'], 'Bearer token-a');
     expect(jsonDecode(request.body), {
       'client_id': summary.clientRunId,
@@ -76,9 +76,49 @@ void main() {
       'distance_metres': 5000,
       'active_seconds': 1500,
       'route_segments': summary.route.toJson(),
+      'split_data': null,
       'temperature_c': null,
       'temperature_observed_at': null,
     });
+  });
+
+  test('새 측정은 원시 시각·정확도를 보내고 판정 결과는 서버에서 받습니다', () async {
+    late http.Request request;
+    final client = SupabaseClient(
+      'https://example.supabase.co',
+      '테스트용 공개 키',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((value) async {
+        request = value;
+        return http.Response(
+          jsonEncode({...row, 'motion_evidence': []}),
+          200,
+          request: value,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(session('owner', 'token-a'));
+    final samples = <List<num>>[
+      [summary.startedAt.millisecondsSinceEpoch, 37, 127, 5, 0],
+    ];
+    final saved = await SupabaseRunRecordService(client).save(
+      RunSummary(
+        clientRunId: summary.clientRunId,
+        startedAt: summary.startedAt,
+        endedAt: summary.endedAt,
+        distanceMeters: summary.distanceMeters,
+        duration: summary.duration,
+        motionSamples: samples,
+      ),
+    );
+    expect(request.url.path, '/rest/v1/rpc/save_my_run_with_motion');
+    final body = jsonDecode(request.body) as Map;
+    expect(body['motion_samples'], samples);
+    expect(body.containsKey('motion_evidence'), isFalse);
+    expect(body.containsKey('review_pending'), isFalse);
+    expect(saved.motionEvidence, isEmpty);
   });
 
   test('요청 중 계정이 바뀌어도 이전 계정의 인증을 사용하고 결과는 숨깁니다', () async {
@@ -122,7 +162,7 @@ void main() {
         return http.Response(
           jsonEncode({...row, ...temperature.toJson()}),
           200,
-            request: value,
+          request: value,
           headers: {'content-type': 'application/json'},
         );
       }),

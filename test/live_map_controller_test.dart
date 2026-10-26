@@ -198,6 +198,9 @@ void main() {
   });
 
   test('백그라운드에서도 같은 러닝의 시간과 거리를 계속 측정합니다', () async {
+    location.fix = testFix(
+      recordedAt: DateTime.now().subtract(const Duration(seconds: 8)),
+    );
     await controller.startRun();
     final session = controller.runSession;
     final duration = session!.duration;
@@ -216,6 +219,9 @@ void main() {
   });
 
   test('러닝 중 백그라운드에서는 GPS를 유지하지만 공유는 중단합니다', () async {
+    location.fix = testFix(
+      recordedAt: DateTime.now().subtract(const Duration(seconds: 8)),
+    );
     await controller.startRun();
     await controller.setSharing(true);
     await controller.setActive(false);

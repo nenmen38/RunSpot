@@ -8,7 +8,7 @@ import '../models/run_progress.dart';
 import 'level_progress_bar.dart';
 
 /// 러닝 종료 결과에 표시하는 경험치 보상입니다.
-/// 보상은 서버 저장 시 이미 확정되므로 실패하면 조회만 다시 시도합니다.
+/// 보류된 보상은 관리자 승인 뒤 확정되며 실패하면 조회만 다시 시도합니다.
 class RunRewardSection extends StatefulWidget {
   const RunRewardSection({
     required this.service,

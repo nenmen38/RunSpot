@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../home/live_map_controller.dart';
-import '../social/data/block_service.dart';
-import '../social/blocked_users_screen.dart';
 
 import 'data/achievement_service.dart';
 import 'models/achievement.dart';
@@ -26,7 +24,6 @@ class ProfileScreen extends StatelessWidget {
     this.progressService,
     this.statisticsService,
     this.mapController,
-    this.blockService,
     this.achievementService,
     super.key,
   });
@@ -35,7 +32,6 @@ class ProfileScreen extends StatelessWidget {
   final ProgressService? progressService;
   final StatisticsService? statisticsService;
   final LiveMapController? mapController;
-  final BlockService? blockService;
   final AchievementService? achievementService;
 
   @override
@@ -66,20 +62,6 @@ class ProfileScreen extends StatelessWidget {
               onTap: onHistoryTap,
             ),
             const SizedBox(height: 12),
-            if (blockService case final service?)
-              ListTile(
-                leading: const Icon(Icons.block),
-                title: const Text('차단한 사용자'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () async {
-                  await Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => BlockedUsersScreen(service: service),
-                    ),
-                  );
-                  if (service.isCurrentOwner) await mapController?.refresh();
-                },
-              ),
             Panel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

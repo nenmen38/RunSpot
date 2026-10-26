@@ -7,6 +7,8 @@ import 'package:sqflite/sqflite.dart';
 import '../../run_history/models/run_route.dart';
 import '../../run_history/models/run_temperature.dart';
 import '../models/run_session.dart';
+import '../models/run_motion_tracker.dart';
+import '../../run_history/models/run_split.dart';
 
 class RunCheckpoint {
   const RunCheckpoint(this.summary, {required this.finished});
@@ -66,7 +68,12 @@ class SqliteRunCheckpointStore implements RunCheckpointStore {
   @override
   Future<void> save(RunCheckpoint checkpoint) async {
     final summary = checkpoint.summary;
-    if (!summary.distanceMeters.isFinite ||
+    if (!RunSplit.matches(
+          summary.splits,
+          summary.distanceMeters,
+          summary.duration,
+        ) ||
+        !summary.distanceMeters.isFinite ||
         summary.distanceMeters < 0 ||
         summary.duration.isNegative ||
         summary.endedAt.isBefore(summary.startedAt)) {
@@ -85,6 +92,8 @@ class SqliteRunCheckpointStore implements RunCheckpointStore {
         'route': summary.route.toJson(),
         'temperature': summary.temperature?.toJson(),
         'finished': checkpoint.finished,
+        'motion_samples': summary.motionSamples,
+        'splits': summary.splits?.map((split) => split.toJson()).toList(),
       }),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -106,13 +115,20 @@ class SqliteRunCheckpointStore implements RunCheckpointStore {
       distanceMeters: (json['distance'] as num).toDouble(),
       duration: Duration(microseconds: json['duration'] as int),
       route: RunRoute.fromJson(json['route']),
+      splits: RunSplit.decode(json['splits']),
+      motionSamples: RunMotionTracker.decode(json['motion_samples']),
       temperature: json['temperature'] == null
           ? null
           : RunTemperature.fromJson(
               Map<String, dynamic>.from(json['temperature'] as Map),
             ),
     );
-    if (!summary.distanceMeters.isFinite ||
+    if (!RunSplit.matches(
+          summary.splits,
+          summary.distanceMeters,
+          summary.duration,
+        ) ||
+        !summary.distanceMeters.isFinite ||
         summary.distanceMeters < 0 ||
         summary.duration.isNegative ||
         summary.endedAt.isBefore(summary.startedAt) ||

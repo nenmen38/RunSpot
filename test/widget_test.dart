@@ -360,6 +360,9 @@ void main() {
   testWidgets('지도 경로와 페이스를 표시하고 일시 정지 구간을 연결하지 않습니다', (tester) async {
     final controller = await showApp(tester, const Size(320, 568));
     final location = controller.locationService as FakeLocationService;
+    location.fix = testFix(
+      recordedAt: DateTime.now().subtract(const Duration(seconds: 16)),
+    );
     await tester.tap(find.text('러닝 시작'));
     await tester.pump();
     final origin = controller.position!.recordedAt;
@@ -441,6 +444,9 @@ void main() {
   testWidgets('화면 잠금 수명 주기 뒤에도 러닝 중 표시와 측정을 유지합니다', (tester) async {
     final controller = await showApp(tester, const Size(390, 844));
     final location = controller.locationService as FakeLocationService;
+    location.fix = testFix(
+      recordedAt: DateTime.now().subtract(const Duration(seconds: 8)),
+    );
     await tester.tap(find.text('러닝 시작'));
     await tester.pump();
     final session = controller.runSession!;

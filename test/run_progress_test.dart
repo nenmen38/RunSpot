@@ -53,6 +53,15 @@ void main() {
       expect(reward.leveledUp, isFalse);
     });
 
+    test('검토 중 보상은 지급되지 않고 레벨 상승을 표시하지 않습니다', () {
+      final reward = RunReward.fromJson(
+        rewardJson(xp: 0, reason: 'review_pending', after: 1),
+      )!;
+      expect(reward.reason, RewardReason.reviewPending);
+      expect(reward.reasonMessage, '검토 중 · 승인 후 경험치 지급');
+      expect(reward.leveledUp, isFalse);
+    });
+
     test('최대 레벨은 다음 목표가 없습니다', () {
       final progress = RunProgress.fromJson({
         'total_xp': 999999,

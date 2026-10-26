@@ -39,14 +39,21 @@ class SupabaseRunRecordService implements RunRecordService {
     // 계정 전환 중에도 측정한 계정의 세션으로만 요청을 전송합니다.
     final row = await client
         .rpc(
-          'save_my_run_with_temperature',
+          summary.motionSamples == null
+              ? 'save_my_run_with_splits'
+              : 'save_my_run_with_motion',
           params: {
+            if (summary.motionSamples != null)
+              'motion_samples': summary.motionSamples,
             'client_id': summary.clientRunId,
             'start_time': summary.startedAt.toUtc().toIso8601String(),
             'end_time': summary.endedAt.toUtc().toIso8601String(),
             'distance_metres': summary.distanceMeters.round(),
             'active_seconds': summary.duration.inSeconds,
             'route_segments': summary.route.toJson(),
+            'split_data': summary.splits
+                ?.map((split) => split.toJson())
+                .toList(),
             'temperature_c': summary.temperature?.celsius,
             'temperature_observed_at': summary.temperature?.observedAt
                 .toIso8601String(),
@@ -76,7 +83,7 @@ class SupabaseRunRecordService implements RunRecordService {
     final rows = await client
         .from('runs')
         .select(
-          'id,client_run_id,started_at,ended_at,distance_m,duration_sec,temperature_c,temperature_observed_at',
+          'id,client_run_id,started_at,ended_at,distance_m,duration_sec,temperature_c,temperature_observed_at,split_data,review_pending,integrity_status,motion_evidence',
         )
         .eq('user_id', session.user.id)
         .order('started_at', ascending: false)

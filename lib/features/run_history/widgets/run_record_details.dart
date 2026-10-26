@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/formatters/run_format.dart';
+import '../../../shared/widgets/metric_values.dart';
+import '../../../shared/theme/app_colors.dart';
 import '../models/run_record.dart';
+import 'run_record_theme.dart';
 
 String formatRunDate(DateTime date) {
   final local = date.toLocal();
@@ -26,39 +29,62 @@ class RunRecordDetails extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       if (record.pendingSync) ...[
-        const Text('서버 저장 대기', style: TextStyle(color: Colors.deepOrange)),
+        const Text(
+          '서버 저장 대기',
+          style: TextStyle(color: RunRecordColors.warning),
+        ),
         const SizedBox(height: 8),
       ],
-      Text('시작 ${formatRunDate(record.startedAt)}'),
-      Text('종료 ${formatRunDate(record.endedAt)}'),
-      const SizedBox(height: 16),
-      _metric('거리', '${(record.distanceMeters / 1000).toStringAsFixed(2)} km'),
-      _metric(
-        '시간',
-        formatRunDuration(Duration(seconds: record.durationSeconds)),
-      ),
-      _metric('평균 페이스', formatRunPace(record)),
-      _metric('종료 시 기온', record.temperature?.label ?? '자료 없음'),
-      if (record.temperature != null)
-        Text(
-          '기온 관측 ${formatRunDate(record.temperature!.observedAt)}',
-          style: Theme.of(context).textTheme.bodySmall,
+      if (record.reviewPending) ...[
+        const Text(
+          '검토 중 · 랭킹·경험치 보류',
+          style: TextStyle(color: RunRecordColors.warning, fontSize: 12),
         ),
-    ],
-  );
-
-  Widget _metric(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      children: [
-        Expanded(child: Text(label)),
-        Flexible(
-          child: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+        const SizedBox(height: 8),
+      ] else if (record.integrityStatus == 'rejected') ...[
+        const Text(
+          '반려됨',
+          style: TextStyle(color: RunRecordColors.danger, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+      ],
+      Text(
+        formatRunDate(record.startedAt),
+        style: const TextStyle(color: RunRecordColors.label, fontSize: 13),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
+        style: const TextStyle(
+          color: AppColors.blueDark,
+          fontSize: 36,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -1,
+        ),
+      ),
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          Expanded(
+            child: MetricValue(
+              label: '시간',
+              value: formatRunDuration(
+                Duration(seconds: record.durationSeconds),
+              ),
+            ),
           ),
+          Expanded(
+            child: MetricValue(label: '평균 페이스', value: formatRunPace(record)),
+          ),
+        ],
+      ),
+      if (record.temperature != null) ...[
+        const SizedBox(height: 16),
+        Text(
+          record.temperature!.label,
+          style: const TextStyle(color: RunRecordColors.label, fontSize: 13),
         ),
       ],
-    ),
+    ],
   );
 }

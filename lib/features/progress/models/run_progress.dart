@@ -47,9 +47,16 @@ class RunProgress {
   }
 }
 
-enum RewardReason { tooShort, tooFast, lateSync, dailyLimit, rejected }
+enum RewardReason {
+  tooShort,
+  tooFast,
+  lateSync,
+  dailyLimit,
+  rejected,
+  reviewPending,
+}
 
-/// 러닝 한 번에 지급된 경험치입니다. 서버 저장 시 한 번만 계산되어 재조회해도 같습니다.
+/// 러닝 보상은 일반 저장 또는 검토 승인 때 확정되며 조회로 재지급하지 않습니다.
 class RunReward {
   const RunReward({
     required this.xp,
@@ -72,6 +79,7 @@ class RunReward {
     RewardReason.tooFast => '측정 속도가 비정상적으로 빨라 경험치가 지급되지 않았어요.',
     RewardReason.lateSync => '7일이 지나 저장된 기록은 경험치가 지급되지 않아요.',
     RewardReason.dailyLimit => '하루 최대 500 XP까지 받을 수 있어요.',
+    RewardReason.reviewPending => '검토 중 · 승인 후 경험치 지급',
     RewardReason.rejected => '관리자 검토에서 반려되어 경험치가 제외되었어요.',
     null => null,
   };
@@ -101,6 +109,7 @@ class RunReward {
       'late_sync' => RewardReason.lateSync,
       'daily_limit' => RewardReason.dailyLimit,
       'rejected' => RewardReason.rejected,
+      'review_pending' => RewardReason.reviewPending,
       _ => throw const FormatException('보상 사유가 올바르지 않습니다.'),
     };
     return RunReward(
