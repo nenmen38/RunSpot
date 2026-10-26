@@ -170,7 +170,12 @@ void main() {
     expect(find.textContaining('관측'), findsNothing);
     await tester.tap(find.byTooltip('러닝 환경 상세'));
     await tester.pumpAndSettle();
-    expect(find.text('공동 조회 한도에 도달하여 마지막 관측 자료를 표시합니다.'), findsOneWidget);
+    expect(find.text('최신 정보 확인 필요'), findsOneWidget);
+    expect(find.textContaining('에어코리아'), findsNothing);
+    await tester.tap(find.byTooltip('관측 정보'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('에어코리아'), findsOneWidget);
+    expect(find.textContaining('최근 갱신 실패'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   test('잘못된 자료와 결측값을 0으로 바꾸지 않습니다', () {
@@ -254,7 +259,8 @@ void main() {
     expect(find.text('최신 관측 자료를 갱신하지 못했습니다.'), findsNothing);
     await tester.tap(find.byTooltip('러닝 환경 상세'));
     await tester.pumpAndSettle();
-    expect(find.text('최신 관측 자료를 갱신하지 못했습니다.'), findsOneWidget);
+    expect(find.text('최신 정보 확인 필요'), findsOneWidget);
+    expect(find.textContaining('µg/m³'), findsNothing);
   });
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
     testWidgets('러닝 환경과 상세가 ${size.width} 너비에 맞습니다', (tester) async {
