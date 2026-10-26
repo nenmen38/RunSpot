@@ -23,6 +23,7 @@ class _StaffMfaControlState extends State<StaffMfaControl> {
   String? _error;
 
   Future<void> _prepare() async {
+    if (_busy) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -34,6 +35,16 @@ class _StaffMfaControlState extends State<StaffMfaControl> {
       if (factors.totp.isNotEmpty) {
         _factorId = factors.totp.first.id;
       } else {
+        // 등록을 마치지 않고 나간 경우 남은 인증만 정리해 이름 충돌을 방지합니다.
+        for (final factor in factors.all) {
+          if (factor.factorType == FactorType.totp &&
+              factor.status == FactorStatus.unverified &&
+              factor.friendlyName == '런스팟 관리 인증') {
+            if (!mounted || !widget.isCurrentOwner()) return;
+            await widget.client.auth.mfa.unenroll(factor.id);
+          }
+        }
+        if (!mounted || !widget.isCurrentOwner()) return;
         final enrollment = await widget.client.auth.mfa.enroll(
           friendlyName: '런스팟 관리 인증',
         );
