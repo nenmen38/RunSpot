@@ -36,3 +36,4 @@
 - `features/group_running/`: 그룹 모델·계정 고정 RPC 서비스·서버 시각 카운트다운·앱 수명 주기·GPS 준비 및 그룹 화면을 분리합니다. 개인 기록·경로 측정은 기존 홈 컨트롤러를 사용합니다.
 - `features/social/data/block_service.dart`, `blocked_users_screen.dart`, `widgets/block_button.dart`: 본인 차단 조회·변경, 동의 확인과 서버 갱신을 담당합니다.
 - `features/profile/data/achievement_service.dart`: 서버가 확정한 실제 업적 진행률과 달성일을 조회합니다. 공통 계정 조회 패널로 재조회와 계정 변경 응답 폐기를 처리합니다.
+- `features/board/`: 동네·전국 게시판과 러닝 대회 공지입니다. `data/board_service.dart`는 계정 고정 RPC 호출을, `board_controller.dart`는 게시판·말머리 선택과 이전 응답 폐기·더 보기·작성·삭제 후 재조회를 담당합니다. `data/korean_regions.dart`는 동네 선택용 시·도·시·군·구 목록이며 동네는 사용자가 직접 고릅니다. 대회 공지 등록 버튼은 서버가 알려준 관리자 권한일 때만 표시합니다.

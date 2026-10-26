@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../shared/maps/run_map.dart';
 import '../features/board/board_screen.dart';
+import '../features/board/data/board_service.dart';
 import '../features/settings/settings_screen.dart';
 
 import 'package:runquest/features/admin/admin_screen.dart';
@@ -40,6 +41,7 @@ class RunQuestShell extends StatefulWidget {
     this.progressService,
     this.statisticsService,
     this.rankingService,
+    this.boardService,
     super.key,
   });
 
@@ -50,6 +52,7 @@ class RunQuestShell extends StatefulWidget {
   final ProgressService? progressService;
   final StatisticsService? statisticsService;
   final RankingService? rankingService;
+  final BoardService? boardService;
 
   @override
   State<RunQuestShell> createState() => _RunQuestShellState();
@@ -151,7 +154,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         blockService: _blocks,
         achievementService: _achievements,
       ),
-      const BoardScreen(),
+      BoardScreen(service: widget.boardService),
     ];
 
     return Scaffold(
