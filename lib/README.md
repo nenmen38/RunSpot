@@ -16,7 +16,7 @@
 - `features/run_history/models/run_route.dart`는 구간별 좌표의 읽기 전용 모델과 형식 검사를 담당합니다. 저장소 2판은 경로를 함께 보관하고 이전 전송 대기 기록을 빈 경로로 유지합니다. `run_record_detail_screen.dart`는 상세 경로 조회·오류 재시도를, `widgets/saved_run_map.dart`는 지도·출발·도착·전체 경로 보기를 담당합니다. 기록 목록은 좌표를 조회하지 않습니다.
 - `features/social/`: 친구 관리와 실제 주간 거리 랭킹 화면을 포함합니다. `data/ranking_service.dart`는 계정 고정 집계 조회를, `models/weekly_ranking.dart`는 서버 순위 응답 해석을 담당합니다. `data/friend_service.dart`는 계정 고정 서버 호출을, `friend_controller.dart`는 목록·검색·변경 상태와 화면 활성 중 갱신을 담당합니다. `models/friend_entry.dart`와 친구 목록·검색·랭킹 위젯을 분리합니다.
 - `features/profile/`: 프로필, 공개 범위 설정, 실제 업적 조회·달성일 모델, 개인 통계 위젯을 포함합니다. `data/statistics_service.dart`와 `models/run_statistics.dart`는 계정 고정 통계 조회와 거리 가중 평균 페이스를 담당합니다. `data/run_sharing_preference_service.dart`는 본인 전용 자동 위치 공유 설정 저장·조회를, `widgets/run_sharing_control.dart`는 프로필의 설정·저장 상태·재시도를 담당합니다. 홈 컨트롤러가 설정과 실제 러닝·GPS 상태를 함께 확인하며 홈에는 공유 스위치를 두지 않습니다.
-- `features/progress/`: 서버가 계산한 경험치·레벨 조회 서비스와 모델, 프로필 레벨 카드, 러닝 종료 보상(확인 중·실패 재시도·레벨 업) 위젯입니다. 일반 보상은 서버 저장 시, 보류 보상은 관리자 승인 시 확정되므로 앱은 조회만 재시도합니다. 서버 저장 대기 기록은 전송 후 지급된다고 안내합니다.
+- `features/progress/`: 서버가 계산한 경험치·레벨 조회 서비스와 모델, 프로필 레벨 카드, 러닝 종료 보상(확인 중·실패 재시도·레벨 업) 위젯입니다. 보상은 서버 저장 시 확정되므로 앱은 조회만 재시도합니다. 서버 저장 대기 기록은 전송 후 지급된다고 안내합니다.
 - `features/admin/`: 실제 이상 기록 조회·승인·반려 서비스, 처리 사유 입력과 관리자 다중 인증 위젯을 포함합니다. 서버 역할과 다중 인증을 매번 확인합니다.
 - `shared/`: 특정 기능에 의존하지 않는 색상과 공통 위젯입니다. `widgets/account_query_panel.dart`는 개인 통계·랭킹의 로딩·재시도·계정 변경 응답 폐기·복귀 및 30초 갱신을 담당합니다.
 - `shared/maps/`: 홈·기록 상세가 함께 사용하는 카카오 지도 설정, 웹뷰 브리지, 카메라 컨트롤러와 지도 위젯입니다. `assets/maps/kakao_map.html`은 공식 SDK를 로드하여 마커·단절 경로·영역 맞춤을 처리합니다. 좌표 이벤트 형식을 검사하고 지도 갱신을 직렬화하며 변경 없는 상태는 다시 전달하지 않습니다. 지도 실패와 GPS 측정 실패는 분리합니다.
@@ -36,6 +36,4 @@
 - `features/group_running/`: 그룹 모델·계정 고정 RPC 서비스·서버 시각 카운트다운·앱 수명 주기·GPS 준비 및 그룹 화면을 분리합니다. 개인 기록·경로 측정은 기존 홈 컨트롤러를 사용합니다.
 - `features/social/data/block_service.dart`, `blocked_users_screen.dart`, `widgets/block_button.dart`: 본인 차단 조회·변경, 동의 확인과 서버 갱신을 담당합니다.
 - `features/profile/data/achievement_service.dart`: 서버가 확정한 실제 업적 진행률과 달성일을 조회합니다. 공통 계정 조회 패널로 재조회와 계정 변경 응답 폐기를 처리합니다.
-
-- `features/home/models/run_motion_tracker.dart`: 좌표별 시각·정확도와 단절 경계를 약 5초 표본으로 보존합니다. 복구 후에는 새 연속 구간을 시작하며 위치 단절·점프는 거리 누적에서도 연결하지 않습니다. 완료 대기 SQLite 5판과 진행 중 체크포인트가 원본을 보관합니다.
-- `run_history/models/run_motion_evidence.dart`, `widgets/run_motion_evidence_panel.dart`: 서버가 판정한 최초 연속 60초의 시간·속도 표시를 담당합니다. 새 기록에는 1km 속도만으로 경고하지 않으며 관리자에게는 정확도를 추가 표시합니다. 원시 좌표는 이 패널에서 조회하지 않습니다.
+- `features/board/`: 동네·전국 게시판과 러닝 대회 공지입니다. `data/board_service.dart`는 계정 고정 RPC 호출을, `board_controller.dart`는 게시판·말머리 선택과 이전 응답 폐기·더 보기·작성·삭제 후 재조회를 담당합니다. `data/korean_regions.dart`는 동네 선택용 시·도·시·군·구 목록이며 동네는 사용자가 직접 고릅니다. 대회 공지 등록 버튼은 서버가 알려준 관리자 권한일 때만 표시합니다.
