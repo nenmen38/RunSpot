@@ -50,6 +50,23 @@ class SupabaseReviewService implements ReviewService {
     return result;
   }
 
+  Future<bool> canAccessManagement() async =>
+      await _rpc('can_access_management') == true;
+
+  Future<List<Map<String, dynamic>>> loadBoardReports() async =>
+      (await _rpc('board_report_cases') as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+  Future<void> resolveBoardReport(
+    String id,
+    String decision,
+    String note,
+  ) async => await _rpc('resolve_board_report', {
+    'report_id': id,
+    'decision': decision,
+    'note': note,
+  });
+
   @override
   Future<List<IntegrityReview>> load() async =>
       (await _rpc('review_cases') as List)

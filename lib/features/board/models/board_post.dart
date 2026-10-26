@@ -40,7 +40,10 @@ class BoardPost {
           : DateTime.parse(json['race_date'] as String),
       racePlace = json['race_place'] as String?,
       raceUrl = json['race_url'] as String?,
-      createdAt = DateTime.parse(json['created_at'] as String).toLocal();
+      createdAt = DateTime.parse(json['created_at'] as String).toLocal(),
+      updatedAt = DateTime.parse(
+        (json['updated_at'] ?? json['created_at']) as String,
+      ).toUtc();
 
   final String id;
   final BoardKind kind;
@@ -54,6 +57,7 @@ class BoardPost {
   final String? racePlace;
   final String? raceUrl;
   final DateTime createdAt;
+  final DateTime updatedAt;
 }
 
 /// 서버가 반환한 마지막 글의 작성 시각·식별자로 다음 페이지를 조회합니다.

@@ -65,12 +65,16 @@ void main() {
     await tester.tap(find.text('친구'));
     await tester.pumpAndSettle();
     expect(find.text('내 친구 1'), findsOneWidget);
-    await tester.tap(find.byTooltip('친구 삭제'));
+    await tester.tap(find.byTooltip('친구 관리'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('친구 삭제'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(service.entries, hasLength(1));
-    await tester.tap(find.byTooltip('친구 삭제'));
+    await tester.tap(find.byTooltip('친구 관리'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('친구 삭제'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('삭제'));
     await tester.pumpAndSettle();

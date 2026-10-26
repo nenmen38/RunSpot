@@ -85,8 +85,8 @@ class _SocialScreenState extends State<SocialScreen>
                 icon: const Icon(Icons.refresh),
               ),
               if (widget.groupController case final controller?)
-                IconButton(
-                  tooltip: '함께 달리기',
+                FilledButton.icon(
+                  label: const Text('함께 달리기'),
                   icon: const Icon(Icons.directions_run),
                   onPressed: () => Navigator.of(context).push<void>(
                     MaterialPageRoute(

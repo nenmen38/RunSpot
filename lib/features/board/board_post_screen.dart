@@ -6,6 +6,8 @@ import 'package:runquest/shared/widgets/badge_pill.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'board_controller.dart';
+import 'board_compose_screen.dart';
+import 'widgets/board_report_dialog.dart';
 import 'models/board_post.dart';
 import 'widgets/board_post_tile.dart';
 
@@ -18,6 +20,28 @@ class BoardPostScreen extends StatelessWidget {
 
   final BoardPost post;
   final BoardController controller;
+
+  Future<void> _edit(BuildContext context) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => BoardComposeScreen(controller: controller, post: post),
+      ),
+    );
+    if (saved == true && context.mounted) Navigator.pop(context);
+  }
+
+  Future<void> _report(BuildContext context) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => const BoardReportDialog(),
+    );
+    if (reason == null || !context.mounted) return;
+    final error = await controller.report(post, reason);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error ?? '신고가 접수되었습니다.')));
+    }
+  }
 
   Future<void> _delete(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -56,15 +80,30 @@ class BoardPostScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(post.kind.label),
         actions: [
-          if (post.isMine || controller.canModerate)
-            ListenableBuilder(
-              listenable: controller,
-              builder: (context, _) => IconButton(
-                tooltip: '삭제',
-                onPressed: controller.busy ? null : () => _delete(context),
-                icon: const Icon(Icons.delete_outline),
-              ),
+          ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => PopupMenuButton<String>(
+              tooltip: '게시글 메뉴',
+              enabled: !controller.busy,
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _edit(context);
+                } else if (value == 'report') {
+                  _report(context);
+                } else {
+                  _delete(context);
+                }
+              },
+              itemBuilder: (_) => [
+                if (post.isMine)
+                  const PopupMenuItem(value: 'edit', child: Text('수정')),
+                if (!post.isMine)
+                  const PopupMenuItem(value: 'report', child: Text('신고')),
+                if (post.isMine || controller.canModerate)
+                  const PopupMenuItem(value: 'delete', child: Text('삭제')),
+              ],
             ),
+          ),
         ],
       ),
       body: ListView(

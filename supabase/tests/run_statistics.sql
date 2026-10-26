@@ -53,7 +53,7 @@ set local role authenticated;
 select pg_temp.assert_true(pg_temp.fails('select public.my_run_statistics()','42501'),'빈 세션 차단');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000101',true);
 select pg_temp.assert_true(public.my_run_statistics() @>
- '{"weekly_distance_m":3300,"completed_runs":5,"pace_distance_m":4200,"pace_duration_sec":1560}'::jsonb,
+ '{"weekly_distance_m":3300,"completed_runs":2,"pace_distance_m":4200,"pace_duration_sec":1560}'::jsonb,
  '주간 경계·누적 횟수·거리 가중 페이스·미래 기록 제외');
 select pg_temp.assert_true(jsonb_array_length(public.friend_weekly_ranking()->'entries')=4,
  '본인·친구 공개·전체 공개·기록 없는 친구만 포함');

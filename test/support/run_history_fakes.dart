@@ -49,6 +49,12 @@ class FakeRunRecordService implements RunRecordService {
   }
 
   @override
+  Future<void> setHidden(String runId, bool hidden) async {
+    final index = records.indexWhere((record) => record.id == runId);
+    if (index >= 0) records[index] = records[index].withHidden(hidden);
+  }
+
+  @override
   Future<RunRoute> loadRoute(String runId) async {
     routeRequests.add(runId);
     if (routeFailure != null) throw routeFailure!;

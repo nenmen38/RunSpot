@@ -247,7 +247,9 @@ void main() {
     await tester.tap(find.text('제목r'));
     await tester.pumpAndSettle();
     expect(find.text('대회 안내 페이지 열기'), findsOneWidget);
-    expect(find.byTooltip('삭제'), findsOneWidget);
+    await tester.tap(find.byTooltip('게시글 메뉴'));
+    await tester.pumpAndSettle();
+    expect(find.text('삭제'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

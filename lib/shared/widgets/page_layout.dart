@@ -50,11 +50,6 @@ class AppTopBar extends StatelessWidget {
             ],
           ),
         ),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.notifications_none),
-          color: AppColors.blue,
-        ),
       ],
     );
   }

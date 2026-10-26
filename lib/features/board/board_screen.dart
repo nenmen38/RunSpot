@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
-import 'package:runquest/shared/widgets/panel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'board_compose_screen.dart';
@@ -168,7 +167,7 @@ class _BoardScreenState extends State<BoardScreen> {
               ),
             ),
           const SizedBox(height: 8),
-          Expanded(child: Panel(child: _body(context, controller))),
+          Expanded(child: _body(context, controller)),
         ],
       );
     },
@@ -201,11 +200,24 @@ class _BoardScreenState extends State<BoardScreen> {
       );
     }
     if (controller.posts.isEmpty) {
-      return _Notice(
-        icon: Icons.forum_outlined,
-        message: controller.kind == BoardKind.race
-            ? '예정된 러닝 대회 공지가 없어요.'
-            : '아직 글이 없어요.\n첫 글을 남겨 보세요.',
+      return LayoutBuilder(
+        builder: (context, constraints) => RefreshIndicator(
+          onRefresh: controller.refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              SizedBox(
+                height: constraints.maxHeight,
+                child: _Notice(
+                  icon: Icons.forum_outlined,
+                  message: controller.kind == BoardKind.race
+                      ? '예정된 러닝 대회 공지가 없어요.'
+                      : '아직 글이 없어요.\n첫 글을 남겨 보세요.',
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
     final posts = controller.posts;

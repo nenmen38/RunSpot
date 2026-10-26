@@ -61,6 +61,13 @@ class MemoryAuthStorage extends GotrueAsyncStorage {
   }
 }
 
+Future<void> openPrivacySettings(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('설정'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('계정·공개 설정'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   var sharingEligible = false;
   setUp(() => sharingEligible = false);
@@ -217,7 +224,7 @@ void main() {
     expect(find.text('0.00 km'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('내 프로필'), findsOneWidget);
+    expect(find.text('최근 러닝'), findsOneWidget);
     await tester.tap(find.text('홈'));
     await tester.pumpAndSettle();
     expect(find.byType(RunMap), findsOneWidget);
@@ -278,6 +285,7 @@ void main() {
     final controller = await showApp(tester, const Size(390, 844));
     await tester.tap(find.text('프로필').last);
     await tester.pumpAndSettle();
+    await openPrivacySettings(tester);
     const problem = '이메일 인증 후 위치 공유를 켤 수 있습니다.';
     expect(
       tester
@@ -301,6 +309,7 @@ void main() {
     expect(find.byType(Switch), findsNothing);
     await tester.tap(find.text('프로필').last);
     await tester.pumpAndSettle();
+    await openPrivacySettings(tester);
     expect(find.text('공개 설정을 불러오지 못했습니다.'), findsNothing);
     expect(
       tester
@@ -315,6 +324,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.shareWhileRunning, isTrue);
     expect(controller.sharing, isFalse);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('홈').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('러닝 시작'));
@@ -328,6 +341,7 @@ void main() {
     expect(controller.sharing, isTrue);
     await tester.tap(find.text('프로필').last);
     await tester.pumpAndSettle();
+    await openPrivacySettings(tester);
     await tester.ensureVisible(find.text('러닝 중 위치 공유'));
     await tester.tap(find.text('러닝 중 위치 공유'));
     await tester.pumpAndSettle();
@@ -646,7 +660,7 @@ void main() {
       expect(find.text('아직 러닝 기록이 없습니다.'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.text('내 프로필'), findsOneWidget);
+      expect(find.text('최근 러닝'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });

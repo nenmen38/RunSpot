@@ -26,6 +26,7 @@ class RunHistoryScreen extends StatefulWidget {
 }
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
+  bool _showHidden = false;
   @override
   void initState() {
     super.initState();
@@ -54,13 +55,22 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     animation: widget.controller,
     builder: (context, _) {
       final state = widget.controller;
-      final records = state.visibleRecords;
+      final records = _showHidden ? state.hiddenRecords : state.visibleRecords;
       return Theme(
         data: runRecordTheme(context),
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('내 기록'),
+            title: Text(_showHidden ? '숨긴 기록' : '내 기록'),
             actions: [
+              IconButton(
+                tooltip: _showHidden ? '내 기록 보기' : '숨긴 기록 보기',
+                onPressed: () => setState(() => _showHidden = !_showHidden),
+                icon: Icon(
+                  _showHidden
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+              ),
               IconButton(
                 tooltip: '새로고침',
                 onPressed: state.loading || state.syncing
@@ -112,8 +122,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                         ] else if (!state.loading &&
                             !state.syncing &&
                             records.isEmpty)
-                          const Text('아직 러닝 기록이 없습니다.')
-                        else if (!state.loading && state.hasMore)
+                          Text(
+                            _showHidden ? '숨긴 기록이 없습니다.' : '아직 러닝 기록이 없습니다.',
+                          ),
+                        if (!state.loading && state.hasMore)
                           TextButton.icon(
                             onPressed: state.loadMore,
                             icon: const Icon(Icons.expand_more),

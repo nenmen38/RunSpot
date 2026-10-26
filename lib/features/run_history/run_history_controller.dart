@@ -40,11 +40,30 @@ class RunHistoryController extends ChangeNotifier {
   Future<void> _localWrites = Future.value();
   Future<void>? _syncFuture;
 
+  List<RunRecord> get hiddenRecords =>
+      records.where((record) => record.hidden).toList()
+        ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+
+  Future<void> setHidden(RunRecord record, bool hidden) => _enqueue(() async {
+    _requireOwner();
+    if (record.pendingSync) {
+      throw const RunOutboxException('서버 저장 후 숨길 수 있습니다.');
+    }
+    await service.setHidden(record.id, hidden).timeout(requestTimeout);
+    _requireOwner();
+    records = records
+        .map((item) => item.id == record.id ? item.withHidden(hidden) : item)
+        .toList();
+    _notify();
+  });
+
   List<RunRecord> get visibleRecords {
     final pendingIds = pendingRecords.map((row) => row.clientRunId).toSet();
     return [
       ...pendingRecords,
-      ...records.where((row) => !pendingIds.contains(row.clientRunId)),
+      ...records.where(
+        (row) => !row.hidden && !pendingIds.contains(row.clientRunId),
+      ),
     ]..sort((a, b) {
       final date = b.startedAt.compareTo(a.startedAt);
       return date == 0 ? b.clientRunId.compareTo(a.clientRunId) : date;

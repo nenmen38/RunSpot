@@ -12,6 +12,8 @@ abstract interface class BoardService {
   Future<String> setRegion(String region);
   Future<String> create(BoardDraft draft);
   Future<void> delete(String postId);
+  Future<void> update(BoardPost post, BoardDraft draft);
+  Future<void> report(String postId, String reason);
 }
 
 class SupabaseBoardService implements BoardService {
@@ -67,6 +69,28 @@ class SupabaseBoardService implements BoardService {
       'requested_race_url': draft.raceUrl,
     },
   ) as String;
+
+  @override
+  Future<void> update(BoardPost post, BoardDraft draft) async {
+    await _rpc('update_my_board_post', {
+      'post_id': post.id,
+      'expected_updated_at': post.updatedAt.toIso8601String(),
+      'requested_topic': draft.topic?.code,
+      'requested_title': draft.title,
+      'requested_body': draft.body,
+      'requested_race_date': draft.raceDate?.toIso8601String().substring(0, 10),
+      'requested_race_place': draft.racePlace,
+      'requested_race_url': draft.raceUrl,
+    });
+  }
+
+  @override
+  Future<void> report(String postId, String reason) async {
+    await _rpc('report_board_post', {
+      'post_id': postId,
+      'requested_reason': reason,
+    });
+  }
 
   @override
   Future<void> delete(String postId) async {

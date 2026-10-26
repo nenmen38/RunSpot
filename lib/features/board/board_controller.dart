@@ -135,7 +135,7 @@ class BoardController extends ChangeNotifier {
     Future<void> Function() action,
     String fallback,
   ) async {
-    if (_disposed || busy) return null;
+    if (_disposed || busy) return '처리 중입니다. 잠시 후 다시 시도해 주세요.';
     if (!_checkOwner()) {
       notifyListeners();
       return error;
@@ -163,6 +163,11 @@ class BoardController extends ChangeNotifier {
 
   Future<String?> create(BoardDraft draft) =>
       _mutate(() => service.create(draft), '글을 등록하지 못했습니다. 다시 시도해 주세요.');
+
+  Future<String?> update(BoardPost post, BoardDraft draft) =>
+      _mutate(() => service.update(post, draft), '글을 수정하지 못했습니다.');
+  Future<String?> report(BoardPost post, String reason) =>
+      _mutate(() => service.report(post.id, reason), '신고를 접수하지 못했습니다.');
 
   Future<String?> delete(BoardPost post) =>
       _mutate(() => service.delete(post.id), '글을 삭제하지 못했습니다.');

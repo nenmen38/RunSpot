@@ -6,6 +6,7 @@ import '../run_history/widgets/run_motion_evidence_panel.dart';
 import '../../shared/widgets/account_query_panel.dart';
 import 'data/review_service.dart';
 import 'widgets/staff_mfa_control.dart';
+import 'widgets/board_reports_panel.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({this.service, super.key});
@@ -132,6 +133,8 @@ class _AdminScreenState extends State<AdminScreen> {
           )
         else
           const Text('관리 기능에 연결할 수 없습니다.'),
+        if (service is SupabaseReviewService)
+          BoardReportsPanel(key: ValueKey(_revision), service: service),
       ],
     );
   }

@@ -154,6 +154,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
         onSettingsTap: () => Navigator.of(context).push<void>(
           MaterialPageRoute(
             builder: (_) => SettingsScreen(
+              mapController: _map,
+              managementAccess: _reviews is SupabaseReviewService
+                  ? (_reviews as SupabaseReviewService).canAccessManagement()
+                  : null,
               onBlockedUsersTap: _blocks == null ? null : _openBlockedUsers,
               isCurrentOwner: () => _map.runHistory.service.isCurrentOwner,
               adminBuilder: (_) => AdminScreen(service: _reviews),

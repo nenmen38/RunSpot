@@ -19,6 +19,15 @@ class RunQuestApp extends StatelessWidget {
           seedColor: AppColors.blue,
           primary: AppColors.blue,
           surface: Colors.white,
+          secondary: AppColors.blueDark,
+          secondaryContainer: AppColors.blueSoft,
+          onSecondaryContainer: AppColors.blueDark,
+          surfaceTint: Colors.transparent,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.ink,
+          surfaceTintColor: Colors.transparent,
         ),
         textTheme: const TextTheme(
           headlineMedium: TextStyle(
@@ -38,8 +47,8 @@ class RunQuestApp extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
           bodyMedium: TextStyle(
-            color: AppColors.gray,
-            fontSize: 12,
+            color: AppColors.ink,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             height: 1.35,
           ),

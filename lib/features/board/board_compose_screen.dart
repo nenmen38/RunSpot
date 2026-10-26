@@ -7,9 +7,10 @@ import 'models/board_post.dart';
 import 'widgets/board_post_tile.dart';
 
 class BoardComposeScreen extends StatefulWidget {
-  const BoardComposeScreen({required this.controller, super.key});
+  const BoardComposeScreen({required this.controller, this.post, super.key});
 
   final BoardController controller;
+  final BoardPost? post;
 
   @override
   State<BoardComposeScreen> createState() => _BoardComposeScreenState();
@@ -23,13 +24,26 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
   final _url = TextEditingController();
   // 같은 화면에서 다시 등록하면 서버가 같은 글로 처리합니다.
   final _clientId = const Uuid().v4();
-  late final BoardKind _kind = widget.controller.kind;
-  late BoardTopic? _topic = widget.controller.topic;
+  late final BoardKind _kind = widget.post?.kind ?? widget.controller.kind;
+  late BoardTopic? _topic = widget.post?.topic ?? widget.controller.topic;
   DateTime? _raceDate;
   bool _submitted = false;
   String? _error;
 
   bool get _isRace => _kind == BoardKind.race;
+
+  @override
+  void initState() {
+    super.initState();
+    final post = widget.post;
+    if (post != null) {
+      _title.text = post.title;
+      _body.text = post.body;
+      _place.text = post.racePlace ?? '';
+      _url.text = post.raceUrl ?? '';
+      _raceDate = post.raceDate;
+    }
+  }
 
   @override
   void dispose() {
@@ -62,7 +76,9 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final picked = await showDatePicker(
       context: context,
-      firstDate: today,
+      firstDate: _raceDate != null && _raceDate!.isBefore(today)
+          ? _raceDate!
+          : today,
       lastDate: today.add(const Duration(days: 730)),
       initialDate: _raceDate ?? today,
     );
@@ -76,20 +92,20 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
     });
     final valid = _form.currentState!.validate();
     if (!valid || (_isRace ? _raceDate == null : _topic == null)) return;
-    final error = await widget.controller.create(
-      BoardDraft(
-        clientId: _clientId,
-        kind: _kind,
-        topic: _isRace ? null : _topic,
-        title: _title.text.trim(),
-        body: _body.text.trim(),
-        raceDate: _isRace ? _raceDate : null,
-        racePlace: _isRace ? _place.text.trim() : null,
-        raceUrl: _isRace && _url.text.trim().isNotEmpty
-            ? _url.text.trim()
-            : null,
-      ),
+    final draft = BoardDraft(
+      clientId: _clientId,
+      kind: _kind,
+      topic: _isRace ? null : _topic,
+      title: _title.text.trim(),
+      body: _body.text.trim(),
+      raceDate: _isRace ? _raceDate : null,
+      racePlace: _isRace ? _place.text.trim() : null,
+      raceUrl: _isRace && _url.text.trim().isNotEmpty ? _url.text.trim() : null,
     );
+    final error = widget.post == null
+        ? await widget.controller.create(draft)
+        : await widget.controller.update(widget.post!, draft);
+
     if (!mounted) return;
     if (error == null) {
       Navigator.of(context).pop(true);
@@ -100,12 +116,18 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final region = widget.controller.region;
+    final region = widget.post?.region ?? widget.controller.region;
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) => Scaffold(
         appBar: AppBar(
-          title: Text(_isRace ? '러닝 대회 공지 등록' : '${_kind.label} 게시판 글쓰기'),
+          title: Text(
+            widget.post != null
+                ? '글 수정'
+                : _isRace
+                ? '러닝 대회 공지 등록'
+                : '${_kind.label} 게시판 글쓰기',
+          ),
         ),
         body: Form(
           key: _form,
@@ -236,7 +258,7 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('등록'),
+                    : Text(widget.post == null ? '등록' : '수정 완료'),
               ),
             ],
           ),

@@ -52,6 +52,8 @@ class FakeBoardService implements BoardService {
   final loads = <LoadCall>[];
   final created = <BoardDraft>[];
   final deleted = <String>[];
+  final updated = <BoardDraft>[];
+  final reported = <String>[];
   String? savedRegion;
   Future<BoardFeed> Function(LoadCall call)? onLoad;
   Object? createError;
@@ -79,6 +81,13 @@ class FakeBoardService implements BoardService {
     created.add(draft);
     return 'new-id';
   }
+
+  @override
+  Future<void> update(BoardPost post, BoardDraft draft) async =>
+      updated.add(draft);
+  @override
+  Future<void> report(String postId, String reason) async =>
+      reported.add('$postId:$reason');
 
   @override
   Future<void> delete(String postId) async => deleted.add(postId);

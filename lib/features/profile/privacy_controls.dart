@@ -11,8 +11,15 @@ import '../home/live_map_controller.dart';
 import 'widgets/run_sharing_control.dart';
 
 class PrivacyControls extends StatefulWidget {
-  const PrivacyControls({this.sharingController, super.key});
+  const PrivacyControls({
+    this.sharingController,
+    this.identityOnly = false,
+    this.showIdentity = true,
+    super.key,
+  });
   final LiveMapController? sharingController;
+  final bool identityOnly;
+  final bool showIdentity;
 
   @override
   State<PrivacyControls> createState() => _PrivacyControlsState();
@@ -134,44 +141,47 @@ class _PrivacyControlsState extends State<PrivacyControls> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _verified ? (_nickname ?? '나') : '나',
-                style: Theme.of(context).textTheme.titleMedium,
+        if (widget.showIdentity)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _verified ? (_nickname ?? '나') : '나',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
-            ),
-            if (_verified && !_busy && _error == null)
-              IconButton(
-                onPressed: _editNickname,
-                tooltip: _nickname == null ? '닉네임 등록' : '닉네임 변경',
-                icon: const Icon(Icons.edit_outlined),
-              ),
-          ],
-        ),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'private', label: Text('비공개')),
-            ButtonSegment(value: 'friends', label: Text('친구 공개')),
-            ButtonSegment(value: 'public', label: Text('전체 공개')),
-          ],
-          selected: {_visibility},
-          showSelectedIcon: false,
-          onSelectionChanged:
-              _busy || !_verified || _nickname == null || _error != null
-              ? null
-              : (values) => _save(values.single),
-        ),
+              if (_verified && !_busy && _error == null)
+                IconButton(
+                  onPressed: _editNickname,
+                  tooltip: _nickname == null ? '닉네임 등록' : '닉네임 변경',
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+            ],
+          ),
+        if (!widget.identityOnly)
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'private', label: Text('비공개')),
+              ButtonSegment(value: 'friends', label: Text('친구 공개')),
+              ButtonSegment(value: 'public', label: Text('전체 공개')),
+            ],
+            selected: {_visibility},
+            showSelectedIcon: false,
+            onSelectionChanged:
+                _busy || !_verified || _nickname == null || _error != null
+                ? null
+                : (values) => _save(values.single),
+          ),
         if (!_verified && !_busy && _error == null)
           TextButton(onPressed: _verify, child: const Text('이메일 인증')),
         if (_verified && _nickname == null && !_busy && _error == null)
           TextButton(onPressed: _editNickname, child: const Text('닉네임 등록')),
-        TextButton.icon(
-          onPressed: _busy ? null : _verifyPhone,
-          icon: const Icon(Icons.phone_outlined),
-          label: const Text('전화번호 인증 (선택)'),
-        ),
+        if (!widget.identityOnly)
+          TextButton.icon(
+            onPressed: _busy ? null : _verifyPhone,
+            icon: const Icon(Icons.phone_outlined),
+            label: const Text('전화번호 인증 (선택)'),
+          ),
         if (_error != null) ...[
           Text(_error!),
           TextButton(
@@ -179,7 +189,7 @@ class _PrivacyControlsState extends State<PrivacyControls> {
             child: const Text('다시 시도'),
           ),
         ],
-        if (widget.sharingController != null) ...[
+        if (!widget.identityOnly && widget.sharingController != null) ...[
           const SizedBox(height: 10),
           RunSharingControl(
             controller: widget.sharingController!,

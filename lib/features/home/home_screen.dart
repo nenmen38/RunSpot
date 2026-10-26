@@ -1,3 +1,5 @@
+import '../run_history/run_history_controller.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -158,6 +160,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
           actions: [
+            if (record.distanceMeters == 0 && !record.pendingSync)
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'hide'),
+                child: const Text('기록 숨기기'),
+              ),
             TextButton.icon(
               onPressed: () => Navigator.pop(dialogContext, 'share'),
               icon: const Icon(Icons.ios_share),
@@ -175,7 +182,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       );
       if (!mounted || !history.service.isCurrentOwner) return;
-      if (action == 'history') {
+      if (action == 'hide') {
+        try {
+          await history.setHidden(currentRecord(), true);
+        } catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(RunHistoryController.message(error))),
+            );
+          }
+        }
+      } else if (action == 'history') {
         _openHistory();
       } else if (action == 'share') {
         final service = history.service;

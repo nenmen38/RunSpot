@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import 'data/run_health_service.dart';
 import 'widgets/run_health_panel.dart';
@@ -57,22 +58,19 @@ class _HealthSettingsScreenState extends State<HealthSettingsScreen> {
         const SizedBox(height: 20),
         const Text('심박과 활동 칼로리를 기록에 함께 확인하세요.', textAlign: TextAlign.center),
         const SizedBox(height: 24),
-        const ListTile(
+        ListTile(
           contentPadding: EdgeInsets.zero,
-          title: Text('아이폰'),
-          subtitle: Text('건강 앱 연결'),
-        ),
-        const ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text('안드로이드'),
-          subtitle: Text('헬스 커넥트 연결'),
+          title: Text(
+            defaultTargetPlatform == TargetPlatform.iOS ? '건강 앱' : '헬스 커넥트',
+          ),
+          subtitle: const Text('심박 · 활동 칼로리'),
         ),
         const SizedBox(height: 16),
         const Text('나만 보기 · 서버 저장 없음'),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: _busy || !widget.isCurrentOwner() ? null : _connect,
-          child: Text(_busy ? '연결 중' : '연결하기'),
+          child: Text(_busy ? '확인 중' : '읽기 권한 설정'),
         ),
         if (_message != null) Text(_message!),
         const SizedBox(height: 12),

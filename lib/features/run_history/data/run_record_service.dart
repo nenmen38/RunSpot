@@ -10,6 +10,7 @@ abstract interface class RunRecordService {
   Future<RunRecord> save(RunSummary summary);
   Future<List<RunRecord>> list({required int offset, required int limit});
   Future<RunRoute> loadRoute(String runId);
+  Future<void> setHidden(String runId, bool hidden);
 }
 
 class SupabaseRunRecordService implements RunRecordService {
@@ -65,6 +66,18 @@ class SupabaseRunRecordService implements RunRecordService {
   }
 
   @override
+  Future<void> setHidden(String runId, bool hidden) async {
+    final session = _requireOwner();
+    await client
+        .rpc(
+          'set_my_run_hidden',
+          params: {'requested_run_id': runId, 'requested_hidden': hidden},
+        )
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    _requireOwner();
+  }
+
+  @override
   Future<RunRoute> loadRoute(String runId) async {
     final session = _requireOwner();
     final route = await client
@@ -83,7 +96,7 @@ class SupabaseRunRecordService implements RunRecordService {
     final rows = await client
         .from('runs')
         .select(
-          'id,client_run_id,started_at,ended_at,distance_m,duration_sec,temperature_c,temperature_observed_at,split_data,review_pending,integrity_status,motion_evidence',
+          'id,client_run_id,started_at,ended_at,distance_m,duration_sec,temperature_c,temperature_observed_at,split_data,review_pending,integrity_status,motion_evidence,hidden',
         )
         .eq('user_id', session.user.id)
         .order('started_at', ascending: false)

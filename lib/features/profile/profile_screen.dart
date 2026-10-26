@@ -12,10 +12,10 @@ import 'package:runquest/features/profile/widgets/achievement_row.dart';
 import 'package:runquest/features/profile/widgets/quick_stats.dart';
 import 'package:runquest/features/progress/data/progress_service.dart';
 import 'package:runquest/features/progress/widgets/profile_level_card.dart';
-import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/shared/widgets/page_layout.dart';
 import 'package:runquest/shared/widgets/panel.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'widgets/recent_runs.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
@@ -41,83 +41,60 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppTopBar(title: '프로필', subtitle: '통계와 업적 공개 범위 설정'),
-            if (onSettingsTap != null)
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                leading: const Icon(
-                  Icons.settings_outlined,
-                  color: AppColors.blue,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '프로필',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
-                title: const Text('설정'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: onSettingsTap,
-              ),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              leading: const Icon(Icons.history, color: AppColors.blue),
-              title: const Text('내 기록'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: onHistoryTap,
+                if (onSettingsTap != null)
+                  IconButton(
+                    tooltip: '설정',
+                    onPressed: onSettingsTap,
+                    icon: const Icon(Icons.settings_outlined),
+                  ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Panel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: const BoxDecoration(
-                          color: AppColors.blueSoft,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.directions_run,
-                          color: AppColors.blue,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '내 프로필',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ),
-                      const Icon(Icons.ios_share, color: AppColors.blue),
-                    ],
+                  PrivacyControls(
+                    sharingController: mapController,
+                    identityOnly: true,
                   ),
                   if (progressService != null) ...[
                     const SizedBox(height: 12),
                     ProfileLevelCard(service: progressService!),
                   ],
-                  const SizedBox(height: 12),
-                  PrivacyControls(sharingController: mapController),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Supabase.instance.client.auth.signOut(),
-                      icon: const Icon(Icons.logout),
-                      label: const Text('로그아웃'),
-                    ),
-                  ),
                 ],
               ),
             ),
             const SizedBox(height: 10),
             if (statisticsService != null)
               QuickStats(service: statisticsService!),
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
+            if (mapController != null)
+              RecentRuns(
+                controller: mapController!.runHistory,
+                onHistoryTap: onHistoryTap,
+              )
+            else
+              ListTile(
+                title: const Text('내 기록'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onHistoryTap,
+              ),
+            const SizedBox(height: 20),
             Panel(
               child: Column(
                 children: [
                   const SectionHeader(
                     title: '대표 업적',
-                    subtitle: '프로필에 표시돼요',
+                    subtitle: '러닝으로 쌓은 성취',
                     icon: Icons.military_tech_outlined,
                   ),
                   const SizedBox(height: 10),

@@ -43,7 +43,17 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
   late final RunHealthService _health =
       widget.healthService ?? DeviceRunHealthService();
   bool _loading = true;
+  bool _hiding = false;
   String? _error;
+
+  RunRecord get _record =>
+      [
+        ...widget.controller.records,
+        ...widget.controller.pendingRecords,
+      ].firstWhere(
+        (record) => record.clientRunId == widget.record.clientRunId,
+        orElse: () => widget.record,
+      );
 
   @override
   void initState() {
@@ -66,6 +76,49 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
     }
   }
 
+  Future<void> _changeVisibility() async {
+    if (_hiding) return;
+    final record =
+        [
+          ...widget.controller.records,
+          ...widget.controller.pendingRecords,
+        ].firstWhere(
+          (record) => record.clientRunId == widget.record.clientRunId,
+          orElse: () => widget.record,
+        );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(record.hidden ? '기록을 복원할까요?' : '기록을 숨길까요?'),
+        content: const Text('통계와 보상은 유지됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(record.hidden ? '복원' : '숨기기'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _hiding = true);
+    try {
+      await widget.controller.setHidden(record, !record.hidden);
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(RunHistoryController.message(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _hiding = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
@@ -75,6 +128,18 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
         appBar: AppBar(
           title: const Text('러닝 기록'),
           actions: [
+            if (!widget.record.pendingSync)
+              IconButton(
+                tooltip: widget.record.hidden ? '기록 복원' : '기록 숨기기',
+                onPressed: _hiding || !widget.controller.service.isCurrentOwner
+                    ? null
+                    : _changeVisibility,
+                icon: Icon(
+                  widget.record.hidden
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+              ),
             IconButton(
               tooltip: '러닝 기록 공유',
               icon: const Icon(Icons.ios_share),
@@ -83,11 +148,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                   : () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => RunShareScreen(
-                          record: widget.controller.visibleRecords.firstWhere(
-                            (record) =>
-                                record.clientRunId == widget.record.clientRunId,
-                            orElse: () => widget.record,
-                          ),
+                          record: _record,
                           isCurrentOwner: () =>
                               widget.controller.service.isCurrentOwner,
                           loadRoute: () =>
@@ -111,6 +172,18 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
             ? const Center(child: Text('로그인 상태를 확인해 주세요.'))
             : ListView(
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: RunRecordDetails(record: _record),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: RunSplitsPanel(
+                      motionEvidence: _record.motionEvidence,
+                      reviewResolved: _record.integrityStatus != 'pending',
+                      splits: _record.splits,
+                    ),
+                  ),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: Row(
@@ -162,45 +235,6 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                       route: _route!,
                       mapBridgeFactory: widget.mapBridgeFactory,
                     ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: RunRecordDetails(
-                      record: widget.controller.visibleRecords.firstWhere(
-                        (record) =>
-                            record.clientRunId == widget.record.clientRunId,
-                        orElse: () => widget.record,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: RunSplitsPanel(
-                      motionEvidence: widget.controller.visibleRecords
-                          .firstWhere(
-                            (record) =>
-                                record.clientRunId == widget.record.clientRunId,
-                            orElse: () => widget.record,
-                          )
-                          .motionEvidence,
-                      reviewResolved:
-                          widget.controller.visibleRecords
-                              .firstWhere(
-                                (record) =>
-                                    record.clientRunId ==
-                                    widget.record.clientRunId,
-                                orElse: () => widget.record,
-                              )
-                              .integrityStatus !=
-                          'pending',
-                      splits: widget.controller.visibleRecords
-                          .firstWhere(
-                            (record) =>
-                                record.clientRunId == widget.record.clientRunId,
-                            orElse: () => widget.record,
-                          )
-                          .splits,
-                    ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     child: RunHealthPanel(

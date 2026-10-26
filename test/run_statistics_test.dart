@@ -71,7 +71,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('12.0km'), findsOneWidget);
     expect(find.text('6:15'), findsOneWidget);
-    expect(find.text('23개'), findsOneWidget);
+    expect(find.text('23회'), findsOneWidget);
     service.result = RunStatistics.fromJson({
       ...statisticsJson,
       'weekly_distance_m': 0,
@@ -82,7 +82,7 @@ void main() {
     await tester.tap(find.text('새로고침'));
     await tester.pumpAndSettle();
     expect(find.text('--:--'), findsOneWidget);
-    expect(find.text('0개'), findsOneWidget);
+    expect(find.text('0회'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -126,8 +126,8 @@ void main() {
     await tester.pumpAndSettle();
     pending.complete(first.result);
     await tester.pumpAndSettle();
-    expect(find.text('1개'), findsOneWidget);
-    expect(find.text('23개'), findsNothing);
+    expect(find.text('1회'), findsOneWidget);
+    expect(find.text('23회'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 

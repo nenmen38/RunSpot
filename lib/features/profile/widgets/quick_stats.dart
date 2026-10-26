@@ -23,7 +23,7 @@ class QuickStats extends StatelessWidget {
           children: [
             Expanded(
               child: StatCard(
-                label: '이번 주',
+                label: '이번 주 거리',
                 value:
                     '${(stats.weeklyDistanceMeters / 1000).toStringAsFixed(1)}km',
                 icon: Icons.calendar_month,
@@ -32,7 +32,7 @@ class QuickStats extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: StatCard(
-                label: '평균 페이스',
+                label: '누적 페이스',
                 value: formatPaceDuration(stats.averagePace),
                 icon: Icons.speed,
               ),
@@ -41,16 +41,11 @@ class QuickStats extends StatelessWidget {
             Expanded(
               child: StatCard(
                 label: '완료 러닝',
-                value: '${stats.completedRuns}개',
+                value: '${stats.completedRuns}회',
                 icon: Icons.flag_outlined,
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          '이번 주: 한국 시간 월요일부터 · 페이스·횟수: 전체 누적\n서버 저장 완료 기록 기준',
-          style: TextStyle(fontSize: 11),
         ),
       ],
     ),

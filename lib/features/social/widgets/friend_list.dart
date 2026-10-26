@@ -178,21 +178,36 @@ class FriendRow extends StatelessWidget {
                   ),
                 ],
               ),
-              FriendRelation.friend => IconButton(
-                onPressed: enabled ? () => _confirmRemoval(context) : null,
-                tooltip: '친구 삭제',
-                icon: const Icon(Icons.person_remove_outlined),
-              ),
+              FriendRelation.friend => const SizedBox.shrink(),
             },
-          if (blockService case final service?)
-            BlockButton(
-              service: service,
-              userId: entry.userId,
-              nickname: entry.nickname,
-              onChanged: () {
-                controller.queryChanged('');
-                controller.refresh();
+          if (entry.relation == FriendRelation.friend || blockService != null)
+            PopupMenuButton<String>(
+              tooltip: entry.relation == FriendRelation.friend
+                  ? '친구 관리'
+                  : '사용자 메뉴',
+              enabled: enabled,
+              onSelected: (value) async {
+                if (value == 'remove') {
+                  await _confirmRemoval(context);
+                } else if (blockService != null) {
+                  final changed = await confirmUserBlock(
+                    context,
+                    service: blockService!,
+                    userId: entry.userId,
+                    nickname: entry.nickname,
+                  );
+                  if (changed) {
+                    controller.queryChanged('');
+                    await controller.refresh();
+                  }
+                }
               },
+              itemBuilder: (_) => [
+                if (entry.relation == FriendRelation.friend)
+                  const PopupMenuItem(value: 'remove', child: Text('친구 삭제')),
+                if (blockService != null)
+                  const PopupMenuItem(value: 'block', child: Text('사용자 차단')),
+              ],
             ),
         ],
       ),

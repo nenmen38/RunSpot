@@ -13,6 +13,7 @@ class RunRecord {
     required this.distanceMeters,
     required this.durationSeconds,
     this.pendingSync = false,
+    this.hidden = false,
     this.route,
     this.temperature,
     this.splits,
@@ -28,6 +29,7 @@ class RunRecord {
   final int distanceMeters;
   final int durationSeconds;
   final bool pendingSync;
+  final bool hidden;
   final RunRoute? route;
   final RunTemperature? temperature;
   final List<RunSplit>? splits;
@@ -48,6 +50,23 @@ class RunRecord {
     splits: summary.splits,
   );
 
+  RunRecord withHidden(bool value) => RunRecord(
+    id: id,
+    clientRunId: clientRunId,
+    startedAt: startedAt,
+    endedAt: endedAt,
+    distanceMeters: distanceMeters,
+    durationSeconds: durationSeconds,
+    pendingSync: pendingSync,
+    hidden: value,
+    route: route,
+    temperature: temperature,
+    splits: splits,
+    motionEvidence: motionEvidence,
+    reviewPending: reviewPending,
+    integrityStatus: integrityStatus,
+  );
+
   int? get paceSeconds => distanceMeters > 0 && durationSeconds > 0
       ? (durationSeconds * 1000 / distanceMeters).round()
       : null;
@@ -62,6 +81,7 @@ class RunRecord {
     temperature: RunTemperature.fromJson(row),
     splits: RunSplit.decode(row['split_data']),
     motionEvidence: RunMotionEvidence.decode(row['motion_evidence']),
+    hidden: row['hidden'] == true,
     reviewPending: row['review_pending'] == true,
     integrityStatus: row['integrity_status'] as String? ?? 'pending',
   );
