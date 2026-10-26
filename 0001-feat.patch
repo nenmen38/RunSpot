@@ -1,0 +1,1513 @@
+From f07397ad0e6cd8c7b212144b878a397536407a80 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 19 Oct 2026 12:36:45 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=20=EB=9F=AC=EB=8B=9D=20=EA=B2=BD=ED=97=98?=
+ =?UTF-8?q?=EC=B9=98=C2=B7=EB=A0=88=EB=B2=A8=EA=B3=BC=20=EC=A2=85=EB=A3=8C?=
+ =?UTF-8?q?=20=EB=B3=B4=EC=83=81=20=ED=99=94=EB=A9=B4=20=EC=B6=94=EA=B0=80?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 서버: 기록 저장 트랜잭션에서 보상을 한 번만 계산하는 run_rewards와
+  my_progress·my_run_reward 조회 RPC (기록당 300XP, 하루 500XP, 비정상 기록 0XP)
+- 프로필: 레벨 칭호·누적 경험치·진행 바, 불러오기 실패 시 다시 시도
+- 러닝 종료 결과: 보상 확인 중, 실패·다시 확인, 획득 XP, 레벨 업 표시
+- SQL·위젯 테스트 추가
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_018tfbp9n3BrKbTRDY3oTnA3
+---
+ lib/README.md                                 |   1 +
+ lib/app/run_quest_shell.dart                  |   9 +-
+ lib/features/home/home_screen.dart            |  18 +-
+ lib/features/profile/profile_screen.dart      |  28 +-
+ .../progress/data/progress_service.dart       |  46 +++
+ .../progress/models/run_progress.dart         | 120 ++++++++
+ .../progress/widgets/level_progress_bar.dart  |  69 +++++
+ .../progress/widgets/profile_level_card.dart  | 101 +++++++
+ .../progress/widgets/run_reward_section.dart  | 261 ++++++++++++++++++
+ supabase/README.md                            |  12 +-
+ .../migrations/20261019000100_run_rewards.sql | 141 ++++++++++
+ supabase/tests/run_rewards.sql                | 105 +++++++
+ test/run_progress_test.dart                   | 204 ++++++++++++++
+ test/support/progress_fakes.dart              |  44 +++
+ test/widget_test.dart                         |  58 ++++
+ 15 files changed, 1201 insertions(+), 16 deletions(-)
+ create mode 100644 lib/features/progress/data/progress_service.dart
+ create mode 100644 lib/features/progress/models/run_progress.dart
+ create mode 100644 lib/features/progress/widgets/level_progress_bar.dart
+ create mode 100644 lib/features/progress/widgets/profile_level_card.dart
+ create mode 100644 lib/features/progress/widgets/run_reward_section.dart
+ create mode 100644 supabase/migrations/20261019000100_run_rewards.sql
+ create mode 100644 supabase/tests/run_rewards.sql
+ create mode 100644 test/run_progress_test.dart
+ create mode 100644 test/support/progress_fakes.dart
+
+diff --git a/lib/README.md b/lib/README.md
+index 7414402..473e8a1 100644
+--- a/lib/README.md
++++ b/lib/README.md
+@@ -16,6 +16,7 @@
+ - `features/run_history/models/run_route.dart`는 구간별 좌표의 읽기 전용 모델과 형식 검사를 담당합니다. 저장소 2판은 경로를 함께 보관하고 이전 전송 대기 기록을 빈 경로로 유지합니다. `run_record_detail_screen.dart`는 상세 경로 조회·오류 재시도를, `widgets/saved_run_map.dart`는 지도·출발·도착·전체 경로 보기를 담당합니다. 기록 목록은 좌표를 조회하지 않습니다.
+ - `features/social/`: 친구 관리와 기존 예시 랭킹 화면을 포함합니다. `data/friend_service.dart`는 계정 고정 서버 호출을, `friend_controller.dart`는 목록·검색·변경 상태와 화면 활성 중 갱신을 담당합니다. `models/friend_entry.dart`와 친구 목록·검색·랭킹 위젯을 분리합니다.
+ - `features/profile/`: 프로필, 공개 범위 설정, 업적 모델·예시 데이터, 개인 통계 위젯을 포함합니다.
++- `features/progress/`: 서버가 계산한 경험치·레벨 조회 서비스와 모델, 프로필 레벨 카드, 러닝 종료 보상(확인 중·실패 재시도·레벨 업) 위젯입니다. 보상은 서버 저장 시 확정되므로 앱은 조회만 재시도합니다. 서버 저장 대기 기록은 전송 후 지급된다고 안내합니다.
+ - `features/admin/`: 관리 화면, 검토 모델, 관리 전용 위젯을 포함합니다.
+ - `shared/`: 특정 기능에 의존하지 않는 색상과 공통 위젯입니다.
+ - `shared/maps/`: 홈·기록 상세가 함께 사용하는 카카오 지도 설정, 웹뷰 브리지, 카메라 컨트롤러와 지도 위젯입니다. `assets/maps/kakao_map.html`은 공식 SDK를 로드하여 마커·단절 경로·영역 맞춤을 처리합니다. 좌표 이벤트 형식을 검사하고 지도 갱신을 직렬화하며 변경 없는 상태는 다시 전달하지 않습니다. 지도 실패와 GPS 측정 실패는 분리합니다.
+diff --git a/lib/app/run_quest_shell.dart b/lib/app/run_quest_shell.dart
+index 6d5a999..28d9803 100644
+--- a/lib/app/run_quest_shell.dart
++++ b/lib/app/run_quest_shell.dart
+@@ -9,6 +9,7 @@ import 'package:runquest/features/home/data/location_service.dart';
+ import 'package:runquest/features/home/live_map_controller.dart';
+ import 'package:runquest/features/home/home_screen.dart';
+ import 'package:runquest/features/profile/profile_screen.dart';
++import 'package:runquest/features/progress/data/progress_service.dart';
+ import 'package:runquest/features/run_history/data/run_outbox.dart';
+ import 'package:runquest/features/run_history/data/run_record_service.dart';
+ import 'package:runquest/features/run_history/run_history_controller.dart';
+@@ -26,6 +27,7 @@ class RunQuestShell extends StatefulWidget {
+     this.mapBridgeFactory,
+     this.friendService,
+     this.conditionsController,
++    this.progressService,
+     super.key,
+   });
+ 
+@@ -33,6 +35,7 @@ class RunQuestShell extends StatefulWidget {
+   final MapBridgeFactory? mapBridgeFactory;
+   final FriendService? friendService;
+   final ConditionsController? conditionsController;
++  final ProgressService? progressService;
+ 
+   @override
+   State<RunQuestShell> createState() => _RunQuestShellState();
+@@ -42,6 +45,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
+   int _tab = 0;
+   late final LiveMapController _map;
+   ConditionsController? _conditions;
++  ProgressService? _progress;
+   int _rankingMode = 0;
+   ReviewCase _review = const ReviewCase(
+     user: 'speed_ghost',
+@@ -57,11 +61,13 @@ class _RunQuestShellState extends State<RunQuestShell> {
+     if (widget.mapController != null) {
+       _map = widget.mapController!;
+       _conditions = widget.conditionsController;
++      _progress = widget.progressService;
+     } else {
+       final client = Supabase.instance.client;
+       _conditions =
+           widget.conditionsController ??
+           ConditionsController(SupabaseConditionsService(client));
++      _progress = widget.progressService ?? SupabaseProgressService(client);
+       final records = SupabaseRunRecordService(client);
+       _map = LiveMapController(
+         locationService: DeviceLocationService(),
+@@ -112,7 +118,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
+         friendService: widget.friendService,
+         onProfileTap: () => setState(() => _tab = 2),
+       ),
+-      ProfileScreen(onHistoryTap: _openHistory),
++      ProfileScreen(onHistoryTap: _openHistory, progressService: _progress),
+       AdminScreen(review: _review, onAction: _setReviewStatus),
+     ];
+ 
+@@ -125,6 +131,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
+               child: HomeScreen(
+                 controller: _map,
+                 conditionsController: _conditions,
++                progressService: _progress,
+                 isActive: _tab == 0,
+                 mapBridgeFactory: widget.mapBridgeFactory,
+               ),
+diff --git a/lib/features/home/home_screen.dart b/lib/features/home/home_screen.dart
+index 5b00bba..2aa51a1 100644
+--- a/lib/features/home/home_screen.dart
++++ b/lib/features/home/home_screen.dart
+@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart';
+ 
+ import '../../shared/theme/app_colors.dart';
+ import '../../shared/maps/run_map.dart';
++import '../progress/data/progress_service.dart';
++import '../progress/widgets/run_reward_section.dart';
+ import '../run_history/data/run_record_service.dart';
+ import '../run_history/models/run_record.dart';
+ import '../run_history/run_history_screen.dart';
+@@ -21,12 +23,14 @@ class HomeScreen extends StatefulWidget {
+     required this.controller,
+     this.mapBridgeFactory,
+     this.conditionsController,
++    this.progressService,
+     this.isActive = true,
+     super.key,
+   });
+   final LiveMapController controller;
+   final MapBridgeFactory? mapBridgeFactory;
+   final ConditionsController? conditionsController;
++  final ProgressService? progressService;
+   final bool isActive;
+ 
+   @override
+@@ -125,7 +129,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+         builder: (dialogContext) => AlertDialog(
+           title: Text(record.pendingSync ? '기기에 저장됨' : '러닝 완료'),
+           content: SingleChildScrollView(
+-            child: RunRecordDetails(record: record),
++            child: Column(
++              mainAxisSize: MainAxisSize.min,
++              crossAxisAlignment: CrossAxisAlignment.stretch,
++              children: [
++                RunRecordDetails(record: record),
++                if (widget.progressService case final progress?)
++                  RunRewardSection(
++                    service: progress,
++                    runId: record.id,
++                    pendingSync: record.pendingSync,
++                  ),
++              ],
++            ),
+           ),
+           actions: [
+             TextButton.icon(
+diff --git a/lib/features/profile/profile_screen.dart b/lib/features/profile/profile_screen.dart
+index e61007c..c113b10 100644
+--- a/lib/features/profile/profile_screen.dart
++++ b/lib/features/profile/profile_screen.dart
+@@ -3,14 +3,21 @@ import 'package:runquest/features/profile/data/achievements.dart';
+ import 'package:runquest/features/profile/privacy_controls.dart';
+ import 'package:runquest/features/profile/widgets/achievement_row.dart';
+ import 'package:runquest/features/profile/widgets/quick_stats.dart';
++import 'package:runquest/features/progress/data/progress_service.dart';
++import 'package:runquest/features/progress/widgets/profile_level_card.dart';
+ import 'package:runquest/shared/theme/app_colors.dart';
+ import 'package:runquest/shared/widgets/page_layout.dart';
+ import 'package:runquest/shared/widgets/panel.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+ 
+ class ProfileScreen extends StatelessWidget {
+-  const ProfileScreen({required this.onHistoryTap, super.key});
++  const ProfileScreen({
++    required this.onHistoryTap,
++    this.progressService,
++    super.key,
++  });
+   final VoidCallback onHistoryTap;
++  final ProgressService? progressService;
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -49,23 +56,18 @@ class ProfileScreen extends StatelessWidget {
+                       ),
+                       const SizedBox(width: 12),
+                       Expanded(
+-                        child: Column(
+-                          crossAxisAlignment: CrossAxisAlignment.start,
+-                          children: [
+-                            Text(
+-                              '내 프로필',
+-                              style: Theme.of(context).textTheme.titleLarge,
+-                            ),
+-                            Text(
+-                              'Lv.12 꾸준한 러너',
+-                              style: Theme.of(context).textTheme.bodyMedium,
+-                            ),
+-                          ],
++                        child: Text(
++                          '내 프로필',
++                          style: Theme.of(context).textTheme.titleLarge,
+                         ),
+                       ),
+                       const Icon(Icons.ios_share, color: AppColors.blue),
+                     ],
+                   ),
++                  if (progressService != null) ...[
++                    const SizedBox(height: 12),
++                    ProfileLevelCard(service: progressService!),
++                  ],
+                   const SizedBox(height: 12),
+                   const PrivacyControls(),
+                   const SizedBox(height: 10),
+diff --git a/lib/features/progress/data/progress_service.dart b/lib/features/progress/data/progress_service.dart
+new file mode 100644
+index 0000000..7839928
+--- /dev/null
++++ b/lib/features/progress/data/progress_service.dart
+@@ -0,0 +1,46 @@
++import 'package:supabase_flutter/supabase_flutter.dart';
++
++import '../models/run_progress.dart';
++
++abstract interface class ProgressService {
++  bool get isCurrentOwner;
++  Future<RunProgress> load();
++
++  /// 보상 대상이 아닌 기록이면 null을 반환합니다.
++  Future<RunReward?> loadReward(String runId);
++}
++
++class SupabaseProgressService implements ProgressService {
++  SupabaseProgressService(this.client) : _owner = client.auth.currentUser?.id;
++  final SupabaseClient client;
++  final String? _owner;
++
++  @override
++  bool get isCurrentOwner =>
++      _owner != null && client.auth.currentSession?.user.id == _owner;
++
++  Session _session() {
++    if (!isCurrentOwner) throw const AuthException('로그인 상태를 확인해 주세요.');
++    return client.auth.currentSession!;
++  }
++
++  @override
++  Future<RunProgress> load() async {
++    final session = _session();
++    final result = await client
++        .rpc('my_progress')
++        .setHeader('Authorization', 'Bearer ${session.accessToken}');
++    _session();
++    return RunProgress.fromJson(Map<String, dynamic>.from(result as Map));
++  }
++
++  @override
++  Future<RunReward?> loadReward(String runId) async {
++    final session = _session();
++    final result = await client
++        .rpc('my_run_reward', params: {'requested_run_id': runId})
++        .setHeader('Authorization', 'Bearer ${session.accessToken}');
++    _session();
++    return RunReward.fromJson(Map<String, dynamic>.from(result as Map));
++  }
++}
+diff --git a/lib/features/progress/models/run_progress.dart b/lib/features/progress/models/run_progress.dart
+new file mode 100644
+index 0000000..7f2c86c
+--- /dev/null
++++ b/lib/features/progress/models/run_progress.dart
+@@ -0,0 +1,120 @@
++/// 서버가 계산한 누적 경험치와 현재 레벨 구간입니다.
++class RunProgress {
++  const RunProgress({
++    required this.totalXp,
++    required this.level,
++    required this.levelXp,
++    required this.nextLevelXp,
++  });
++
++  final int totalXp;
++  final int level;
++
++  /// 현재 레벨에 도달한 뒤 쌓은 경험치입니다.
++  final int levelXp;
++
++  /// 다음 레벨까지 필요한 구간 경험치입니다. 최대 레벨이면 null입니다.
++  final int? nextLevelXp;
++
++  bool get isMaxLevel => nextLevelXp == null;
++  double get fraction =>
++      isMaxLevel ? 1 : (levelXp / nextLevelXp!).clamp(0, 1).toDouble();
++  int get remainingXp => isMaxLevel ? 0 : nextLevelXp! - levelXp;
++
++  factory RunProgress.fromJson(Map<String, dynamic> json) {
++    final total = json['total_xp'];
++    final level = json['level'];
++    final levelXp = json['level_xp'];
++    final next = json['next_level_xp'];
++    if (total is! int ||
++        level is! int ||
++        levelXp is! int ||
++        (next != null && next is! int) ||
++        total < 0 ||
++        level < 1 ||
++        level > 99 ||
++        levelXp < 0 ||
++        levelXp > total ||
++        (next != null && (next <= 0 || levelXp >= next))) {
++      throw const FormatException('경험치 응답이 올바르지 않습니다.');
++    }
++    return RunProgress(
++      totalXp: total,
++      level: level,
++      levelXp: levelXp,
++      nextLevelXp: next as int?,
++    );
++  }
++}
++
++enum RewardReason { tooShort, tooFast, lateSync, dailyLimit }
++
++/// 러닝 한 번에 지급된 경험치입니다. 서버 저장 시 한 번만 계산되어 재조회해도 같습니다.
++class RunReward {
++  const RunReward({
++    required this.xp,
++    required this.levelBefore,
++    required this.levelAfter,
++    required this.progress,
++    this.reason,
++  });
++
++  final int xp;
++  final RewardReason? reason;
++  final int levelBefore;
++  final int levelAfter;
++  final RunProgress progress;
++
++  bool get leveledUp => levelAfter > levelBefore;
++
++  String? get reasonMessage => switch (reason) {
++    RewardReason.tooShort => '300m 미만 기록은 경험치가 지급되지 않아요.',
++    RewardReason.tooFast => '측정 속도가 비정상적으로 빨라 경험치가 지급되지 않았어요.',
++    RewardReason.lateSync => '7일이 지나 저장된 기록은 경험치가 지급되지 않아요.',
++    RewardReason.dailyLimit => '하루 최대 500 XP까지 받을 수 있어요.',
++    null => null,
++  };
++
++  /// 보상 대상이 아닌 기록이면 null을 반환합니다.
++  static RunReward? fromJson(Map<String, dynamic> json) {
++    if (json['status'] == 'unavailable') return null;
++    final xp = json['xp'];
++    final before = json['level_before'];
++    final after = json['level_after'];
++    final progress = json['progress'];
++    if (json['status'] != 'ready' ||
++        xp is! int ||
++        before is! int ||
++        after is! int ||
++        progress is! Map ||
++        xp < 0 ||
++        before < 1 ||
++        after < before ||
++        after > 99) {
++      throw const FormatException('보상 응답이 올바르지 않습니다.');
++    }
++    final reason = switch (json['reason']) {
++      null => null,
++      'too_short' => RewardReason.tooShort,
++      'too_fast' => RewardReason.tooFast,
++      'late_sync' => RewardReason.lateSync,
++      'daily_limit' => RewardReason.dailyLimit,
++      _ => throw const FormatException('보상 사유가 올바르지 않습니다.'),
++    };
++    return RunReward(
++      xp: xp,
++      reason: reason,
++      levelBefore: before,
++      levelAfter: after,
++      progress: RunProgress.fromJson(Map<String, dynamic>.from(progress)),
++    );
++  }
++}
++
++String levelTitle(int level) => switch (level) {
++  < 5 => '새내기 러너',
++  < 10 => '꾸준한 러너',
++  < 20 => '성장하는 러너',
++  < 50 => '베테랑 러너',
++  _ => '마스터 러너',
++};
+diff --git a/lib/features/progress/widgets/level_progress_bar.dart b/lib/features/progress/widgets/level_progress_bar.dart
+new file mode 100644
+index 0000000..1eb660b
+--- /dev/null
++++ b/lib/features/progress/widgets/level_progress_bar.dart
+@@ -0,0 +1,69 @@
++import 'package:flutter/material.dart';
++
++import '../../../shared/theme/app_colors.dart';
++import '../models/run_progress.dart';
++
++class LevelProgressBar extends StatelessWidget {
++  const LevelProgressBar({required this.progress, this.from, super.key});
++  final RunProgress progress;
++
++  /// 지정하면 이 비율에서 현재 진행도까지 채워지는 애니메이션을 보여 줍니다.
++  final double? from;
++
++  @override
++  Widget build(BuildContext context) {
++    final caption = Theme.of(context).textTheme.bodySmall;
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.stretch,
++      children: [
++        Row(
++          children: [
++            Expanded(
++              child: Text(
++                'Lv.${progress.level}',
++                style: const TextStyle(fontWeight: FontWeight.w800),
++              ),
++            ),
++            Flexible(
++              child: Text(
++                progress.isMaxLevel
++                    ? '최고 레벨'
++                    : '${progress.levelXp} / ${progress.nextLevelXp} XP',
++                textAlign: TextAlign.end,
++                overflow: TextOverflow.ellipsis,
++                style: caption,
++              ),
++            ),
++          ],
++        ),
++        const SizedBox(height: 6),
++        TweenAnimationBuilder<double>(
++          tween: Tween(
++            begin: from ?? progress.fraction,
++            end: progress.fraction,
++          ),
++          duration: const Duration(milliseconds: 900),
++          curve: Curves.easeOutCubic,
++          builder: (context, value, _) => ClipRRect(
++            borderRadius: BorderRadius.circular(6),
++            child: LinearProgressIndicator(
++              value: value,
++              minHeight: 10,
++              color: AppColors.blue,
++              backgroundColor: AppColors.blueSoft,
++              semanticsLabel: '레벨 진행도',
++              semanticsValue: '${(progress.fraction * 100).round()}%',
++            ),
++          ),
++        ),
++        if (!progress.isMaxLevel) ...[
++          const SizedBox(height: 4),
++          Text(
++            '다음 레벨까지 ${progress.remainingXp} XP',
++            style: caption?.copyWith(color: AppColors.gray),
++          ),
++        ],
++      ],
++    );
++  }
++}
+diff --git a/lib/features/progress/widgets/profile_level_card.dart b/lib/features/progress/widgets/profile_level_card.dart
+new file mode 100644
+index 0000000..598d36a
+--- /dev/null
++++ b/lib/features/progress/widgets/profile_level_card.dart
+@@ -0,0 +1,101 @@
++import 'dart:async';
++
++import 'package:flutter/material.dart';
++
++import '../../../shared/theme/app_colors.dart';
++import '../data/progress_service.dart';
++import '../models/run_progress.dart';
++import 'level_progress_bar.dart';
++
++/// 프로필의 레벨 칭호와 경험치 진행 바입니다. 화면을 열 때마다 서버 값을 조회합니다.
++class ProfileLevelCard extends StatefulWidget {
++  const ProfileLevelCard({required this.service, super.key});
++  final ProgressService service;
++
++  @override
++  State<ProfileLevelCard> createState() => _ProfileLevelCardState();
++}
++
++class _ProfileLevelCardState extends State<ProfileLevelCard> {
++  RunProgress? _progress;
++  bool _failed = false;
++  bool _loading = false;
++  int _epoch = 0;
++
++  @override
++  void initState() {
++    super.initState();
++    unawaited(_load());
++  }
++
++  @override
++  void didUpdateWidget(ProfileLevelCard oldWidget) {
++    super.didUpdateWidget(oldWidget);
++    if (oldWidget.service != widget.service) {
++      _progress = null;
++      _loading = false;
++      unawaited(_load());
++    }
++  }
++
++  Future<void> _load() async {
++    if (_loading) return;
++    final epoch = ++_epoch;
++    final service = widget.service;
++    setState(() {
++      _loading = true;
++      _failed = false;
++    });
++    try {
++      final progress = await service.load().timeout(
++        const Duration(seconds: 15),
++      );
++      if (mounted && epoch == _epoch && service.isCurrentOwner) {
++        setState(() => _progress = progress);
++      }
++    } catch (_) {
++      if (mounted && epoch == _epoch) setState(() => _failed = true);
++    } finally {
++      if (mounted && epoch == _epoch) setState(() => _loading = false);
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final progress = _progress;
++    if (progress != null) {
++      return Column(
++        crossAxisAlignment: CrossAxisAlignment.stretch,
++        children: [
++          Text(
++            '${levelTitle(progress.level)} · 누적 ${progress.totalXp} XP',
++            style: Theme.of(context).textTheme.bodyMedium,
++          ),
++          const SizedBox(height: 8),
++          LevelProgressBar(progress: progress),
++        ],
++      );
++    }
++    if (_failed) {
++      return Row(
++        children: [
++          const Icon(Icons.error_outline, color: AppColors.red, size: 20),
++          const SizedBox(width: 8),
++          const Expanded(child: Text('레벨 정보를 불러오지 못했습니다.')),
++          TextButton(onPressed: _load, child: const Text('다시 시도')),
++        ],
++      );
++    }
++    return const Row(
++      children: [
++        SizedBox(
++          width: 18,
++          height: 18,
++          child: CircularProgressIndicator(strokeWidth: 2),
++        ),
++        SizedBox(width: 10),
++        Text('레벨 확인 중'),
++      ],
++    );
++  }
++}
+diff --git a/lib/features/progress/widgets/run_reward_section.dart b/lib/features/progress/widgets/run_reward_section.dart
+new file mode 100644
+index 0000000..1cb8a14
+--- /dev/null
++++ b/lib/features/progress/widgets/run_reward_section.dart
+@@ -0,0 +1,261 @@
++import 'dart:async';
++
++import 'package:flutter/material.dart';
++
++import '../../../shared/theme/app_colors.dart';
++import '../data/progress_service.dart';
++import '../models/run_progress.dart';
++import 'level_progress_bar.dart';
++
++/// 러닝 종료 결과에 표시하는 경험치 보상입니다.
++/// 보상은 서버 저장 시 이미 확정되므로 실패하면 조회만 다시 시도합니다.
++class RunRewardSection extends StatefulWidget {
++  const RunRewardSection({
++    required this.service,
++    required this.runId,
++    this.pendingSync = false,
++    this.timeout = const Duration(seconds: 15),
++    super.key,
++  });
++  final ProgressService service;
++  final String runId;
++  final bool pendingSync;
++  final Duration timeout;
++
++  @override
++  State<RunRewardSection> createState() => _RunRewardSectionState();
++}
++
++class _RunRewardSectionState extends State<RunRewardSection> {
++  RunReward? _reward;
++  bool _loaded = false;
++  bool _loading = false;
++  bool _failed = false;
++  int _epoch = 0;
++
++  @override
++  void initState() {
++    super.initState();
++    if (!widget.pendingSync) unawaited(_load());
++  }
++
++  @override
++  void didUpdateWidget(RunRewardSection oldWidget) {
++    super.didUpdateWidget(oldWidget);
++    if (oldWidget.runId != widget.runId ||
++        oldWidget.service != widget.service ||
++        oldWidget.pendingSync != widget.pendingSync) {
++      _epoch++;
++      _reward = null;
++      _loaded = false;
++      _loading = false;
++      _failed = false;
++      if (!widget.pendingSync) unawaited(_load());
++    }
++  }
++
++  Future<void> _load() async {
++    if (_loading) return;
++    final epoch = ++_epoch;
++    final service = widget.service;
++    setState(() {
++      _loading = true;
++      _failed = false;
++    });
++    try {
++      final reward = await service
++          .loadReward(widget.runId)
++          .timeout(widget.timeout);
++      if (!mounted || epoch != _epoch || !service.isCurrentOwner) return;
++      setState(() {
++        _reward = reward;
++        _loaded = true;
++      });
++    } catch (_) {
++      if (mounted && epoch == _epoch) setState(() => _failed = true);
++    } finally {
++      if (mounted && epoch == _epoch) setState(() => _loading = false);
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final Widget child;
++    if (widget.pendingSync) {
++      child = const _Notice(
++        icon: Icons.cloud_upload_outlined,
++        text: '서버에 저장되면 경험치가 지급돼요.',
++      );
++    } else if (_loading) {
++      child = const Row(
++        children: [
++          SizedBox(
++            width: 18,
++            height: 18,
++            child: CircularProgressIndicator(strokeWidth: 2),
++          ),
++          SizedBox(width: 10),
++          Expanded(child: Text('보상 확인 중')),
++        ],
++      );
++    } else if (_failed) {
++      child = Column(
++        crossAxisAlignment: CrossAxisAlignment.stretch,
++        children: [
++          const _Notice(
++            icon: Icons.error_outline,
++            color: AppColors.red,
++            text: '보상을 확인하지 못했습니다.\n기록은 저장되었으니 다시 시도해 주세요.',
++          ),
++          const SizedBox(height: 8),
++          OutlinedButton.icon(
++            onPressed: _load,
++            icon: const Icon(Icons.refresh),
++            label: const Text('보상 다시 확인'),
++          ),
++        ],
++      );
++    } else if (_loaded && _reward == null) {
++      child = const _Notice(
++        icon: Icons.info_outline,
++        text: '이 기록은 경험치 지급 대상이 아니에요.',
++      );
++    } else if (_reward != null) {
++      child = _RewardResult(reward: _reward!);
++    } else {
++      child = const SizedBox.shrink();
++    }
++    return Padding(
++      padding: const EdgeInsets.only(top: 16),
++      child: Column(
++        crossAxisAlignment: CrossAxisAlignment.stretch,
++        children: [
++          const Divider(height: 1),
++          const SizedBox(height: 12),
++          const Text('러닝 보상', style: TextStyle(fontWeight: FontWeight.w800)),
++          const SizedBox(height: 8),
++          AnimatedSize(
++            duration: const Duration(milliseconds: 200),
++            alignment: Alignment.topCenter,
++            child: child,
++          ),
++        ],
++      ),
++    );
++  }
++}
++
++class _RewardResult extends StatelessWidget {
++  const _RewardResult({required this.reward});
++  final RunReward reward;
++
++  @override
++  Widget build(BuildContext context) {
++    final progress = reward.progress;
++    // 레벨이 오르면 새 레벨 구간을 0부터 채우고, 아니면 획득 전 위치부터 채웁니다.
++    final before = reward.leveledUp || progress.isMaxLevel
++        ? 0.0
++        : ((progress.levelXp - reward.xp).clamp(0, progress.nextLevelXp!) /
++                  progress.nextLevelXp!)
++              .toDouble();
++    return Column(
++      crossAxisAlignment: CrossAxisAlignment.stretch,
++      children: [
++        if (reward.leveledUp) ...[
++          _LevelUpBanner(from: reward.levelBefore, to: reward.levelAfter),
++          const SizedBox(height: 12),
++        ],
++        Text(
++          '+${reward.xp} XP',
++          style: const TextStyle(
++            fontSize: 24,
++            fontWeight: FontWeight.w800,
++            color: AppColors.blue,
++          ),
++        ),
++        if (reward.reasonMessage != null) ...[
++          const SizedBox(height: 4),
++          Text(
++            reward.reasonMessage!,
++            style: Theme.of(context).textTheme.bodySmall
++                ?.copyWith(color: AppColors.gray),
++          ),
++        ],
++        const SizedBox(height: 10),
++        LevelProgressBar(progress: progress, from: before),
++      ],
++    );
++  }
++}
++
++class _LevelUpBanner extends StatelessWidget {
++  const _LevelUpBanner({required this.from, required this.to});
++  final int from;
++  final int to;
++
++  @override
++  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
++    tween: Tween(begin: .6, end: 1),
++    duration: const Duration(milliseconds: 500),
++    curve: Curves.elasticOut,
++    builder: (context, scale, child) =>
++        Transform.scale(scale: scale, child: child),
++    child: Container(
++      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
++      decoration: BoxDecoration(
++        gradient: const LinearGradient(
++          colors: [AppColors.blue, AppColors.purple],
++        ),
++        borderRadius: BorderRadius.circular(14),
++      ),
++      child: Row(
++        children: [
++          const Icon(Icons.emoji_events, color: Colors.white, size: 30),
++          const SizedBox(width: 10),
++          Expanded(
++            child: Column(
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                const Text(
++                  '레벨 업!',
++                  style: TextStyle(
++                    color: Colors.white,
++                    fontSize: 18,
++                    fontWeight: FontWeight.w800,
++                  ),
++                ),
++                Text(
++                  'Lv.$from → Lv.$to ${levelTitle(to)}',
++                  style: const TextStyle(color: Colors.white),
++                ),
++              ],
++            ),
++          ),
++        ],
++      ),
++    ),
++  );
++}
++
++class _Notice extends StatelessWidget {
++  const _Notice({
++    required this.icon,
++    required this.text,
++    this.color = AppColors.gray,
++  });
++  final IconData icon;
++  final String text;
++  final Color color;
++
++  @override
++  Widget build(BuildContext context) => Row(
++    crossAxisAlignment: CrossAxisAlignment.start,
++    children: [
++      Icon(icon, color: color, size: 20),
++      const SizedBox(width: 8),
++      Expanded(
++        child: Text(text, style: TextStyle(color: color)),
++      ),
++    ],
++  );
++}
+diff --git a/supabase/README.md b/supabase/README.md
+index a46061f..e08ac0a 100644
+--- a/supabase/README.md
++++ b/supabase/README.md
+@@ -27,6 +27,7 @@
+ 12. `migrations/20261011185117_optional_phone_verification.sql`: 선택 전화번호 인증의 본인 상태 조회. 이메일 기반 소셜 권한을 바꾸거나 인증 상태를 직접 쓰는 기능은 추가하지 않습니다.
+ 13. `migrations/20261013002352_run_feedback_quota.sql`: AI 피드백의 본인 조회, 계정별 72시간·전체 호출 예산과 서버 전용 예약·결과 저장.
+ 14. `migrations/20261013012622_run_temperature_snapshot.sql`: 종료 기온·관측 시각과 본인 저장 RPC. 기존 기록·경로 저장 RPC는 유지하고 과거 기온을 추정해 채우지 않습니다.
++15. `migrations/20261019000100_run_rewards.sql`: 러닝 경험치·레벨. 기록 저장과 같은 트랜잭션에서 보상을 한 번만 계산하고 본인 진행도·기록별 보상 조회 RPC를 추가합니다. 기존 기록에는 소급 지급하지 않습니다.
+ 
+ 업적 목표값 20개 코스, 야간 10회, 누적 상승 750m는 초기 제안값입니다. 운영 반영 전 서비스 기준과 맞추세요.
+ 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
+@@ -111,6 +112,7 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
+   -f supabase/migrations/20261011185117_optional_phone_verification.sql \
+   -f supabase/migrations/20261013002352_run_feedback_quota.sql \
+   -f supabase/migrations/20261013012622_run_temperature_snapshot.sql \
++  -f supabase/migrations/20261019000100_run_rewards.sql \
+   -f supabase/tests/test_registration.sql \
+   -f supabase/tests/registration.sql \
+   -f supabase/tests/security.sql \
+@@ -123,7 +125,8 @@ psql <로컬_연결> -v ON_ERROR_STOP=1 \
+   -f supabase/tests/email_verification.sql \
+   -f supabase/tests/optional_phone_verification.sql \
+   -f supabase/tests/run_feedback.sql \
+-  -f supabase/tests/run_temperature.sql
++  -f supabase/tests/run_temperature.sql \
++  -f supabase/tests/run_rewards.sql
+ ```
+ 
+ 검증 대상은 회원 프로필 생성, 초기 데이터, 비로그인 접근 차단, 본인·타인 조회 및 수정,
+@@ -227,6 +230,13 @@ deno test --allow-env=TEMPERATURE_TEST_SOCKET,TEMPERATURE_TEST_PSQL \
+   --allow-run=<psql_경로> supabase/tests/temperature_concurrency_test.ts
+ ```
+ 
++## 러닝 경험치·레벨
++
++- `public.runs` 삽입 트리거가 비공개 `run_rewards`에 기록당 보상을 한 번만 저장합니다. 앱은 경험치를 쓰지 않고 `my_progress()`, `my_run_reward(requested_run_id)`로 본인 값만 조회합니다. 재전송·응답 유실 후 재조회해도 같은 결과를 반환합니다.
++- 보상은 `10 + 100m당 1XP`, 기록당 최대 300XP, 종료일(한국 시간) 기준 하루 최대 500XP입니다. 300m 미만, 평균 속도 6.5m/s 초과, 종료 7일 뒤 전송된 기록은 저장하되 0XP와 사유를 남깁니다. 계정별 잠금으로 동시 저장의 한도 계산을 직렬화합니다.
++- 레벨 L에서 다음 레벨까지 `100 + 50×(L-1)`XP가 필요하며 최대 Lv.99입니다. 기기 측정값 기반의 참고 보상이며 검증 상태나 랭킹에 반영하지 않습니다. 수치는 초기 제안값이므로 운영 전 서비스 기준과 맞추세요.
++- 보상 도입 전 기록과 타인 기록은 모두 `unavailable`로 응답해 존재 여부를 드러내지 않습니다.
++
+ ## AI 러닝 피드백
+ 
+ - `functions/run-feedback/`는 플랫폼 JWT 검사 후 Auth `getUser()`로 사용자를 확인하고, 현재 활성 계정과 본인 기록을 다시 검사합니다. 새 생성에는 현재 이메일 확인이 필요합니다. 닉네임·전화번호·위치 공개 설정을 바꾸지 않습니다.
+diff --git a/supabase/migrations/20261019000100_run_rewards.sql b/supabase/migrations/20261019000100_run_rewards.sql
+new file mode 100644
+index 0000000..30816a1
+--- /dev/null
++++ b/supabase/migrations/20261019000100_run_rewards.sql
+@@ -0,0 +1,141 @@
++-- 러닝 경험치·레벨. 보상은 서버가 기록 저장과 같은 트랜잭션에서 한 번만 계산합니다.
++-- 앱은 결과를 조회만 하며 경험치나 레벨을 직접 쓰지 않습니다.
++create table runspot_private.run_rewards (
++  run_id uuid primary key references public.runs(id) on delete cascade,
++  user_id uuid not null,
++  xp integer not null check (xp between 0 and 300),
++  reason text check (reason in ('too_short','too_fast','late_sync','daily_limit')),
++  total_before integer not null check (total_before >= 0),
++  level_before integer not null check (level_before between 1 and 99),
++  level_after integer not null check (level_after between level_before and 99),
++  awarded_at timestamptz not null default now()
++);
++create index run_rewards_owner on runspot_private.run_rewards(user_id);
++alter table runspot_private.run_rewards enable row level security;
++revoke all on runspot_private.run_rewards from public, anon, authenticated;
++
++-- Lv.L에서 다음 레벨까지 100 + 50×(L-1) XP가 필요합니다. 최대 Lv.99입니다.
++create function runspot_private.level_for_xp(total integer)
++returns integer language plpgsql immutable set search_path = '' as $$
++declare
++  current_level integer := 1;
++  floor_xp integer := 0;
++begin
++  while current_level < 99 and total >= floor_xp + 100 + 50 * (current_level - 1) loop
++    floor_xp := floor_xp + 100 + 50 * (current_level - 1);
++    current_level := current_level + 1;
++  end loop;
++  return current_level;
++end;
++$$;
++
++create function runspot_private.progress_for_xp(total integer)
++returns jsonb language sql immutable set search_path = '' as $$
++  with l as (select runspot_private.level_for_xp(total) as level)
++  select jsonb_build_object(
++    'total_xp', total,
++    'level', l.level,
++    'level_xp', total - (100 * (l.level - 1) + 25 * (l.level - 1) * (l.level - 2)),
++    'next_level_xp', case when l.level >= 99 then null else 100 + 50 * (l.level - 1) end
++  ) from l;
++$$;
++
++create function runspot_private.award_run_reward()
++returns trigger language plpgsql security definer set search_path = '' as $$
++declare
++  owner_total integer;
++  day_total integer;
++  earned integer;
++  why text;
++begin
++  -- 같은 계정의 동시 저장이 일일 한도와 레벨 계산을 함께 넘지 않도록 직렬화합니다.
++  perform pg_advisory_xact_lock(hashtextextended('run_rewards:' || new.user_id::text, 0));
++  select coalesce(sum(xp), 0) into owner_total
++    from runspot_private.run_rewards where user_id = new.user_id;
++  select coalesce(sum(w.xp), 0) into day_total
++    from runspot_private.run_rewards w join public.runs r on r.id = w.run_id
++    where w.user_id = new.user_id
++      and (r.ended_at at time zone 'Asia/Seoul')::date = (new.ended_at at time zone 'Asia/Seoul')::date;
++
++  -- 기기 측정값이므로 짧은 기록·비현실적 속도·오래된 기록은 저장만 하고 보상하지 않습니다.
++  if new.distance_m < 300 then
++    earned := 0; why := 'too_short';
++  elsif new.duration_sec <= 0 or new.distance_m::numeric / new.duration_sec > 6.5 then
++    earned := 0; why := 'too_fast';
++  elsif new.ended_at < now() - interval '7 days' then
++    earned := 0; why := 'late_sync';
++  else
++    earned := least(300, 10 + new.distance_m / 100);
++    if day_total + earned > 500 then
++      earned := greatest(0, 500 - day_total); why := 'daily_limit';
++    end if;
++  end if;
++
++  insert into runspot_private.run_rewards(run_id,user_id,xp,reason,total_before,level_before,level_after)
++  values(new.id,new.user_id,earned,why,owner_total,
++    runspot_private.level_for_xp(owner_total),runspot_private.level_for_xp(owner_total + earned));
++  return null;
++end;
++$$;
++revoke all on function runspot_private.award_run_reward() from public, anon, authenticated;
++create trigger runs_award_reward after insert on public.runs
++  for each row execute function runspot_private.award_run_reward();
++
++create function runspot_private.my_progress()
++returns jsonb language plpgsql stable security definer set search_path = '' as $$
++declare
++  owner_id uuid := auth.uid();
++begin
++  if owner_id is null or not runspot_private.is_active(owner_id) then
++    raise exception '로그인 상태와 계정 이용 권한을 확인해 주세요.' using errcode = '42501';
++  end if;
++  return runspot_private.progress_for_xp(
++    (select coalesce(sum(xp), 0)::integer from runspot_private.run_rewards where user_id = owner_id));
++end;
++$$;
++
++create function runspot_private.my_run_reward(requested_run_id uuid)
++returns jsonb language plpgsql stable security definer set search_path = '' as $$
++declare
++  owner_id uuid := auth.uid();
++  reward runspot_private.run_rewards;
++begin
++  if owner_id is null or not runspot_private.is_active(owner_id) then
++    raise exception '로그인 상태와 계정 이용 권한을 확인해 주세요.' using errcode = '42501';
++  end if;
++  select * into reward from runspot_private.run_rewards
++    where run_id = requested_run_id and user_id = owner_id;
++  -- 타인 기록과 보상 도입 전 기록은 같은 응답으로 처리해 존재 여부를 드러내지 않습니다.
++  if not found then
++    return jsonb_build_object('status', 'unavailable', 'run_id', requested_run_id);
++  end if;
++  return jsonb_build_object(
++    'status', 'ready',
++    'run_id', reward.run_id,
++    'xp', reward.xp,
++    'reason', reward.reason,
++    'level_before', reward.level_before,
++    'level_after', reward.level_after,
++    'progress', runspot_private.progress_for_xp(
++      (select coalesce(sum(xp), 0)::integer from runspot_private.run_rewards where user_id = owner_id))
++  );
++end;
++$$;
++
++create function public.my_progress()
++returns jsonb language sql stable security invoker set search_path = '' as $$
++  select runspot_private.my_progress();
++$$;
++create function public.my_run_reward(requested_run_id uuid)
++returns jsonb language sql stable security invoker set search_path = '' as $$
++  select runspot_private.my_run_reward(requested_run_id);
++$$;
++
++revoke all on function runspot_private.level_for_xp(integer), runspot_private.progress_for_xp(integer),
++  runspot_private.my_progress(), runspot_private.my_run_reward(uuid),
++  public.my_progress(), public.my_run_reward(uuid)
++  from public, anon, authenticated;
++grant execute on function runspot_private.my_progress(), runspot_private.my_run_reward(uuid),
++  public.my_progress(), public.my_run_reward(uuid)
++  to authenticated;
++notify pgrst, 'reload schema';
+diff --git a/supabase/tests/run_rewards.sql b/supabase/tests/run_rewards.sql
+new file mode 100644
+index 0000000..8d3ed13
+--- /dev/null
++++ b/supabase/tests/run_rewards.sql
+@@ -0,0 +1,105 @@
++\set ON_ERROR_STOP on
++begin;
++create function pg_temp.assert_true(ok boolean,message text)
++returns void language plpgsql as $$
++begin if ok is distinct from true then raise exception '%',message; end if; end;
++$$;
++create function pg_temp.fails(statement text,expected_code text)
++returns boolean language plpgsql security invoker as $$
++begin execute statement; return false;
++exception when others then return sqlstate=expected_code; end;
++$$;
++insert into auth.users(id) values
++ ('00000000-0000-0000-0000-000000000091'),
++ ('00000000-0000-0000-0000-000000000092');
++
++-- 레벨 구간: Lv.1→2 100XP, Lv.2→3 150XP, Lv.3→4 200XP
++select pg_temp.assert_true(runspot_private.level_for_xp(0)=1,'0XP는 Lv.1');
++select pg_temp.assert_true(runspot_private.level_for_xp(99)=1,'99XP는 Lv.1');
++select pg_temp.assert_true(runspot_private.level_for_xp(100)=2,'100XP는 Lv.2');
++select pg_temp.assert_true(runspot_private.level_for_xp(250)=3,'250XP는 Lv.3');
++select pg_temp.assert_true(runspot_private.progress_for_xp(260)=
++  '{"total_xp":260,"level":3,"level_xp":10,"next_level_xp":200}'::jsonb,'레벨 내 진행도');
++select pg_temp.assert_true(runspot_private.level_for_xp(2147483647)=99,'최대 레벨');
++select pg_temp.assert_true((runspot_private.progress_for_xp(2147483647)->'next_level_xp')='null'::jsonb,'최대 레벨은 다음 목표 없음');
++
++set local role anon;
++select pg_temp.assert_true(pg_temp.fails($q$select public.my_progress()$q$,'42501'),'비로그인 진행도 조회 차단');
++reset role;
++set local role authenticated;
++select pg_temp.assert_true(pg_temp.fails($q$select runspot_private.level_for_xp(1)$q$,'42501'),'내부 계산 함수 직접 실행 차단');
++select pg_temp.assert_true(pg_temp.fails($q$select * from runspot_private.run_rewards$q$,'42501'),'보상 테이블 직접 조회 차단');
++select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000091',true);
++select pg_temp.assert_true(public.my_progress()=
++  '{"total_xp":0,"level":1,"level_xp":0,"next_level_xp":100}'::jsonb,'첫 진행도');
++
++-- 5km: 10 + 50 = 60XP
++select public.save_my_run('20000000-0000-0000-0000-000000000001',now()-interval '30 minutes',now(),5000,1500);
++create temp table ids as select id, client_run_id from public.runs;
++grant select on ids to authenticated;
++select pg_temp.assert_true((select public.my_run_reward(id) from ids
++  where client_run_id='20000000-0000-0000-0000-000000000001') @>
++  '{"status":"ready","xp":60,"reason":null,"level_before":1,"level_after":1,"progress":{"total_xp":60,"level":1}}'::jsonb,'5km 보상');
++
++-- 재전송은 보상을 다시 지급하지 않습니다.
++select public.save_my_run('20000000-0000-0000-0000-000000000001',now()-interval '30 minutes',now(),5000,1500);
++select pg_temp.assert_true((public.my_progress()->>'total_xp')::int=60,'재전송 중복 보상 방지');
++
++-- 6km: 10 + 60 = 70XP, 누적 130XP로 Lv.2
++select public.save_my_run('20000000-0000-0000-0000-000000000002',now()-interval '40 minutes',now(),6000,1800);
++insert into ids select id, client_run_id from public.runs where client_run_id='20000000-0000-0000-0000-000000000002';
++select pg_temp.assert_true((select public.my_run_reward(id) from ids
++  where client_run_id='20000000-0000-0000-0000-000000000002') @>
++  '{"xp":70,"level_before":1,"level_after":2,"progress":{"total_xp":130,"level":2,"level_xp":30,"next_level_xp":150}}'::jsonb,'레벨 상승');
++
++-- 짧은 기록과 비현실적 속도는 저장하되 보상하지 않습니다.
++select public.save_my_run('20000000-0000-0000-0000-000000000003',now()-interval '1 minute',now(),200,60);
++select public.save_my_run('20000000-0000-0000-0000-000000000004',now()-interval '10 minutes',now(),10000,600);
++insert into ids select id, client_run_id from public.runs where client_run_id in
++  ('20000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000004');
++select pg_temp.assert_true((select public.my_run_reward(id) from ids
++  where client_run_id='20000000-0000-0000-0000-000000000003') @> '{"xp":0,"reason":"too_short"}'::jsonb,'짧은 기록 무보상');
++select pg_temp.assert_true((select public.my_run_reward(id) from ids
++  where client_run_id='20000000-0000-0000-0000-000000000004') @> '{"xp":0,"reason":"too_fast"}'::jsonb,'비현실적 속도 무보상');
++
++-- 오래된 기록은 늦게 전송하면 보상하지 않습니다.
++select public.save_my_run('20000000-0000-0000-0000-000000000005',now()-interval '8 days 1 hour',now()-interval '8 days',5000,1500);
++insert into ids select id, client_run_id from public.runs where client_run_id='20000000-0000-0000-0000-000000000005';
++select pg_temp.assert_true((select public.my_run_reward(id) from ids
++  where client_run_id='20000000-0000-0000-0000-000000000005') @> '{"xp":0,"reason":"late_sync"}'::jsonb,'오래된 기록 무보상');
++
++-- 기록당 최대 300XP, 하루 최대 500XP
++select public.save_my_run('20000000-0000-0000-0000-000000000006',now()-interval '5 hours',now()-interval '1 hour',40000,14000);
++select public.save_my_run('20000000-0000-0000-0000-000000000007',now()-interval '50 minutes',now()-interval '1 minute',10000,2900);
++insert into ids select id, client_run_id from public.runs where client_run_id in
++  ('20000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000007');
++select pg_temp.assert_true((select public.my_run_reward(id) from ids
++  where client_run_id='20000000-0000-0000-0000-000000000006') @> '{"xp":300,"reason":null}'::jsonb,'기록당 최대 보상');
++select pg_temp.assert_true((select (public.my_run_reward(id)->>'xp')::int <= 110 from ids
++  where client_run_id='20000000-0000-0000-0000-000000000007'),'일일 보상 한도');
++reset role;
++-- 실행 시각이 자정 직후여도 날짜별 합계는 500XP를 넘지 않습니다.
++select pg_temp.assert_true((select max(day_xp) <= 500 from (
++  select sum(w.xp) as day_xp from runspot_private.run_rewards w join public.runs r on r.id=w.run_id
++  where w.user_id='00000000-0000-0000-0000-000000000091'
++  group by (r.ended_at at time zone 'Asia/Seoul')::date) d),'날짜별 일일 한도');
++select pg_temp.assert_true((select reason='daily_limit' and xp=70 from runspot_private.run_rewards w
++  join public.runs r on r.id=w.run_id where r.client_run_id='20000000-0000-0000-0000-000000000007')
++  or (select (r.ended_at at time zone 'Asia/Seoul')::date <> (now() at time zone 'Asia/Seoul')::date
++  from public.runs r where r.client_run_id='20000000-0000-0000-0000-000000000006'),'한도 초과분 차감');
++set local role authenticated;
++
++-- 타인 기록과 없는 기록은 같은 응답입니다.
++select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000092',true);
++select pg_temp.assert_true((select public.my_run_reward(id) from ids
++  where client_run_id='20000000-0000-0000-0000-000000000001') @> '{"status":"unavailable"}'::jsonb,'타인 보상 조회 차단');
++select pg_temp.assert_true((public.my_progress()->>'total_xp')::int=0,'계정별 진행도 분리');
++select pg_temp.assert_true(pg_temp.fails($q$select runspot_private.award_run_reward()$q$,'42501'),'보상 함수 직접 실행 차단');
++
++reset role;
++update runspot_private.account_controls set status='suspended' where user_id='00000000-0000-0000-0000-000000000092';
++set local role authenticated;
++select pg_temp.assert_true(pg_temp.fails($q$select public.my_progress()$q$,'42501'),'정지 계정 차단');
++reset role;
++rollback;
++\echo '러닝 보상·레벨 계산 및 권한 테스트 통과'
+diff --git a/test/run_progress_test.dart b/test/run_progress_test.dart
+new file mode 100644
+index 0000000..f7fa030
+--- /dev/null
++++ b/test/run_progress_test.dart
+@@ -0,0 +1,204 @@
++import 'dart:async';
++import 'dart:io';
++
++import 'package:flutter/material.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:runquest/features/progress/models/run_progress.dart';
++import 'package:runquest/features/progress/widgets/profile_level_card.dart';
++import 'package:runquest/features/progress/widgets/run_reward_section.dart';
++
++import 'support/progress_fakes.dart';
++
++Map<String, dynamic> rewardJson({
++  int xp = 70,
++  String? reason,
++  int before = 1,
++  int after = 2,
++}) => {
++  'status': 'ready',
++  'run_id': 'run-1',
++  'xp': xp,
++  'reason': reason,
++  'level_before': before,
++  'level_after': after,
++  'progress': {
++    'total_xp': 130,
++    'level': 2,
++    'level_xp': 30,
++    'next_level_xp': 150,
++  },
++};
++
++void main() {
++  group('경험치 응답', () {
++    test('진행도와 보상을 읽습니다', () {
++      final reward = RunReward.fromJson(rewardJson())!;
++      expect(reward.xp, 70);
++      expect(reward.leveledUp, isTrue);
++      expect(reward.reasonMessage, isNull);
++      expect(reward.progress.fraction, closeTo(.2, 1e-9));
++      expect(reward.progress.remainingXp, 120);
++    });
++
++    test('보상 대상이 아니면 null입니다', () {
++      expect(RunReward.fromJson({'status': 'unavailable'}), isNull);
++    });
++
++    test('지급 제외 사유를 안내합니다', () {
++      final reward = RunReward.fromJson(
++        rewardJson(xp: 0, reason: 'daily_limit', after: 1),
++      )!;
++      expect(reward.reason, RewardReason.dailyLimit);
++      expect(reward.reasonMessage, contains('500 XP'));
++      expect(reward.leveledUp, isFalse);
++    });
++
++    test('최대 레벨은 다음 목표가 없습니다', () {
++      final progress = RunProgress.fromJson({
++        'total_xp': 999999,
++        'level': 99,
++        'level_xp': 500,
++        'next_level_xp': null,
++      });
++      expect(progress.isMaxLevel, isTrue);
++      expect(progress.fraction, 1);
++    });
++
++    test('잘못된 응답을 거부합니다', () {
++      for (final json in [
++        {...rewardJson(), 'status': 'pending'},
++        {...rewardJson(), 'xp': -1},
++        {...rewardJson(), 'reason': 'bonus'},
++        rewardJson(before: 3, after: 2),
++        {
++          ...rewardJson(),
++          'progress': {
++            'total_xp': 10,
++            'level': 1,
++            'level_xp': 120,
++            'next_level_xp': 100,
++          },
++        },
++      ]) {
++        expect(() => RunReward.fromJson(json), throwsFormatException);
++      }
++    });
++
++    test('레벨 칭호', () {
++      expect(levelTitle(1), '새내기 러너');
++      expect(levelTitle(12), '성장하는 러너');
++      expect(levelTitle(99), '마스터 러너');
++    });
++  });
++
++  Future<void> show(WidgetTester tester, Widget child) async {
++    await tester.binding.setSurfaceSize(const Size(320, 568));
++    addTearDown(() => tester.binding.setSurfaceSize(null));
++    await tester.pumpWidget(
++      MaterialApp(
++        home: Scaffold(
++          body: SingleChildScrollView(
++            padding: const EdgeInsets.all(16),
++            child: child,
++          ),
++        ),
++      ),
++    );
++  }
++
++  testWidgets('보상 확인 중 실패하면 다시 확인해 레벨 상승을 표시합니다', (tester) async {
++    final service = FakeProgressService(
++      rewards: {'run-1': RunReward.fromJson(rewardJson())},
++    )..rewardFailure = const SocketException('오프라인');
++    service.pendingReward = Completer<void>();
++    await show(tester, RunRewardSection(service: service, runId: 'run-1'));
++    await tester.pump();
++    expect(find.text('보상 확인 중'), findsOneWidget);
++    service.pendingReward!.complete();
++    await tester.pumpAndSettle();
++    expect(find.textContaining('보상을 확인하지 못했습니다'), findsOneWidget);
++    expect(find.text('레벨 업!'), findsNothing);
++
++    service.rewardFailure = null;
++    service.pendingReward = null;
++    await tester.tap(find.text('보상 다시 확인'));
++    await tester.pumpAndSettle();
++    expect(service.rewardRequests, ['run-1', 'run-1']);
++    expect(find.text('+70 XP'), findsOneWidget);
++    expect(find.text('레벨 업!'), findsOneWidget);
++    expect(find.text('Lv.1 → Lv.2 새내기 러너'), findsOneWidget);
++    expect(find.text('30 / 150 XP'), findsOneWidget);
++    expect(find.text('다음 레벨까지 120 XP'), findsOneWidget);
++    expect(tester.takeException(), isNull);
++  });
++
++  testWidgets('응답이 지연되면 실패로 처리합니다', (tester) async {
++    final service = FakeProgressService()..pendingReward = Completer<void>();
++    await show(
++      tester,
++      RunRewardSection(
++        service: service,
++        runId: 'run-1',
++        timeout: const Duration(seconds: 1),
++      ),
++    );
++    await tester.pump(const Duration(seconds: 2));
++    expect(find.text('보상 다시 확인'), findsOneWidget);
++    service.pendingReward!.complete();
++  });
++
++  testWidgets('지급 제외와 대상 아님, 서버 저장 대기를 구분합니다', (tester) async {
++    final service = FakeProgressService(
++      rewards: {
++        'short': RunReward.fromJson(
++          rewardJson(xp: 0, reason: 'too_short', after: 1),
++        ),
++        'old': null,
++      },
++    );
++    await show(tester, RunRewardSection(service: service, runId: 'short'));
++    await tester.pumpAndSettle();
++    expect(find.text('+0 XP'), findsOneWidget);
++    expect(find.textContaining('300m 미만'), findsOneWidget);
++    expect(find.text('레벨 업!'), findsNothing);
++
++    await show(tester, RunRewardSection(service: service, runId: 'old'));
++    await tester.pumpAndSettle();
++    expect(find.text('이 기록은 경험치 지급 대상이 아니에요.'), findsOneWidget);
++
++    await show(
++      tester,
++      RunRewardSection(service: service, runId: 'local', pendingSync: true),
++    );
++    await tester.pumpAndSettle();
++    expect(find.text('서버에 저장되면 경험치가 지급돼요.'), findsOneWidget);
++    expect(service.rewardRequests, ['short', 'old']);
++  });
++
++  testWidgets('다른 계정으로 바뀌면 이전 보상을 표시하지 않습니다', (tester) async {
++    final service = FakeProgressService(
++      rewards: {'run-1': RunReward.fromJson(rewardJson())},
++    )..pendingReward = Completer<void>();
++    await show(tester, RunRewardSection(service: service, runId: 'run-1'));
++    service.isCurrentOwner = false;
++    service.pendingReward!.complete();
++    await tester.pumpAndSettle();
++    expect(find.text('+70 XP'), findsNothing);
++  });
++
++  testWidgets('프로필 레벨 카드는 실패 후 다시 불러옵니다', (tester) async {
++    final service = FakeProgressService()
++      ..loadFailure = const SocketException('오프라인');
++    await show(tester, ProfileLevelCard(service: service));
++    await tester.pumpAndSettle();
++    expect(find.text('레벨 정보를 불러오지 못했습니다.'), findsOneWidget);
++    service.loadFailure = null;
++    await tester.tap(find.text('다시 시도'));
++    await tester.pumpAndSettle();
++    expect(service.loads, 2);
++    expect(find.text('새내기 러너 · 누적 130 XP'), findsOneWidget);
++    expect(find.text('Lv.2'), findsOneWidget);
++    expect(find.text('30 / 150 XP'), findsOneWidget);
++    expect(tester.takeException(), isNull);
++  });
++}
+diff --git a/test/support/progress_fakes.dart b/test/support/progress_fakes.dart
+new file mode 100644
+index 0000000..3742e54
+--- /dev/null
++++ b/test/support/progress_fakes.dart
+@@ -0,0 +1,44 @@
++import 'dart:async';
++
++import 'package:runquest/features/progress/data/progress_service.dart';
++import 'package:runquest/features/progress/models/run_progress.dart';
++
++const testProgress = RunProgress(
++  totalXp: 130,
++  level: 2,
++  levelXp: 30,
++  nextLevelXp: 150,
++);
++
++class FakeProgressService implements ProgressService {
++  FakeProgressService({
++    this.progress = testProgress,
++    this.rewards = const {},
++    this.defaultReward,
++  });
++  @override
++  bool isCurrentOwner = true;
++  RunProgress progress;
++  Map<String, RunReward?> rewards;
++  RunReward? defaultReward;
++  Object? loadFailure;
++  Object? rewardFailure;
++  Completer<void>? pendingReward;
++  final rewardRequests = <String>[];
++  int loads = 0;
++
++  @override
++  Future<RunProgress> load() async {
++    loads++;
++    if (loadFailure != null) throw loadFailure!;
++    return progress;
++  }
++
++  @override
++  Future<RunReward?> loadReward(String runId) async {
++    rewardRequests.add(runId);
++    await pendingReward?.future;
++    if (rewardFailure != null) throw rewardFailure!;
++    return rewards.containsKey(runId) ? rewards[runId] : defaultReward;
++  }
++}
+diff --git a/test/widget_test.dart b/test/widget_test.dart
+index fd0b4b7..47f486a 100644
+--- a/test/widget_test.dart
++++ b/test/widget_test.dart
+@@ -22,6 +22,9 @@ import 'support/map_fakes.dart';
+ import 'support/run_history_fakes.dart';
+ import 'support/friend_fakes.dart';
+ import 'support/conditions_fakes.dart';
++import 'support/progress_fakes.dart';
++
++import 'package:runquest/features/progress/models/run_progress.dart';
+ 
+ class ServerIdRecordService extends FakeRunRecordService {
+   @override
+@@ -102,6 +105,7 @@ void main() {
+     WidgetTester tester,
+     Size size, {
+     FakeRunRecordService? recordService,
++    FakeProgressService? progressService,
+   }) async {
+     await tester.binding.setSurfaceSize(size);
+     addTearDown(() => tester.binding.setSurfaceSize(null));
+@@ -126,6 +130,7 @@ void main() {
+             mapBridgeFactory: FakeMapBridge.new,
+             friendService: FakeFriendService(),
+             conditionsController: conditions,
++            progressService: progressService,
+           ),
+         ),
+       ),
+@@ -498,6 +503,59 @@ void main() {
+     });
+   }
+ 
++  for (final offline in [false, true]) {
++    testWidgets('러닝 종료 결과에 경험치 보상과 레벨 상승을 표시합니다: 오프라인 $offline', (
++      tester,
++    ) async {
++      const levelUp = RunReward(
++        xp: 70,
++        levelBefore: 1,
++        levelAfter: 2,
++        progress: testProgress,
++      );
++      final progress = FakeProgressService(defaultReward: levelUp);
++      final controller = await showApp(
++        tester,
++        const Size(320, 568),
++        recordService: ServerIdRecordService(),
++        progressService: progress,
++      );
++      final service = controller.runHistory.service as FakeRunRecordService;
++      if (offline) {
++        service.saveFailure = const SocketException('오프라인');
++        service.listFailure = const SocketException('오프라인');
++      }
++      await tester.tap(find.text('러닝 시작'));
++      await tester.pump();
++      await tester.tap(find.text('러닝 종료'));
++      await tester.pump();
++      await tester.pump(const Duration(milliseconds: 300));
++      await tester.tap(find.text('종료'));
++      await tester.pump();
++      for (var i = 0; i < 5; i++) {
++        await tester.pump(const Duration(milliseconds: 300));
++      }
++      expect(find.text('러닝 보상'), findsOneWidget);
++      if (offline) {
++        expect(find.text('서버에 저장되면 경험치가 지급돼요.'), findsOneWidget);
++        expect(progress.rewardRequests, isEmpty);
++      } else {
++        expect(progress.rewardRequests, ['server-record-id']);
++        expect(find.text('+70 XP'), findsOneWidget);
++        expect(find.text('레벨 업!'), findsOneWidget);
++      }
++      expect(tester.takeException(), isNull);
++      await tester.tap(find.text('확인'));
++      await tester.pumpAndSettle();
++      await tester.tap(find.text('프로필').last);
++      await tester.pumpAndSettle();
++      expect(find.text('새내기 러너 · 누적 130 XP'), findsOneWidget);
++      expect(find.text('30 / 150 XP'), findsOneWidget);
++      expect(tester.takeException(), isNull);
++      await tester.pumpWidget(const SizedBox());
++    });
++  }
++
+   for (final size in [const Size(320, 568), const Size(390, 844)]) {
+     testWidgets('프로필에서 내 기록을 열고 돌아옵니다: ${size.width}', (tester) async {
+       await showApp(tester, size);
+-- 
+2.43.0
+
