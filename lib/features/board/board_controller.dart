@@ -169,8 +169,71 @@ class BoardController extends ChangeNotifier {
   Future<String?> report(BoardPost post, String reason) =>
       _mutate(() => service.report(post.id, reason), '신고를 접수하지 못했습니다.');
 
-  Future<String?> delete(BoardPost post) =>
-      _mutate(() => service.delete(post.id), '글을 삭제하지 못했습니다.');
+  Future<String?> delete(BoardPost post) async {
+    final error = await _mutate(
+      () => service.delete(post.id),
+      '글을 삭제하지 못했습니다.',
+    );
+    if (error == null && post.isMine) unawaited(removePhotos(post.images));
+    return error;
+  }
+
+  BoardPost? postById(String id) {
+    for (final post in _posts) {
+      if (post.id == id) return post;
+    }
+    return null;
+  }
+
+  void _replace(String id, BoardPost Function(BoardPost post) change) {
+    _posts = List.unmodifiable([
+      for (final post in _posts) post.id == id ? change(post) : post,
+    ]);
+    notifyListeners();
+  }
+
+  /// 좋아요는 서버가 돌려준 상태와 개수로만 표시를 바꿉니다.
+  Future<String?> setLike(BoardPost post, bool liked) async {
+    if (_disposed || !_checkOwner()) return error;
+    try {
+      final result = await service.setLike(post.id, liked).timeout(_timeout);
+      if (_disposed) return null;
+      if (!_checkOwner()) {
+        notifyListeners();
+        return error;
+      }
+      _replace(
+        post.id,
+        (item) =>
+            item.copyWith(liked: result.liked, likeCount: result.likeCount),
+      );
+      return null;
+    } catch (exception) {
+      if (_disposed) return null;
+      return _checkOwner() ? _message(exception, '좋아요를 반영하지 못했습니다.') : error;
+    }
+  }
+
+  void updateCommentCount(String postId, int count) {
+    if (_disposed || postById(postId)?.commentCount == count) return;
+    _replace(postId, (post) => post.copyWith(commentCount: count));
+  }
+
+  Future<String> uploadPhoto(Uint8List jpeg) async {
+    if (!_checkOwner()) throw const AuthException('계정이 변경되었습니다.');
+    return service.uploadPhoto(jpeg).timeout(const Duration(seconds: 30));
+  }
+
+  /// 저장하지 않았거나 글에서 뺀 사진을 지웁니다. 실패해도 글 작업은 막지 않습니다.
+  Future<void> removePhotos(List<String> paths) async {
+    if (paths.isEmpty || !service.isCurrentOwner) return;
+    try {
+      await service.removePhotos(paths).timeout(_timeout);
+    } catch (_) {}
+  }
+
+  String photoError(Object exception) =>
+      _message(exception, '사진을 올리지 못했습니다. 다시 시도해 주세요.');
 
   @override
   void dispose() {

@@ -3,6 +3,7 @@ import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/shared/widgets/badge_pill.dart';
 
 import '../models/board_post.dart';
+import 'board_photo.dart';
 
 String formatBoardTime(DateTime time, {DateTime? now}) {
   final current = now ?? DateTime.now();
@@ -30,6 +31,12 @@ String raceCountdown(DateTime date, {DateTime? now}) {
   ).difference(today).inDays;
   return days == 0 ? 'D-DAY' : 'D-$days';
 }
+
+const _metaStyle = TextStyle(
+  color: AppColors.gray,
+  fontSize: 11,
+  fontWeight: FontWeight.w600,
+);
 
 class BoardPostTile extends StatelessWidget {
   const BoardPostTile({required this.post, required this.onTap, super.key});
@@ -101,17 +108,44 @@ class BoardPostTile extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    '${post.nickname} · ${formatBoardTime(post.createdAt)}',
-                    style: const TextStyle(
-                      color: AppColors.gray,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${post.nickname} · ${formatBoardTime(post.createdAt)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _metaStyle,
+                        ),
+                      ),
+                      if (post.likeCount > 0) ...[
+                        Icon(
+                          post.liked ? Icons.favorite : Icons.favorite_border,
+                          size: 13,
+                          color: post.liked ? AppColors.red : AppColors.gray,
+                        ),
+                        const SizedBox(width: 2),
+                        Text('${post.likeCount}', style: _metaStyle),
+                        const SizedBox(width: 8),
+                      ],
+                      if (post.commentCount > 0) ...[
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 13,
+                          color: AppColors.gray,
+                        ),
+                        const SizedBox(width: 2),
+                        Text('${post.commentCount}', style: _metaStyle),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
+            if (post.visibleImageUrls.isNotEmpty) ...[
+              const SizedBox(width: 10),
+              BoardPhoto(url: post.visibleImageUrls.first, size: 64),
+            ],
           ],
         ),
       ),

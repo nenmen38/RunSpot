@@ -5,161 +5,386 @@ import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/shared/widgets/badge_pill.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'board_controller.dart';
+import 'board_comments_controller.dart';
 import 'board_compose_screen.dart';
-import 'widgets/board_report_dialog.dart';
+import 'board_controller.dart';
+import 'data/board_photo_service.dart';
 import 'models/board_post.dart';
+import 'widgets/board_photo.dart';
 import 'widgets/board_post_tile.dart';
+import 'widgets/board_report_dialog.dart';
 
-class BoardPostScreen extends StatelessWidget {
+class BoardPostScreen extends StatefulWidget {
   const BoardPostScreen({
     required this.post,
     required this.controller,
+    this.photoService,
     super.key,
   });
 
   final BoardPost post;
   final BoardController controller;
 
-  Future<void> _edit(BuildContext context) async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => BoardComposeScreen(controller: controller, post: post),
-      ),
-    );
-    if (saved == true && context.mounted) Navigator.pop(context);
+  /// 없으면 기기 갤러리에서 사진을 고릅니다.
+  final BoardPhotoService? photoService;
+
+  @override
+  State<BoardPostScreen> createState() => _BoardPostScreenState();
+}
+
+class _BoardPostScreenState extends State<BoardPostScreen> {
+  late final _comments = BoardCommentsController(
+    widget.controller.service,
+    widget.post.id,
+    onCount: (count) =>
+        widget.controller.updateCommentCount(widget.post.id, count),
+  );
+  final _input = TextEditingController();
+  bool _liking = false;
+
+  // 수정·좋아요 뒤에는 목록 컨트롤러의 최신 글을 보여줍니다.
+  BoardPost get _post =>
+      widget.controller.postById(widget.post.id) ?? widget.post;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_comments.refresh());
   }
 
-  Future<void> _report(BuildContext context) async {
+  @override
+  void dispose() {
+    _comments.dispose();
+    _input.dispose();
+    super.dispose();
+  }
+
+  void _show(String? message) {
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool> _confirm(String title) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: const Text('삭제하면 되돌릴 수 없어요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('삭제'),
+            ),
+          ],
+        ),
+      ) ==
+      true;
+
+  Future<void> _delete() async {
+    if (!await _confirm('글을 삭제할까요?') || !mounted) return;
+    final error = await widget.controller.delete(_post);
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop();
+    } else {
+      _show(error);
+    }
+  }
+
+  Future<void> _edit() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => BoardComposeScreen(
+          controller: widget.controller,
+          photoService: widget.photoService,
+          post: _post,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _report() async {
     final reason = await showDialog<String>(
       context: context,
       builder: (_) => const BoardReportDialog(),
     );
-    if (reason == null || !context.mounted) return;
-    final error = await controller.report(post, reason);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error ?? '신고가 접수되었습니다.')));
+    if (reason == null || !mounted) return;
+    _show(await widget.controller.report(_post, reason) ?? '신고가 접수되었습니다.');
+  }
+
+  Future<void> _toggleLike() async {
+    if (_liking) return;
+    setState(() => _liking = true);
+    final error = await widget.controller.setLike(_post, !_post.liked);
+    if (mounted) setState(() => _liking = false);
+    _show(error);
+  }
+
+  Future<void> _sendComment() async {
+    final error = await _comments.add(_input.text);
+    if (!mounted) return;
+    if (error == null) {
+      _input.clear();
+      FocusScope.of(context).unfocus();
+    } else {
+      _show(error);
     }
   }
 
-  Future<void> _delete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('글을 삭제할까요?'),
-        content: const Text('삭제한 글은 되돌릴 수 없어요.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    final error = await controller.delete(post);
-    if (!context.mounted) return;
-    if (error == null) {
-      Navigator.of(context).pop();
-    } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
-    }
+  Future<void> _deleteComment(BoardComment comment) async {
+    if (!await _confirm('댓글을 삭제할까요?') || !mounted) return;
+    _show(await _comments.delete(comment));
   }
 
   @override
-  Widget build(BuildContext context) {
-    final raceDate = post.raceDate;
-    final raceUrl = post.raceUrl == null ? null : Uri.tryParse(post.raceUrl!);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(post.kind.label),
-        actions: [
-          ListenableBuilder(
-            listenable: controller,
-            builder: (context, _) => PopupMenuButton<String>(
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([widget.controller, _comments]),
+    builder: (context, _) {
+      final post = _post;
+      final canEdit =
+          post.isMine &&
+          (post.kind != BoardKind.race || widget.controller.canPostRace);
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(post.kind.label),
+          actions: [
+            PopupMenuButton<String>(
               tooltip: '게시글 메뉴',
-              enabled: !controller.busy,
-              onSelected: (value) {
-                if (value == 'edit') {
-                  _edit(context);
-                } else if (value == 'report') {
-                  _report(context);
-                } else {
-                  _delete(context);
-                }
+              enabled: !widget.controller.busy,
+              onSelected: (value) => switch (value) {
+                'edit' => _edit(),
+                'report' => _report(),
+                _ => _delete(),
               },
               itemBuilder: (_) => [
-                if (post.isMine)
+                if (canEdit)
                   const PopupMenuItem(value: 'edit', child: Text('수정')),
                 if (!post.isMine)
                   const PopupMenuItem(value: 'report', child: Text('신고')),
-                if (post.isMine || controller.canModerate)
+                if (post.isMine || widget.controller.canModerate)
                   const PopupMenuItem(value: 'delete', child: Text('삭제')),
               ],
             ),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-        children: [
-          if (post.topic != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: BadgePill(text: post.topic!.label),
-            ),
-            const SizedBox(height: 8),
           ],
-          SelectableText(
-            post.title,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            [
-              post.nickname,
-              if (post.region != null) post.region!,
-              formatBoardTime(post.createdAt),
-            ].join(' · '),
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _comments.refresh,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+                  children: [
+                    ..._postBody(context, post),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _liking ? null : _toggleLike,
+                          icon: Icon(
+                            post.liked ? Icons.favorite : Icons.favorite_border,
+                            color: post.liked ? AppColors.red : null,
+                            size: 18,
+                          ),
+                          label: Text('좋아요 ${post.likeCount}'),
+                        ),
+                        const SizedBox(width: 10),
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 18,
+                          color: AppColors.gray,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '댓글 ${post.commentCount}',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 28),
+                    ..._commentList(context),
+                  ],
+                ),
+              ),
+            ),
+            if (_comments.canWrite) _commentInput(context),
+          ],
+        ),
+      );
+    },
+  );
+
+  List<Widget> _postBody(BuildContext context, BoardPost post) {
+    final raceDate = post.raceDate;
+    final raceUrl = post.raceUrl == null ? null : Uri.tryParse(post.raceUrl!);
+    return [
+      if (post.topic != null) ...[
+        Align(
+          alignment: Alignment.centerLeft,
+          child: BadgePill(text: post.topic!.label),
+        ),
+        const SizedBox(height: 8),
+      ],
+      SelectableText(post.title, style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 6),
+      Text(
+        [
+          post.nickname,
+          if (post.region != null) post.region!,
+          formatBoardTime(post.createdAt),
+          if (post.isEdited) '수정됨',
+        ].join(' · '),
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      if (raceDate != null) ...[
+        const SizedBox(height: 14),
+        _InfoRow(
+          icon: Icons.event_outlined,
+          text: '${formatRaceDate(raceDate)} · ${raceCountdown(raceDate)}',
+        ),
+        _InfoRow(icon: Icons.place_outlined, text: post.racePlace!),
+      ],
+      const Divider(height: 28),
+      SelectableText(
+        post.body,
+        style: const TextStyle(color: AppColors.ink, fontSize: 14, height: 1.5),
+      ),
+      for (final url in post.visibleImageUrls) ...[
+        const SizedBox(height: 12),
+        BoardPhoto(url: url),
+      ],
+      if (post.images.length > post.visibleImageUrls.length)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            '사진 일부를 불러오지 못했어요. 목록을 새로고침해 주세요.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
-          if (raceDate != null) ...[
-            const SizedBox(height: 14),
-            _InfoRow(
-              icon: Icons.event_outlined,
-              text: '${formatRaceDate(raceDate)} · ${raceCountdown(raceDate)}',
-            ),
-            _InfoRow(icon: Icons.place_outlined, text: post.racePlace!),
-          ],
-          const Divider(height: 28),
-          SelectableText(
-            post.body,
-            style: const TextStyle(
-              color: AppColors.ink,
-              fontSize: 14,
-              height: 1.5,
+        ),
+      if (raceUrl != null) ...[
+        const SizedBox(height: 18),
+        OutlinedButton.icon(
+          onPressed: () => unawaited(
+            launchUrl(raceUrl, mode: LaunchMode.externalApplication),
+          ),
+          icon: const Icon(Icons.open_in_new, size: 18),
+          label: const Text('대회 안내 페이지 열기'),
+        ),
+      ],
+    ];
+  }
+
+  List<Widget> _commentList(BuildContext context) {
+    if (_comments.loading && !_comments.loaded) {
+      return const [Center(child: CircularProgressIndicator())];
+    }
+    if (_comments.error != null) {
+      return [
+        Text(_comments.error!, style: const TextStyle(color: AppColors.red)),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: _comments.refresh,
+            child: const Text('다시 시도'),
+          ),
+        ),
+      ];
+    }
+    if (_comments.comments.isEmpty) {
+      return [
+        Text(
+          _comments.canWrite ? '첫 댓글을 남겨 보세요.' : '아직 댓글이 없어요.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ];
+    }
+    return [
+      for (final comment in _comments.comments)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${comment.nickname} · ${formatBoardTime(comment.createdAt)}',
+                      style: const TextStyle(
+                        color: AppColors.gray,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    SelectableText(
+                      comment.body,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (comment.isMine || _comments.canModerate)
+                IconButton(
+                  tooltip: '댓글 삭제',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _comments.busy
+                      ? null
+                      : () => _deleteComment(comment),
+                  icon: const Icon(Icons.close, size: 16),
+                ),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  Widget _commentInput(BuildContext context) => SafeArea(
+    top: false,
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.line)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _input,
+              maxLength: 500,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                hintText: '댓글을 입력해 주세요',
+                counterText: '',
+                border: InputBorder.none,
+              ),
             ),
           ),
-          if (raceUrl != null) ...[
-            const SizedBox(height: 18),
-            OutlinedButton.icon(
-              onPressed: () => unawaited(
-                launchUrl(raceUrl, mode: LaunchMode.externalApplication),
-              ),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('대회 안내 페이지 열기'),
-            ),
-          ],
+          IconButton(
+            tooltip: '댓글 등록',
+            onPressed: _comments.busy ? null : _sendComment,
+            icon: _comments.busy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send, color: AppColors.blue),
+          ),
         ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _InfoRow extends StatelessWidget {
