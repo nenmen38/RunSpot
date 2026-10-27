@@ -114,7 +114,13 @@ void main() {
     expect(find.text('수정'), findsNothing);
     await tester.tap(find.text('신고'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '광고성 글');
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      '광고성 글',
+    );
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, '신고'));
     await tester.pumpAndSettle();

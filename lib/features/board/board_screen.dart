@@ -7,15 +7,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'board_compose_screen.dart';
 import 'board_controller.dart';
 import 'board_post_screen.dart';
+import 'data/board_photo_service.dart';
 import 'data/board_service.dart';
 import 'models/board_post.dart';
 import 'region_picker_screen.dart';
 import 'widgets/board_post_tile.dart';
 
 class BoardScreen extends StatefulWidget {
-  const BoardScreen({this.service, super.key});
+  const BoardScreen({this.service, this.photoService, super.key});
 
   final BoardService? service;
+  final BoardPhotoService? photoService;
 
   @override
   State<BoardScreen> createState() => _BoardScreenState();
@@ -25,6 +27,8 @@ class _BoardScreenState extends State<BoardScreen> {
   late final BoardController _controller = BoardController(
     widget.service ?? SupabaseBoardService(Supabase.instance.client),
   );
+  late final BoardPhotoService _photos =
+      widget.photoService ?? GalleryBoardPhotoService();
 
   @override
   void initState() {
@@ -57,7 +61,8 @@ class _BoardScreenState extends State<BoardScreen> {
   Future<void> _compose() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => BoardComposeScreen(controller: _controller),
+        builder: (_) =>
+            BoardComposeScreen(controller: _controller, photoService: _photos),
       ),
     );
   }
@@ -65,7 +70,11 @@ class _BoardScreenState extends State<BoardScreen> {
   void _open(BoardPost post) {
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => BoardPostScreen(post: post, controller: _controller),
+        builder: (_) => BoardPostScreen(
+          post: post,
+          controller: _controller,
+          photoService: _photos,
+        ),
       ),
     );
   }
