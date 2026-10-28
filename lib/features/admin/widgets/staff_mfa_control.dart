@@ -98,7 +98,26 @@ class _StaffMfaControlState extends State<StaffMfaControl> {
   }
 
   @override
-  Widget build(BuildContext context) => !widget.isCurrentOwner()
+  Widget build(BuildContext context) => StreamBuilder<AuthState>(
+    stream: widget.client.auth.onAuthStateChange,
+    builder: (context, snapshot) {
+      if (!widget.isCurrentOwner()) {
+        return const Text('다시 로그인해 주세요.');
+      }
+      final session = widget.client.auth.currentSession;
+      if (session != null &&
+          !session.isExpired &&
+          widget.client.auth.mfa
+                  .getAuthenticatorAssuranceLevel()
+                  .currentLevel ==
+              AuthenticatorAssuranceLevels.aal2) {
+        return const SizedBox.shrink();
+      }
+      return _buildControls();
+    },
+  );
+
+  Widget _buildControls() => !widget.isCurrentOwner()
       ? const Text('다시 로그인해 주세요.')
       : Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
