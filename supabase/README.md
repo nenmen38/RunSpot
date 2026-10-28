@@ -34,6 +34,8 @@
 18. `migrations/20261026000100_community_board.sql`: 동네·전국 게시판과 러닝 대회 공지. 아직 원격 서버에 적용하지 않았습니다.
 19. `migrations/20261027000100_board_engagement.sql`: 게시판 좋아요·댓글·사진 첨부, 글 수정 시 사진 변경과 비공개 `board-images` 저장소 버킷·정책. `20261026085356_app_usability_improvements.sql` 다음에 적용하며 아직 원격 서버에 적용하지 않았습니다.
 
+20. `migrations/20261028000100_account_deletion.sql`: 앱 안 회원 탈퇴(`delete_my_account()`). 본인 인증 계정을 지우면 외래 키 연쇄 삭제로 프로필·기록·게시판 자료가 함께 지워지고 탈퇴 사실만 감사 기록에 남습니다. 게시판 사진 파일은 앱이 먼저 Storage API로 지웁니다.
+
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
 
@@ -91,6 +93,14 @@ supabase db push
 서버 비밀 키는 RLS를 우회하므로 모든 서버 API가 호출자와 작업 대상을 검사해야 합니다.
 
 ## 테스트
+
+모든 마이그레이션과 SQL 테스트는 `scripts/run_sql_tests.sh`로 순서대로 실행합니다. 격리된 빈 PostgreSQL 16 전용이며 CI(`.github/workflows/ci.yml`)도 같은 스크립트를 씁니다.
+
+```sh
+PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres scripts/run_sql_tests.sh
+```
+
+아래 목록은 초기 기준이며 이후 추가된 마이그레이션·테스트 순서는 스크립트를 따릅니다.
 
 `tests/local_auth_stub.sql`은 격리된 빈 PostgreSQL 전용입니다. 실제 Supabase에 적용하지 않습니다.
 `tests/security.sql`은 테스트 데이터가 롤백되지만 개발 DB 또는 로컬 DB에서만 실행합니다.

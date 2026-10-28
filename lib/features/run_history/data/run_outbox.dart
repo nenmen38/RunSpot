@@ -20,6 +20,9 @@ abstract interface class RunOutbox {
   Future<void> put(RunSummary summary);
   Future<List<RunSummary>> list();
   Future<void> remove(String clientRunId);
+
+  /// 이 계정이 기기에 보관한 전송 대기 기록을 모두 지웁니다. 회원 탈퇴 후에 사용합니다.
+  Future<void> clear();
   Future<void> close();
 }
 
@@ -220,6 +223,20 @@ class SqliteRunOutbox implements RunOutbox {
       );
     } catch (_) {
       throw const RunOutboxException('서버 저장 확인을 기기에 반영하지 못했습니다. 다시 시도해 주세요.');
+    }
+  }
+
+  @override
+  Future<void> clear() async {
+    try {
+      final db = await _open();
+      await db.delete(
+        'pending_runs',
+        where: 'namespace = ? AND owner_id = ?',
+        whereArgs: [namespace, ownerId],
+      );
+    } catch (_) {
+      throw const RunOutboxException('기기에 보관한 기록을 지우지 못했습니다.');
     }
   }
 

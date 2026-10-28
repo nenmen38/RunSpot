@@ -270,4 +270,15 @@ void main() {
       summary().route.toJson(),
     );
   });
+
+  test('탈퇴 시 이 계정과 서버의 보관 기록만 지웁니다', () async {
+    final mine = open();
+    final other = open(owner: 'other');
+    await mine.put(summary(id: 'a'));
+    await mine.put(summary(id: 'b'));
+    await other.put(summary(id: 'c'));
+    await mine.clear();
+    expect(await mine.list(), isEmpty);
+    expect((await other.list()).single.clientRunId, 'c');
+  });
 }

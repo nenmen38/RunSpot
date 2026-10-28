@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:runquest/shared/errors/server_error.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'data/board_service.dart';
@@ -51,7 +52,7 @@ class BoardController extends ChangeNotifier {
         {'42501', '22023', 'P0001'}.contains(exception.code)) {
       return exception.message;
     }
-    return fallback;
+    return unexpectedServerError(exception, fallback);
   }
 
   void select(BoardKind value) {

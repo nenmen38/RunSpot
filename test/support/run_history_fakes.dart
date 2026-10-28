@@ -102,6 +102,9 @@ class FakeRunOutbox implements RunOutbox {
   }
 
   @override
+  Future<void> clear() async => rows.clear();
+
+  @override
   Future<void> close() async {
     closed = true;
   }

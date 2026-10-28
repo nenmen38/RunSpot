@@ -41,3 +41,5 @@
 - `profile/widgets/recent_runs.dart`는 숨기지 않은 최근 기록과 상세 이동을 담당합니다. `PrivacyControls.identityOnly`는 프로필의 닉네임 표시를, 설정 화면의 기본 모드는 공개·인증·위치 공유 제어를 담당합니다.
 - `run_history`의 숨김은 `RunRecord.hidden`과 소유자 전용 RPC로 처리합니다. 전송 대기 원본은 숨기지 않으며 서버 저장 후 숨김·복원을 지원합니다. 숨긴 목록은 같은 페이지 조회 원본에서 분리하고 다음 페이지를 계속 읽을 수 있습니다.
 - `board/widgets/board_report_dialog.dart`, `admin/widgets/board_reports_panel.dart`는 신고 사유 입력과 관리자 처리 흐름을 분리합니다. 글 편집은 기존 작성 폼을 재사용하고 서버 수정 시각으로 충돌을 방지합니다.
+- `features/settings/`: 계정·공개 설정, 차단 목록, 건강 데이터 연동, 관리 메뉴, 정책 문서 링크(`legal_links.dart`, 설정값이 있을 때만 표시), 오픈소스 라이선스, 로그아웃과 회원 탈퇴를 담당합니다. `data/account_service.dart`는 게시판 사진 정리 후 서버 탈퇴를 호출하고, 설정 화면이 기기의 전송 대기 기록·진행 중 기록을 지운 뒤 로그아웃합니다.
+- `shared/errors/server_error.dart`: 예상하지 못한 서버 오류를 '서버 업데이트 필요' 또는 오류 코드가 붙은 안내로 바꿉니다.

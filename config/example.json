@@ -6,5 +6,9 @@
     "KAKAO_JAVASCRIPT_KEY": "",
     "KAKAO_MAP_ORIGIN": "https://localhost",
     "KAKAO_REST_API_KEY": "",
-    "GEMINI_API_KEY": ""
+    "GEMINI_API_KEY": "",
+    "PRIVACY_POLICY_URL": "",
+    "TERMS_URL": "",
+    "LOCATION_TERMS_URL": "",
+    "SUPPORT_EMAIL": ""
 }

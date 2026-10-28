@@ -5,6 +5,12 @@ import '../health/health_settings_screen.dart';
 import '../home/live_map_controller.dart';
 import '../profile/privacy_controls.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
+import 'data/account_service.dart';
+import 'legal_links.dart';
+import 'widgets/delete_account_dialog.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -15,6 +21,7 @@ class SettingsScreen extends StatelessWidget {
     this.mapController,
     this.canManage = false,
     this.managementAccess,
+    this.accountService,
     super.key,
   });
 
@@ -24,6 +31,54 @@ class SettingsScreen extends StatelessWidget {
   final Future<bool>? managementAccess;
   final VoidCallback? onBlockedUsersTap;
   final bool Function() isCurrentOwner;
+
+  /// 없으면 현재 Supabase 계정으로 탈퇴를 처리합니다.
+  final AccountService? accountService;
+
+  Future<void> _open(BuildContext context, Uri uri) async {
+    final opened = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    ).catchError((_) => false);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('페이지를 열지 못했습니다. 잠시 후 다시 시도해 주세요.')),
+      );
+    }
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    if (!isCurrentOwner()) return;
+    if (mapController?.runSession != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('진행 중인 러닝을 종료한 뒤 탈퇴할 수 있어요.')),
+      );
+      return;
+    }
+    final service =
+        accountService ?? SupabaseAccountService(Supabase.instance.client);
+    final deleted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DeleteAccountDialog(
+        onDelete: () async {
+          await service.deleteMyAccount();
+          // 서버 계정이 지워진 뒤에는 기기에 남은 기록과 로그인 정보도 지웁니다.
+          final map = mapController;
+          if (map != null) {
+            await Future.wait([
+              map.runHistory.outbox.clear(),
+              if (map.checkpointStore != null) map.checkpointStore!.clear(),
+            ]).catchError((_) => <void>[]);
+          }
+          await service.signOutLocally().catchError((_) {});
+        },
+      ),
+    );
+    if (deleted == true && context.mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -99,6 +154,35 @@ class SettingsScreen extends StatelessWidget {
               : const SizedBox.shrink(),
         ),
         const Divider(),
+        for (final (icon, title, url) in [
+          (Icons.shield_outlined, '개인정보처리방침', LegalLinks.privacyPolicy),
+          (Icons.description_outlined, '서비스 이용약관', LegalLinks.terms),
+          (Icons.place_outlined, '위치기반서비스 이용약관', LegalLinks.locationTerms),
+        ])
+          if (url.isNotEmpty)
+            ListTile(
+              leading: Icon(icon),
+              title: Text(title),
+              trailing: const Icon(Icons.open_in_new, size: 18),
+              onTap: () => _open(context, Uri.parse(url)),
+            ),
+        if (LegalLinks.supportEmail.isNotEmpty)
+          ListTile(
+            leading: const Icon(Icons.mail_outline),
+            title: const Text('문의하기'),
+            subtitle: const Text(LegalLinks.supportEmail),
+            onTap: () => _open(
+              context,
+              Uri(scheme: 'mailto', path: LegalLinks.supportEmail),
+            ),
+          ),
+        ListTile(
+          leading: const Icon(Icons.code),
+          title: const Text('오픈소스 라이선스'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => showLicensePage(context: context),
+        ),
+        const Divider(),
         ListTile(
           leading: const Icon(Icons.logout),
           title: const Text('로그아웃'),
@@ -132,6 +216,11 @@ class SettingsScreen extends StatelessWidget {
               }
             }
           },
+        ),
+        ListTile(
+          leading: const Icon(Icons.person_remove_outlined, color: Colors.red),
+          title: const Text('회원 탈퇴', style: TextStyle(color: Colors.red)),
+          onTap: () => _deleteAccount(context),
         ),
       ],
     ),

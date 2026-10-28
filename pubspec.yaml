@@ -1,5 +1,5 @@
 name: runquest
-description: "A new Flutter project."
+description: "출발 위치로 돌아오는 러닝 코스와 기록·소셜·게시판을 제공하는 러닝 앱"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
