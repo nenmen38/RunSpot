@@ -8,9 +8,15 @@ import 'package:runquest/features/admin/widgets/staff_mfa_control.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  for (final verified in [false, true]) {
+  for (final status in ['unverified', 'verified', 'aal2']) {
+    final verified = status != 'unverified';
+    final authenticated = status == 'aal2';
     testWidgets(
-      verified ? '완료한 인증은 재사용하고 삭제하지 않습니다' : '중단한 관리자 인증만 정리하고 다시 등록합니다',
+      authenticated
+          ? '인증된 세션은 화면을 다시 열어도 인증을 요구하지 않습니다'
+          : verified
+          ? '완료한 인증은 재사용하고 삭제하지 않습니다'
+          : '중단한 관리자 인증만 정리하고 다시 등록합니다',
       (tester) async {
         final requests = <String>[];
         Map<String, dynamic> factor(String id, String name, String status) => {
@@ -22,7 +28,8 @@ void main() {
           'updated_at': '2026-10-26T00:00:00Z',
         };
         final session = {
-          'access_token': 'test-token',
+          'access_token':
+              'eyJhbGciOiJub25lIn0.${base64Url.encode(utf8.encode(jsonEncode({'aal': authenticated ? 'aal2' : 'aal1', 'exp': DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600}))).replaceAll('=', '')}.signature',
           'refresh_token': 'test-refresh',
           'token_type': 'bearer',
           'expires_in': 3600,
@@ -90,6 +97,24 @@ void main() {
             ),
           ),
         );
+        if (authenticated) {
+          expect(find.text('관리자 다중 인증'), findsNothing);
+          expect(find.byType(TextField), findsNothing);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpWidget(
+            MaterialApp(
+              home: StaffMfaControl(
+                client: client,
+                isCurrentOwner: () => true,
+                onVerified: () {},
+              ),
+            ),
+          );
+          expect(find.text('관리자 다중 인증'), findsNothing);
+          expect(requests, isEmpty);
+          await tester.pumpWidget(const SizedBox());
+          return;
+        }
         await tester.runAsync(() async {
           await tester.tap(find.text('관리자 다중 인증'));
           await Future<void>.delayed(const Duration(milliseconds: 100));
