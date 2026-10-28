@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../shared/maps/run_map.dart';
 import '../features/social/blocked_users_screen.dart';
+import '../features/board/board_post_loader_screen.dart';
 import '../features/board/board_screen.dart';
 import '../features/board/data/board_service.dart';
+import '../features/notifications/data/notification_service.dart';
+import '../features/notifications/notification_controller.dart';
 import '../features/settings/settings_screen.dart';
 
 import 'package:runquest/features/admin/admin_screen.dart';
@@ -70,6 +73,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
   AchievementService? _achievements;
   ReviewService? _reviews;
   GroupController? _groups;
+  BoardService? _board;
+  NotificationController? _notifications;
 
   @override
   void initState() {
@@ -80,6 +85,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _progress = widget.progressService;
       _statistics = widget.statisticsService;
       _ranking = widget.rankingService;
+      _board = widget.boardService;
     } else {
       final client = Supabase.instance.client;
       _blocks = SupabaseBlockService(client);
@@ -110,12 +116,17 @@ class _RunQuestShellState extends State<RunQuestShell> {
         ),
       );
       _groups = GroupController(SupabaseGroupService(client), _map);
+      _board = widget.boardService ?? SupabaseBoardService(client);
+      _notifications = NotificationController(
+        SupabaseNotificationService(client),
+      );
     }
   }
 
   @override
   void dispose() {
     _groups?.dispose();
+    _notifications?.dispose();
     if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
@@ -128,6 +139,18 @@ class _RunQuestShellState extends State<RunQuestShell> {
         builder: (_) => RunHistoryScreen(controller: _map.runHistory),
       ),
     );
+  }
+
+  Future<void> _openPost(String postId) async {
+    final service = _board;
+    if (service == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => BoardPostLoaderScreen(service: service, postId: postId),
+      ),
+    );
+    // 글에서 확인한 뒤 새로 온 알림이 있으면 바로 표시합니다.
+    if (mounted) await _notifications?.refreshCount();
   }
 
   Future<void> _openBlockedUsers() async {
@@ -169,7 +192,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         mapController: _map,
         achievementService: _achievements,
       ),
-      BoardScreen(service: widget.boardService),
+      BoardScreen(service: _board),
     ];
 
     return Scaffold(
@@ -184,6 +207,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
                 conditionsController: _conditions,
                 progressService: _progress,
                 blockService: _blocks,
+                notificationController: _notifications,
+                onOpenPost: _openPost,
                 isActive: _tab == 0,
                 mapBridgeFactory: widget.mapBridgeFactory,
               ),

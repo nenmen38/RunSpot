@@ -19,6 +19,8 @@ import '../run_share/run_share_screen.dart';
 import '../social/data/block_service.dart';
 import '../social/widgets/block_button.dart';
 import '../group_running/group_controller.dart';
+import '../notifications/notification_controller.dart';
+import '../notifications/widgets/notification_bell.dart';
 import 'models/live_runner.dart';
 import 'models/runner_cluster.dart';
 import 'data/location_service.dart';
@@ -33,6 +35,8 @@ class HomeScreen extends StatefulWidget {
     this.progressService,
     this.blockService,
     this.groupController,
+    this.notificationController,
+    this.onOpenPost,
     this.isActive = true,
     super.key,
   });
@@ -42,6 +46,10 @@ class HomeScreen extends StatefulWidget {
   final ProgressService? progressService;
   final BlockService? blockService;
   final GroupController? groupController;
+
+  /// 있으면 오른쪽 위에 확성기 알림 버튼을 보여줍니다.
+  final NotificationController? notificationController;
+  final void Function(String postId)? onOpenPost;
   final bool isActive;
 
   @override
@@ -73,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.groupController?.addListener(_groupChanged);
     widget.conditionsController?.setActive(widget.isActive);
     widget.conditionsController?.setLocation(widget.controller.position);
+    widget.notificationController?.setActive(widget.isActive);
     unawaited(widget.controller.runHistory.setActive(true));
     unawaited(widget.controller.start());
   }
@@ -230,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _foreground = state == AppLifecycleState.resumed;
     }
     widget.conditionsController?.setActive(_foreground && widget.isActive);
+    widget.notificationController?.setActive(_foreground && widget.isActive);
     // 권한 대화상자의 일시적인 inactive 상태에서는 공유를 중단하지 않습니다.
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.controller.runHistory.setActive(true));
@@ -254,12 +264,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       oldWidget.conditionsController?.setActive(false);
       widget.conditionsController?.setLocation(widget.controller.position);
     }
+    if (oldWidget.notificationController != widget.notificationController) {
+      oldWidget.notificationController?.setActive(false);
+    }
     widget.conditionsController?.setActive(_foreground && widget.isActive);
+    widget.notificationController?.setActive(_foreground && widget.isActive);
   }
 
   @override
   void dispose() {
     widget.conditionsController?.setActive(false);
+    widget.notificationController?.setActive(false);
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_changed);
     widget.groupController?.removeListener(_groupChanged);
@@ -275,6 +290,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         .where((runner) => runner.id == _selectedId)
         .firstOrNull;
     final groups = widget.groupController;
+    final notifications = widget.notificationController;
     final ownerId = state.runHistory.service.ownerId;
     final visible = [...state.runners];
     if (state.sharing &&
@@ -408,7 +424,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               if (state.locating || state.locationFailure != null)
                 Positioned(
                   left: 12,
-                  right: 12,
+                  // 확성기 버튼을 가리지 않도록 오른쪽을 비웁니다.
+                  right: notifications == null ? 12 : 64,
                   top: 12,
                   child: Material(
                     color: Colors.white,
@@ -453,6 +470,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
+                  ),
+                ),
+              if (notifications != null)
+                Positioned(
+                  right: 12,
+                  top: 12,
+                  child: NotificationBell(
+                    controller: notifications,
+                    onOpenPost: (postId) => widget.onOpenPost?.call(postId),
                   ),
                 ),
               Positioned(

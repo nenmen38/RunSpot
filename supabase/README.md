@@ -35,6 +35,7 @@
 19. `migrations/20261027000100_board_engagement.sql`: 게시판 좋아요·댓글·사진 첨부, 글 수정 시 사진 변경과 비공개 `board-images` 저장소 버킷·정책. `20261026085356_app_usability_improvements.sql` 다음에 적용하며 아직 원격 서버에 적용하지 않았습니다.
 
 20. `migrations/20261028000100_account_deletion.sql`: 앱 안 회원 탈퇴(`delete_my_account()`). 본인 인증 계정을 지우면 외래 키 연쇄 삭제로 프로필·기록·게시판 자료가 함께 지워지고 탈퇴 사실만 감사 기록에 남습니다. 게시판 사진 파일은 앱이 먼저 Storage API로 지웁니다.
+21. `migrations/20261028000200_board_notifications.sql`: 내 게시글 좋아요·댓글 알림. 좋아요·댓글이 저장될 때 트리거가 글 작성자에게 알림을 남기고, 홈 화면 확성기 버튼이 `unread_notification_count()`·`my_notifications()`·`mark_notifications_read()`로 조회합니다. 알림에서 글을 여는 `board_post()`도 추가합니다. 본인 반응·취소한 좋아요·차단 상대·볼 수 없는 글의 알림은 보이지 않고, 90일이 지난 알림은 읽음 처리 때 정리합니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

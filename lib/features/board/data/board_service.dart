@@ -12,6 +12,9 @@ abstract interface class BoardService {
     BoardTopic? topic,
     BoardCursor? before,
   });
+
+  /// 알림에서 여는 글 하나를 목록과 같은 형식으로 불러옵니다.
+  Future<BoardFeed> loadPost(String postId);
   Future<String> setRegion(String region);
   Future<String> create(BoardDraft draft);
   Future<void> update(BoardPost post, BoardDraft draft);
@@ -57,16 +60,30 @@ class SupabaseBoardService implements BoardService {
     BoardTopic? topic,
     BoardCursor? before,
   }) async {
-    final feed = BoardFeed.fromJson(
-      Map<String, dynamic>.from(
-        await _rpc('board_feed', {
-          'requested_board': kind.code,
-          'requested_topic': topic?.code,
-          'before_at': before?.at,
-          'before_id': before?.id,
-        }) as Map,
+    return _withImageUrls(
+      BoardFeed.fromJson(
+        Map<String, dynamic>.from(
+          await _rpc('board_feed', {
+            'requested_board': kind.code,
+            'requested_topic': topic?.code,
+            'before_at': before?.at,
+            'before_id': before?.id,
+          }) as Map,
+        ),
       ),
     );
+  }
+
+  @override
+  Future<BoardFeed> loadPost(String postId) async => _withImageUrls(
+    BoardFeed.fromJson(
+      Map<String, dynamic>.from(
+        await _rpc('board_post', {'post_id': postId}) as Map,
+      ),
+    ),
+  );
+
+  Future<BoardFeed> _withImageUrls(BoardFeed feed) async {
     final paths = {for (final post in feed.posts) ...post.images}.toList();
     if (paths.isEmpty) return feed;
     // 비공개 사진은 한 번에 1시간짜리 임시 주소로 바꿉니다. 실패한 사진만 빈칸으로 둡니다.

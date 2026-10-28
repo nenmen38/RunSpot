@@ -92,6 +92,14 @@ class FakeBoardService implements BoardService {
     return onLoad?.call(call) ?? Future.value(feed(const []));
   }
 
+  final loadedPosts = <String>[];
+  Future<BoardFeed> Function(String postId)? onLoadPost;
+  @override
+  Future<BoardFeed> loadPost(String postId) {
+    loadedPosts.add(postId);
+    return onLoadPost?.call(postId) ?? Future.value(feed([postJson(postId)]));
+  }
+
   @override
   Future<String> setRegion(String region) async => savedRegion = region;
 

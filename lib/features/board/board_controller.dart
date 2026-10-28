@@ -8,9 +8,12 @@ import 'data/board_service.dart';
 import 'models/board_post.dart';
 
 class BoardController extends ChangeNotifier {
-  BoardController(this.service);
+  BoardController(this.service, {this.postId});
 
   final BoardService service;
+
+  /// 알림에서 글 하나만 열 때의 글 ID입니다. 있으면 목록 대신 그 글만 불러옵니다.
+  final String? postId;
   static const _timeout = Duration(seconds: 15);
   bool _disposed = false;
   int _generation = 0;
@@ -79,7 +82,12 @@ class BoardController extends ChangeNotifier {
     _next = null;
     notifyListeners();
     try {
-      final feed = await service.load(kind, topic: topic).timeout(_timeout);
+      final id = postId;
+      final feed =
+          await (id == null
+                  ? service.load(kind, topic: topic)
+                  : service.loadPost(id))
+              .timeout(_timeout);
       if (_disposed || generation != _generation) return;
       if (_checkOwner()) _apply(feed, append: false);
     } catch (exception) {
