@@ -15,6 +15,13 @@ String formatBoardTime(DateTime time, {DateTime? now}) {
   return '${time.year}.${time.month}.${time.day}';
 }
 
+/// 게시글·댓글은 작성한 날짜와 시각을 그대로 보여줍니다.
+String formatBoardDateTime(DateTime time) {
+  String two(int value) => value.toString().padLeft(2, '0');
+  return '${time.year}.${time.month}.${time.day} '
+      '${two(time.hour)}:${two(time.minute)}';
+}
+
 String formatRaceDate(DateTime date) {
   const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
   return '${date.year}.${date.month}.${date.day} (${weekdays[date.weekday - 1]})';
@@ -112,7 +119,7 @@ class BoardPostTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '${post.nickname} · ${formatBoardTime(post.createdAt)}',
+                          '${post.nickname} · ${formatBoardDateTime(post.createdAt)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _metaStyle,

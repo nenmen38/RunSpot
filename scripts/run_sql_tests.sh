@@ -24,7 +24,7 @@ for test in test_registration registration security live_runner_map run_history 
   running_conditions environment_shared_budget email_verification optional_phone_verification run_feedback \
   run_temperature run_rewards run_statistics run_location_preferences blocks achievements_and_review \
   group_running run_splits segment_integrity review_pending_rewards sustained_speed_review app_usability \
-  board board_engagement board_notifications account_deletion; do
+  board board_engagement board_notifications board_replies_search account_deletion; do
   args+=(-f "supabase/tests/$test.sql")
 done
 

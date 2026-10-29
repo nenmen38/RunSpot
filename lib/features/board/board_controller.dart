@@ -19,6 +19,9 @@ class BoardController extends ChangeNotifier {
   int _generation = 0;
   BoardKind kind = BoardKind.local;
   BoardTopic? topic;
+
+  /// 지금 게시판에서 찾는 검색어입니다. 없으면 전체 글을 보여줍니다.
+  String? query;
   List<BoardPost> _posts = const [];
   BoardCursor? _next;
   String? region;
@@ -62,6 +65,16 @@ class BoardController extends ChangeNotifier {
     if (_disposed || kind == value) return;
     kind = value;
     topic = null;
+    query = null;
+    unawaited(refresh());
+  }
+
+  /// 빈 검색어는 검색을 해제합니다.
+  void search(String value) {
+    final text = value.trim();
+    final next = text.isEmpty ? null : text;
+    if (_disposed || next == query) return;
+    query = next;
     unawaited(refresh());
   }
 
@@ -85,7 +98,7 @@ class BoardController extends ChangeNotifier {
       final id = postId;
       final feed =
           await (id == null
-                  ? service.load(kind, topic: topic)
+                  ? service.load(kind, topic: topic, query: query)
                   : service.loadPost(id))
               .timeout(_timeout);
       if (_disposed || generation != _generation) return;
@@ -110,7 +123,7 @@ class BoardController extends ChangeNotifier {
     notifyListeners();
     try {
       final feed = await service
-          .load(kind, topic: topic, before: next)
+          .load(kind, topic: topic, before: next, query: query)
           .timeout(_timeout);
       if (_disposed || generation != _generation) return;
       if (_checkOwner()) _apply(feed, append: true);

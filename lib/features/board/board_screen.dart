@@ -29,6 +29,8 @@ class _BoardScreenState extends State<BoardScreen> {
   );
   late final BoardPhotoService _photos =
       widget.photoService ?? GalleryBoardPhotoService();
+  final _search = TextEditingController();
+  bool _searching = false;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _BoardScreenState extends State<BoardScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -65,6 +68,14 @@ class _BoardScreenState extends State<BoardScreen> {
             BoardComposeScreen(controller: _controller, photoService: _photos),
       ),
     );
+  }
+
+  void _toggleSearch() {
+    setState(() => _searching = !_searching);
+    if (!_searching) {
+      _search.clear();
+      _controller.search('');
+    }
   }
 
   void _open(BoardPost post) {
@@ -101,6 +112,11 @@ class _BoardScreenState extends State<BoardScreen> {
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: _searching ? '검색 닫기' : '검색',
+                onPressed: _toggleSearch,
+                icon: Icon(_searching ? Icons.search_off : Icons.search),
+              ),
               if (controller.canCreate)
                 FilledButton.icon(
                   onPressed: controller.busy ? null : _compose,
@@ -111,6 +127,29 @@ class _BoardScreenState extends State<BoardScreen> {
                 ),
             ],
           ),
+          if (_searching) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('board-search'),
+              controller: _search,
+              autofocus: true,
+              maxLength: 50,
+              textInputAction: TextInputAction.search,
+              onSubmitted: controller.search,
+              decoration: InputDecoration(
+                hintText: '${controller.kind.label} 게시판에서 제목·내용 검색',
+                prefixIcon: const Icon(Icons.search),
+                counterText: '',
+                isDense: true,
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: '검색',
+                  onPressed: () => controller.search(_search.text),
+                  icon: const Icon(Icons.arrow_forward),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           SegmentedButton<BoardKind>(
             showSelectedIcon: false,
@@ -119,7 +158,11 @@ class _BoardScreenState extends State<BoardScreen> {
                 ButtonSegment(value: kind, label: Text(kind.label)),
             ],
             selected: {controller.kind},
-            onSelectionChanged: (value) => controller.select(value.single),
+            onSelectionChanged: (value) {
+              // 게시판을 바꾸면 검색도 새로 시작합니다.
+              _search.clear();
+              controller.select(value.single);
+            },
           ),
           if (controller.kind == BoardKind.local) ...[
             const SizedBox(height: 8),
@@ -218,8 +261,12 @@ class _BoardScreenState extends State<BoardScreen> {
               SizedBox(
                 height: constraints.maxHeight,
                 child: _Notice(
-                  icon: Icons.forum_outlined,
-                  message: controller.kind == BoardKind.race
+                  icon: controller.query == null
+                      ? Icons.forum_outlined
+                      : Icons.search_off,
+                  message: controller.query != null
+                      ? "'${controller.query}'이(가) 들어간 글이 없어요."
+                      : controller.kind == BoardKind.race
                       ? '예정된 러닝 대회 공지가 없어요.'
                       : '아직 글이 없어요.\n첫 글을 남겨 보세요.',
                 ),

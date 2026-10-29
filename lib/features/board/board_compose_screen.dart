@@ -11,20 +11,6 @@ import 'models/board_post.dart';
 import 'widgets/board_photo.dart';
 import 'widgets/board_post_tile.dart';
 
-const boardEmojis = [
-  '🏃',
-  '👟',
-  '🔥',
-  '💪',
-  '🌅',
-  '🌙',
-  '🌳',
-  '🍜',
-  '☕',
-  '👍',
-  '😊',
-  '🎉',
-];
 const _maxPhotos = 4;
 
 /// 새로 고른 사진은 [bytes]를, 이미 올린 사진은 [path]를 가집니다.
@@ -107,20 +93,6 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
       return 'https://로 시작하는 주소를 입력해 주세요.';
     }
     return text.length > 500 ? '주소가 너무 깁니다.' : null;
-  }
-
-  void _insertEmoji(String emoji) {
-    final value = _body.value;
-    final selection = value.selection.isValid
-        ? value.selection
-        : TextSelection.collapsed(offset: value.text.length);
-    _body.value = value.copyWith(
-      text: value.text.replaceRange(selection.start, selection.end, emoji),
-      selection: TextSelection.collapsed(
-        offset: selection.start + emoji.length,
-      ),
-      composing: TextRange.empty,
-    );
   }
 
   Future<void> _pickPhotos() async {
@@ -341,6 +313,8 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
                 TextFormField(
                   key: const ValueKey('body'),
                   controller: _body,
+                  // 기기 키보드의 이모티콘을 그대로 입력할 수 있습니다.
+                  keyboardType: TextInputType.multiline,
                   maxLength: 2000,
                   minLines: 6,
                   maxLines: 12,
@@ -349,26 +323,6 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
                     alignLabelWithHint: true,
                   ),
                   validator: (value) => _required(value, '내용을 입력해 주세요.', 2000),
-                ),
-                SingleChildScrollView(
-                  key: const ValueKey('emoji'),
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final emoji in boardEmojis)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => _insertEmoji(emoji),
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Text(
-                              emoji,
-                              style: const TextStyle(fontSize: 22),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(

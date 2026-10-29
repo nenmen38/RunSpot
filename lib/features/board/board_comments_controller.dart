@@ -28,7 +28,7 @@ class BoardCommentsController extends ChangeNotifier {
   String? error;
 
   // 같은 내용을 다시 보내면 서버가 같은 댓글로 처리하도록 식별자를 유지합니다.
-  String? _pendingBody;
+  String? _pendingKey;
   String _pendingId = const Uuid().v4();
 
   List<BoardComment> get comments => _comments;
@@ -90,21 +90,41 @@ class BoardCommentsController extends ChangeNotifier {
   }
 
   /// 성공하면 null, 실패하면 안내 문구를 반환합니다.
-  Future<String?> add(String body) async {
+  /// [parent]가 있으면 그 댓글의 답글로 등록하고, 답글에 답하면 원댓글 아래에 답니다.
+  Future<String?> add(String body, {BoardComment? parent}) async {
     final text = body.trim();
     if (text.isEmpty) return '댓글을 입력해 주세요.';
     if (text.length > 500) return '댓글은 500자 이내로 입력해 주세요.';
-    if (_pendingBody != text) {
-      _pendingBody = text;
+    final parentId = parent?.parentId ?? parent?.id;
+    final key = '$parentId\n$text';
+    if (_pendingKey != key) {
+      _pendingKey = key;
       _pendingId = const Uuid().v4();
     }
     final id = _pendingId;
     final error = await _mutate(
-      () => service.addComment(id, postId, text),
+      () => service.addComment(id, postId, text, parentId: parentId),
       '댓글을 등록하지 못했습니다. 다시 시도해 주세요.',
     );
-    if (error == null) _pendingBody = null;
+    if (error == null) _pendingKey = null;
     return error;
+  }
+
+  /// 원댓글 아래에 답글을 묶은 표시 순서입니다. 원댓글이 없는 답글은 보여주지 않습니다.
+  List<({BoardComment comment, bool isReply})> get threads {
+    final replies = <String, List<BoardComment>>{};
+    for (final comment in _comments) {
+      final parent = comment.parentId;
+      if (parent != null) (replies[parent] ??= []).add(comment);
+    }
+    return [
+      for (final comment in _comments)
+        if (comment.parentId == null) ...[
+          (comment: comment, isReply: false),
+          for (final reply in replies[comment.id] ?? const <BoardComment>[])
+            (comment: reply, isReply: true),
+        ],
+    ];
   }
 
   Future<String?> delete(BoardComment comment) =>

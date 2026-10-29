@@ -7,10 +7,13 @@ import '../models/board_post.dart';
 
 abstract interface class BoardService {
   bool get isCurrentOwner;
+
+  /// [query]가 있으면 제목·내용에 검색어가 들어간 글만 불러옵니다.
   Future<BoardFeed> load(
     BoardKind kind, {
     BoardTopic? topic,
     BoardCursor? before,
+    String? query,
   });
 
   /// 알림에서 여는 글 하나를 목록과 같은 형식으로 불러옵니다.
@@ -22,7 +25,14 @@ abstract interface class BoardService {
   Future<void> delete(String postId);
   Future<({bool liked, int likeCount})> setLike(String postId, bool liked);
   Future<BoardComments> comments(String postId);
-  Future<String> addComment(String clientId, String postId, String body);
+
+  /// [parentId]가 있으면 그 댓글의 답글로 등록합니다.
+  Future<String> addComment(
+    String clientId,
+    String postId,
+    String body, {
+    String? parentId,
+  });
   Future<void> deleteComment(String commentId);
 
   /// 메타데이터를 제거한 JPEG를 본인 폴더에 올리고 저장소 경로를 반환합니다.
@@ -59,6 +69,7 @@ class SupabaseBoardService implements BoardService {
     BoardKind kind, {
     BoardTopic? topic,
     BoardCursor? before,
+    String? query,
   }) async {
     return _withImageUrls(
       BoardFeed.fromJson(
@@ -68,6 +79,7 @@ class SupabaseBoardService implements BoardService {
             'requested_topic': topic?.code,
             'before_at': before?.at,
             'before_id': before?.id,
+            'search_text': ?query,
           }) as Map,
         ),
       ),
@@ -178,11 +190,13 @@ class SupabaseBoardService implements BoardService {
   Future<String> addComment(
     String clientId,
     String postId,
-    String body,
-  ) async => await _rpc('create_board_comment', {
+    String body, {
+    String? parentId,
+  }) async => await _rpc('create_board_comment', {
     'client_id': clientId,
     'post_id': postId,
     'requested_body': body,
+    'parent_comment_id': ?parentId,
   }) as String;
 
   @override

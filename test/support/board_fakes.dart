@@ -37,8 +37,13 @@ Map<String, dynamic> postJson(
   'comment_count': commentCount,
 };
 
-Map<String, dynamic> commentJson(String id, {bool isMine = false}) => {
+Map<String, dynamic> commentJson(
+  String id, {
+  bool isMine = false,
+  String? parentId,
+}) => {
   'id': id,
+  'parent_id': parentId,
   'body': '댓글$id',
   'nickname': '러너$id',
   'is_mine': isMine,
@@ -61,10 +66,11 @@ BoardFeed feed(
 });
 
 class LoadCall {
-  LoadCall(this.kind, this.topic, this.before);
+  LoadCall(this.kind, this.topic, this.before, [this.query]);
   final BoardKind kind;
   final BoardTopic? topic;
   final BoardCursor? before;
+  final String? query;
 }
 
 class FakeBoardService implements BoardService {
@@ -86,8 +92,9 @@ class FakeBoardService implements BoardService {
     BoardKind kind, {
     BoardTopic? topic,
     BoardCursor? before,
+    String? query,
   }) {
-    final call = LoadCall(kind, topic, before);
+    final call = LoadCall(kind, topic, before, query);
     loads.add(call);
     return onLoad?.call(call) ?? Future.value(feed(const []));
   }
@@ -147,14 +154,21 @@ class FakeBoardService implements BoardService {
       );
 
   final addedComments = <(String, String)>[];
+  final commentParents = <String?>[];
   Object? commentError;
   @override
-  Future<String> addComment(String clientId, String postId, String body) async {
+  Future<String> addComment(
+    String clientId,
+    String postId,
+    String body, {
+    String? parentId,
+  }) async {
     addedComments.add((clientId, body));
+    commentParents.add(parentId);
     if (commentError != null) throw commentError!;
     commentRows = [
       ...commentRows,
-      commentJson('c${commentRows.length}', isMine: true),
+      commentJson('c${commentRows.length}', isMine: true, parentId: parentId),
     ];
     return 'c';
   }

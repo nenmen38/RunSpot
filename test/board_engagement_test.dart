@@ -99,7 +99,7 @@ void main() {
     expect(failure, isA<BoardPhotoException>());
   });
 
-  testWidgets('글쓰기에서 이모지와 사진을 넣고 사진을 올린 뒤 등록합니다', (tester) async {
+  testWidgets('글쓰기에서 키보드 이모지와 사진을 넣고 사진을 올린 뒤 등록합니다', (tester) async {
     final service = FakeBoardService();
     final photos = FakeBoardPhotoService()..next = [_png, _png];
     await tester.pumpWidget(boardApp(service, photos));
@@ -111,8 +111,9 @@ void main() {
 
     await tester.tap(find.text('꿀 정보'));
     await tester.enterText(find.widgetWithText(TextFormField, '제목'), '새벽 러닝');
-    await tester.enterText(find.widgetWithText(TextFormField, '내용'), '상쾌해요');
-    await tester.tap(find.text('🔥'));
+    // 정해진 이모지 목록 없이 키보드로 입력한 이모지를 그대로 저장합니다.
+    expect(find.byKey(const ValueKey('emoji')), findsNothing);
+    await tester.enterText(find.widgetWithText(TextFormField, '내용'), '상쾌해요🔥');
     await tester.tap(find.text('사진 추가'));
     await tester.pumpAndSettle();
     expect(photos.limits.single, 4);

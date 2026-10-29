@@ -40,7 +40,11 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
         widget.controller.updateCommentCount(widget.post.id, count),
   );
   final _input = TextEditingController();
+  final _inputFocus = FocusNode();
   bool _liking = false;
+
+  // 답글을 쓰는 중이면 대상 댓글입니다.
+  BoardComment? _replyTo;
 
   // 수정·좋아요 뒤에는 목록 컨트롤러의 최신 글을 보여줍니다.
   BoardPost get _post =>
@@ -56,6 +60,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
   void dispose() {
     _comments.dispose();
     _input.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
@@ -126,14 +131,20 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
   }
 
   Future<void> _sendComment() async {
-    final error = await _comments.add(_input.text);
+    final error = await _comments.add(_input.text, parent: _replyTo);
     if (!mounted) return;
     if (error == null) {
       _input.clear();
+      setState(() => _replyTo = null);
       FocusScope.of(context).unfocus();
     } else {
       _show(error);
     }
+  }
+
+  void _startReply(BoardComment comment) {
+    setState(() => _replyTo = comment);
+    _inputFocus.requestFocus();
   }
 
   Future<void> _deleteComment(BoardComment comment) async {
@@ -236,7 +247,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
         [
           post.nickname,
           if (post.region != null) post.region!,
-          formatBoardTime(post.createdAt),
+          formatBoardDateTime(post.createdAt),
           if (post.isEdited) '수정됨',
         ].join(' · '),
         style: Theme.of(context).textTheme.bodyMedium,
@@ -304,18 +315,27 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
       ];
     }
     return [
-      for (final comment in _comments.comments)
+      for (final (:comment, :isReply) in _comments.threads)
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: EdgeInsets.only(left: isReply ? 22 : 0, top: 6, bottom: 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isReply)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4, top: 1),
+                  child: Icon(
+                    Icons.subdirectory_arrow_right,
+                    size: 14,
+                    color: AppColors.gray,
+                  ),
+                ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${comment.nickname} · ${formatBoardTime(comment.createdAt)}',
+                      '${comment.nickname} · ${formatBoardDateTime(comment.createdAt)}',
                       style: const TextStyle(
                         color: AppColors.gray,
                         fontSize: 11,
@@ -330,6 +350,23 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                         fontSize: 13,
                       ),
                     ),
+                    if (_comments.canWrite)
+                      GestureDetector(
+                        onTap: _comments.busy
+                            ? null
+                            : () => _startReply(comment),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            '답글 달기',
+                            style: TextStyle(
+                              color: AppColors.gray,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -355,31 +392,58 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.line)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _input,
-              maxLength: 500,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.newline,
-              decoration: const InputDecoration(
-                hintText: '댓글을 입력해 주세요',
-                counterText: '',
-                border: InputBorder.none,
-              ),
+          if (_replyTo case final target?)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${target.nickname}님에게 답글 작성 중',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                IconButton(
+                  tooltip: '답글 취소',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _replyTo = null),
+                  icon: const Icon(Icons.close, size: 16),
+                ),
+              ],
             ),
-          ),
-          IconButton(
-            tooltip: '댓글 등록',
-            onPressed: _comments.busy ? null : _sendComment,
-            icon: _comments.busy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send, color: AppColors.blue),
+          Row(
+            children: [
+              Expanded(
+                // 기기 키보드의 이모티콘을 그대로 입력할 수 있습니다.
+                child: TextField(
+                  controller: _input,
+                  focusNode: _inputFocus,
+                  maxLength: 500,
+                  minLines: 1,
+                  maxLines: 4,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    hintText: _replyTo == null ? '댓글을 입력해 주세요' : '답글을 입력해 주세요',
+                    counterText: '',
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: '댓글 등록',
+                onPressed: _comments.busy ? null : _sendComment,
+                icon: _comments.busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send, color: AppColors.blue),
+              ),
+            ],
           ),
         ],
       ),

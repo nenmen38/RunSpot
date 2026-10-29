@@ -135,9 +135,13 @@ class BoardComment {
       body = json['body'] as String,
       nickname = json['nickname'] as String,
       isMine = json['is_mine'] as bool,
+      parentId = json['parent_id'] as String?,
       createdAt = DateTime.parse(json['created_at'] as String).toLocal();
 
   final String id;
+
+  /// 답글이면 원댓글 ID입니다. 답글은 한 단계만 있습니다.
+  final String? parentId;
   final String body;
   final String nickname;
   final bool isMine;
