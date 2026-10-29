@@ -104,8 +104,6 @@ void main() {
     final photos = FakeBoardPhotoService()..next = [_png, _png];
     await tester.pumpWidget(boardApp(service, photos));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('전국'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('글쓰기'));
     await tester.pumpAndSettle();
 
@@ -141,8 +139,6 @@ void main() {
     );
     service.commentRows = [commentJson('x')];
     await tester.pumpWidget(boardApp(service, FakeBoardPhotoService()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('전국'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('제목1'));
     await tester.pumpAndSettle();
@@ -189,8 +185,6 @@ void main() {
     service.onLoad = (_) =>
         Future.value(feed([postJson('1', board: 'national')]));
     await tester.pumpWidget(boardApp(service, FakeBoardPhotoService()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('전국'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('제목1'));
     await tester.pumpAndSettle();

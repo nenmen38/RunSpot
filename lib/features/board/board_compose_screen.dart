@@ -51,7 +51,8 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
   late final _url = TextEditingController(text: widget.post?.raceUrl);
   // 같은 화면에서 다시 등록하면 서버가 같은 글로 처리합니다.
   final _clientId = const Uuid().v4();
-  late final BoardKind _kind = widget.post?.kind ?? widget.controller.kind;
+  late final BoardKind _kind =
+      widget.post?.kind ?? widget.controller.composeKind;
   late BoardTopic? _topic = widget.post?.topic ?? widget.controller.topic;
   late DateTime? _raceDate = widget.post?.raceDate;
   late final List<_Photo> _photos = [

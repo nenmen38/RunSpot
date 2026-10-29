@@ -78,6 +78,25 @@ class _BoardScreenState extends State<BoardScreen> {
     _showMessage(await _controller.changeRegion(region));
   }
 
+  /// 동네 말머리를 고르면 동네를 고르고 그 동네 글만 보여줍니다.
+  Future<void> _pickLocal() async {
+    final region = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => RegionPickerScreen(current: _controller.region),
+      ),
+    );
+    if (region == null || !mounted) return;
+    _showMessage(await _controller.selectLocal(region));
+  }
+
+  void _selectFilter(_NewsFilter? value) {
+    if (value == _NewsFilter.local) {
+      if (!_controller.busy) unawaited(_pickLocal());
+    } else {
+      _controller.selectTopic(value?.topic);
+    }
+  }
+
   Future<void> _compose() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -149,10 +168,15 @@ class _BoardScreenState extends State<BoardScreen> {
             SegmentedButton<BoardKind>(
               showSelectedIcon: false,
               segments: [
-                for (final kind in BoardKind.values)
+                for (final kind in const [BoardKind.news, BoardKind.race])
                   ButtonSegment(value: kind, label: Text(kind.label)),
               ],
-              selected: {controller.kind},
+              // 동네 글을 보는 중에도 러닝 소식 탭이 선택된 상태입니다.
+              selected: {
+                controller.kind == BoardKind.race
+                    ? BoardKind.race
+                    : BoardKind.news,
+              },
               onSelectionChanged: (value) {
                 // 게시판을 바꾸면 검색도 새로 시작합니다.
                 _search.clear();
@@ -190,11 +214,13 @@ class _BoardScreenState extends State<BoardScreen> {
               Row(
                 children: [
                   if (controller.kind != BoardKind.race)
-                    BoardFilterMenu<BoardTopic>(
-                      values: BoardTopic.values,
-                      selected: controller.topic,
-                      labelOf: (topic) => topic.label,
-                      onChanged: controller.selectTopic,
+                    BoardFilterMenu<_NewsFilter>(
+                      values: _NewsFilter.values,
+                      selected: controller.kind == BoardKind.local
+                          ? _NewsFilter.local
+                          : _NewsFilter.of(controller.topic),
+                      labelOf: (filter) => filter.label,
+                      onChanged: _selectFilter,
                       tooltip: '말머리 선택',
                     ),
                   const SizedBox(width: 12),
@@ -253,7 +279,7 @@ class _BoardScreenState extends State<BoardScreen> {
 
   String _subtitle(BoardKind kind) => switch (kind) {
     BoardKind.local => '우리 동네 러닝 코스·꿀 정보·맛집',
-    BoardKind.national => '전국 추천 코스·꿀 정보·맛집',
+    BoardKind.national || BoardKind.news => '전국과 우리 동네 추천 코스·꿀 정보·맛집',
     BoardKind.race => '전국 러닝 대회 일정',
   };
 
@@ -366,6 +392,23 @@ class _BoardScreenState extends State<BoardScreen> {
       ),
     );
   }
+}
+
+/// 러닝 소식의 말머리입니다. 전국 게시판 말머리에 동네를 더했습니다.
+enum _NewsFilter {
+  course(BoardTopic.course),
+  tip(BoardTopic.tip),
+  food(BoardTopic.food),
+  local(null);
+
+  const _NewsFilter(this.topic);
+  final BoardTopic? topic;
+
+  String get label => topic?.label ?? '동네';
+
+  static _NewsFilter? of(BoardTopic? topic) => values
+      .where((filter) => filter.topic != null && filter.topic == topic)
+      .firstOrNull;
 }
 
 class _Notice extends StatelessWidget {

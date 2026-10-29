@@ -38,6 +38,7 @@
 21. `migrations/20261028000200_board_notifications.sql`: 내 게시글 좋아요·댓글 알림. 좋아요·댓글이 저장될 때 트리거가 글 작성자에게 알림을 남기고, 홈 화면 확성기 버튼이 `unread_notification_count()`·`my_notifications()`·`mark_notifications_read()`로 조회합니다. 알림에서 글을 여는 `board_post()`도 추가합니다. 본인 반응·취소한 좋아요·차단 상대·볼 수 없는 글의 알림은 보이지 않고, 90일이 지난 알림은 읽음 처리 때 정리합니다.
 22. `migrations/20261029000100_board_replies_search.sql`: 게시판 대댓글(한 단계)과 키워드 검색. `create_board_comment()`에 `parent_comment_id`, `board_feed()`에 `search_text`(제목·내용, 대소문자 무시, 50자 이내)를 더하고, 답글이 달리면 원댓글 작성자에게 `reply` 알림을 남깁니다. 원댓글을 지우면 답글도 함께 지워집니다.
 23. `migrations/20261029000200_board_comment_likes.sql`: 댓글·답글 좋아요(`set_board_comment_like()`). `board_comments()`에 좋아요 수와 내 좋아요 여부를 더하며, 차단 상대의 좋아요는 집계에서 빠지고 댓글을 지우면 좋아요도 함께 지워집니다.
+24. `migrations/20261029120000_board_news_feed.sql`: 앱의 '러닝 소식'용으로 `board_feed()`에 `news`를 더합니다. 전국 글과 내 동네 글을 함께 최신순으로 보여주고, 동네 말머리는 기존 `local`로 고른 동네 글만 보여줍니다. 글은 계속 `national`·`local`로 저장하므로 이전 앱도 그대로 동작합니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

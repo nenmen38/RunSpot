@@ -37,8 +37,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('전국'));
-    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('말머리 선택'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(PopupMenuItem<int>, '꿀 정보'));

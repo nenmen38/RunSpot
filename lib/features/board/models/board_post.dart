@@ -1,7 +1,10 @@
 enum BoardKind {
   local('local', '동네'),
-  national('national', '전국'),
-  race('race', '러닝 대회');
+  national('national', '러닝 소식'),
+  race('race', '러닝 대회'),
+
+  /// 목록 전용입니다. 전국 글과 내 동네 글을 함께 보여주며 글은 [national]·[local]로 저장합니다.
+  news('news', '러닝 소식');
 
   const BoardKind(this.code, this.label);
   final String code;

@@ -17,7 +17,7 @@ class BoardController extends ChangeNotifier {
   static const _timeout = Duration(seconds: 15);
   bool _disposed = false;
   int _generation = 0;
-  BoardKind kind = BoardKind.local;
+  BoardKind kind = BoardKind.news;
   BoardTopic? topic;
 
   /// 지금 게시판에서 찾는 검색어입니다. 없으면 전체 글을 보여줍니다.
@@ -41,6 +41,10 @@ class BoardController extends ChangeNotifier {
   bool get needsRegion => kind == BoardKind.local && loaded && region == null;
   bool get canCreate =>
       kind == BoardKind.race ? canPostRace : canWrite && !needsRegion;
+
+  /// 새 글을 저장할 게시판입니다. 러닝 소식에서 쓰면 전국 글, 동네에서 쓰면 동네 글이 됩니다.
+  BoardKind get composeKind =>
+      kind == BoardKind.news ? BoardKind.national : kind;
 
   bool _checkOwner() {
     if (service.isCurrentOwner) return true;
@@ -78,10 +82,23 @@ class BoardController extends ChangeNotifier {
     unawaited(refresh());
   }
 
+  /// 러닝 소식의 말머리를 고릅니다. 동네 글을 보던 중이면 러닝 소식으로 돌아갑니다.
   void selectTopic(BoardTopic? value) {
-    if (_disposed || topic == value || kind == BoardKind.race) return;
+    if (_disposed || kind == BoardKind.race) return;
+    if (topic == value && kind == BoardKind.news) return;
+    kind = BoardKind.news;
     topic = value;
     unawaited(refresh());
+  }
+
+  /// 동네 말머리에서 고른 동네의 글만 보여줍니다. 동네가 바뀌면 서버에 저장합니다.
+  Future<String?> selectLocal(String value) async {
+    if (_disposed) return null;
+    kind = BoardKind.local;
+    topic = null;
+    if (value != region) return changeRegion(value);
+    await refresh();
+    return null;
   }
 
   Future<void> refresh() async {

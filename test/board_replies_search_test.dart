@@ -75,8 +75,6 @@ void main() {
     service.commentRows = [commentJson('x'), commentJson('y', parentId: 'x')];
     await tester.pumpWidget(boardApp(service));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('전국'));
-    await tester.pumpAndSettle();
     expect(find.text('러너1 · 2026.10.26 ${_localTime()}'), findsOneWidget);
     await tester.tap(find.text('제목1'));
     await tester.pumpAndSettle();
@@ -119,8 +117,6 @@ void main() {
     );
     await tester.pumpWidget(boardApp(service));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('전국'));
-    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('board-search')), findsNothing);
     await tester.tap(find.byTooltip('검색'));
@@ -128,7 +124,7 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('board-search')), ' 러닝 ');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
-    expect(service.loads.last.kind, BoardKind.national);
+    expect(service.loads.last.kind, BoardKind.news);
     expect(service.loads.last.query, '러닝');
 
     await tester.enterText(find.byKey(const ValueKey('board-search')), '없는말');
@@ -147,9 +143,9 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('board-search')), '러닝');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('동네'));
+    await tester.tap(find.text('러닝 대회'));
     await tester.pumpAndSettle();
-    expect(service.loads.last.kind, BoardKind.local);
+    expect(service.loads.last.kind, BoardKind.race);
     expect(service.loads.last.query, isNull);
     expect(tester.takeException(), isNull);
   });
@@ -173,8 +169,6 @@ void main() {
         Future.value(feed([postJson('1', board: 'national')]));
     service.commentRows = [commentJson('x'), commentJson('y', parentId: 'x')];
     await tester.pumpWidget(boardApp(service));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('전국'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('제목1'));
     await tester.pumpAndSettle();

@@ -34,24 +34,32 @@ void main() {
       await controller.refresh();
       controller.selectTopic(BoardTopic.food);
       await pumpEventQueue();
+      expect(controller.composeKind, BoardKind.national);
+      await controller.selectLocal('부산광역시 해운대구');
+      expect(controller.composeKind, BoardKind.local);
+      controller.selectTopic(BoardTopic.tip);
+      await pumpEventQueue();
       controller.select(BoardKind.race);
       await pumpEventQueue();
       controller.selectTopic(BoardTopic.tip);
       await pumpEventQueue();
+      expect(service.savedRegion, '부산광역시 해운대구');
       expect(service.loads.map((call) => (call.kind, call.topic)), [
+        (BoardKind.news, null),
+        (BoardKind.news, BoardTopic.food),
         (BoardKind.local, null),
-        (BoardKind.local, BoardTopic.food),
+        (BoardKind.news, BoardTopic.tip),
         (BoardKind.race, null),
       ]);
     });
 
     test('늦게 도착한 이전 게시판 응답은 무시합니다', () async {
       final old = Completer<BoardFeed>();
-      service.onLoad = (call) => call.kind == BoardKind.local
+      service.onLoad = (call) => call.kind == BoardKind.news
           ? old.future
-          : Future.value(feed([postJson('n', board: 'national')]));
+          : Future.value(feed([postJson('n', board: 'race')]));
       final first = controller.refresh();
-      controller.select(BoardKind.national);
+      controller.select(BoardKind.race);
       await pumpEventQueue();
       old.complete(feed([postJson('old')]));
       await first;
@@ -75,6 +83,10 @@ void main() {
     test('동네 미설정과 작성 권한을 구분합니다', () async {
       service.onLoad = (_) => Future.value(feed(const [], region: null));
       await controller.refresh();
+      // 러닝 소식은 동네 없이도 전국 글을 보고 쓸 수 있습니다.
+      expect(controller.needsRegion, isFalse);
+      expect(controller.canCreate, isTrue);
+      controller.kind = BoardKind.local;
       expect(controller.needsRegion, isTrue);
       expect(controller.canCreate, isFalse);
       await controller.changeRegion('서울특별시 강남구');
@@ -154,36 +166,58 @@ void main() {
     expect(koreanRegions.length, 17);
   });
 
-  testWidgets('동네를 설정하면 동네 글을 보여줍니다', (tester) async {
+  testWidgets('동네 말머리에서 동네를 고르면 그 동네 글만 보여줍니다', (tester) async {
     final service = FakeBoardService();
-    service.onLoad = (_) => Future.value(
-      service.savedRegion == null
-          ? feed(const [], region: null)
-          : feed([postJson('1')], region: service.savedRegion),
+    service.onLoad = (call) => Future.value(
+      call.kind == BoardKind.local
+          ? feed([postJson('1')], region: service.savedRegion)
+          : feed([
+              postJson('n', board: 'national', region: null),
+            ], region: service.savedRegion),
     );
     await tester.pumpWidget(boardApp(service));
     await tester.pumpAndSettle();
-    expect(find.text('동네 설정하기'), findsOneWidget);
-    expect(find.text('글쓰기'), findsNothing);
+    // 처음에는 러닝 소식 전체를 보여줍니다.
+    expect(service.loads.single.kind, BoardKind.news);
+    expect(find.text('제목n'), findsOneWidget);
+    expect(find.text('전국'), findsNothing);
+    expect(find.text('러닝 소식'), findsOneWidget);
 
-    await tester.tap(find.text('동네 설정하기'));
+    // 말머리 메뉴에는 전국 게시판 말머리와 동네가 함께 있습니다.
+    await tester.tap(find.byTooltip('말머리 선택'));
+    await tester.pumpAndSettle();
+    for (final label in ['전체', '추천 코스', '꿀 정보', '맛집', '동네']) {
+      expect(find.widgetWithText(PopupMenuItem<int>, label), findsOneWidget);
+    }
+    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '동네'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('서울특별시'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('강남구'));
     await tester.pumpAndSettle();
     expect(service.savedRegion, '서울특별시 강남구');
+    expect(service.loads.last.kind, BoardKind.local);
     expect(find.text('서울특별시 강남구'), findsOneWidget);
     expect(find.text('제목1'), findsOneWidget);
+    expect(find.text('제목n'), findsNothing);
     expect(find.text('글쓰기'), findsOneWidget);
+
+    // 다른 말머리를 누르면 러닝 소식으로 돌아갑니다.
+    await tester.tap(find.byTooltip('말머리 선택'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '맛집'));
+    await tester.pumpAndSettle();
+    expect(
+      (service.loads.last.kind, service.loads.last.topic),
+      (BoardKind.news, BoardTopic.food),
+    );
+    expect(find.text('서울특별시 강남구'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('글쓰기는 말머리와 제목을 확인한 뒤 등록합니다', (tester) async {
     final service = FakeBoardService();
     await tester.pumpWidget(boardApp(service));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('전국'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('글쓰기'));
     await tester.pumpAndSettle();
@@ -238,7 +272,7 @@ void main() {
     expect(find.text('추천 코스'), findsNothing);
 
     staff = true;
-    await tester.tap(find.text('전국'));
+    await tester.tap(find.text('러닝 소식'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('러닝 대회'));
     await tester.pumpAndSettle();
