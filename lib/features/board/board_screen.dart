@@ -10,6 +10,8 @@ import 'board_post_screen.dart';
 import 'data/board_photo_service.dart';
 import 'data/board_service.dart';
 import 'models/board_post.dart';
+import 'widgets/board_theme.dart';
+import 'widgets/board_filter_menu.dart';
 import 'races/marathon_board.dart';
 import 'races/marathon_service.dart';
 import 'region_picker_screen.dart';
@@ -106,157 +108,147 @@ class _BoardScreenState extends State<BoardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _controller,
-    builder: (context, _) {
-      final controller = _controller;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('게시판', style: Theme.of(context).textTheme.titleLarge),
-                    Text(
-                      _subtitle(controller.kind),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              if (controller.canCreate)
-                FilledButton.icon(
-                  style: controller.kind == BoardKind.race
-                      ? FilledButton.styleFrom(
-                          backgroundColor: AppColors.blueDark,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(48, 48),
-                        )
-                      : null,
-                  onPressed: controller.busy ? null : _compose,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: Text(
-                    controller.kind == BoardKind.race ? '공지 등록' : '글쓰기',
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SegmentedButton<BoardKind>(
-            showSelectedIcon: false,
-            segments: [
-              for (final kind in BoardKind.values)
-                ButtonSegment(value: kind, label: Text(kind.label)),
-            ],
-            selected: {controller.kind},
-            onSelectionChanged: (value) {
-              // 게시판을 바꾸면 검색도 새로 시작합니다.
-              _search.clear();
-              controller.select(value.single);
-            },
-          ),
-          if (controller.kind == BoardKind.local) ...[
-            const SizedBox(height: 8),
+  Widget build(BuildContext context) => BoardTheme(
+    child: ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final controller = _controller;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Row(
               children: [
-                const Icon(
-                  Icons.place_outlined,
-                  size: 18,
-                  color: AppColors.blue,
-                ),
-                const SizedBox(width: 4),
                 Expanded(
-                  child: Text(
-                    controller.region ?? '동네를 설정하지 않았어요',
-                    style: Theme.of(context).textTheme.labelLarge,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '게시판',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        _subtitle(controller.kind),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: BoardStyle.meta.copyWith(fontSize: 13),
+                      ),
+                    ],
                   ),
                 ),
-                TextButton(
-                  onPressed: controller.busy || !controller.loaded
-                      ? null
-                      : _pickRegion,
-                  child: Text(controller.region == null ? '설정' : '변경'),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 4),
-          // 대회 검색은 접수 상태 필터와 같은 줄에 표시합니다.
-          if (controller.kind != BoardKind.race || _marathons == null)
-            Row(
-              children: [
-                IconButton(
-                  tooltip: _searching ? '검색 닫기' : '검색',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _toggleSearch,
-                  icon: Icon(_searching ? Icons.search_off : Icons.search),
-                ),
-                if (controller.kind != BoardKind.race)
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final topic in <BoardTopic?>[
-                            null,
-                            ...BoardTopic.values,
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                label: Text(topic?.label ?? '전체'),
-                                selected: controller.topic == topic,
-                                onSelected: (_) =>
-                                    controller.selectTopic(topic),
-                              ),
-                            ),
-                        ],
-                      ),
+                if (controller.canCreate)
+                  FilledButton.icon(
+                    onPressed: controller.busy ? null : _compose,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: Text(
+                      controller.kind == BoardKind.race ? '공지 등록' : '글쓰기',
                     ),
                   ),
               ],
             ),
-          if (_searching) ...[
-            const SizedBox(height: 8),
-            TextField(
-              key: const ValueKey('board-search'),
-              controller: _search,
-              autofocus: true,
-              maxLength: 50,
-              textInputAction: TextInputAction.search,
-              onSubmitted: controller.search,
-              decoration: InputDecoration(
-                hintText: '${controller.kind.label} 게시판에서 제목·내용 검색',
-                prefixIcon: const Icon(Icons.search),
-                counterText: '',
-                isDense: true,
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  tooltip: '검색',
-                  onPressed: () => controller.search(_search.text),
-                  icon: const Icon(Icons.arrow_forward),
+            const SizedBox(height: 12),
+            SegmentedButton<BoardKind>(
+              showSelectedIcon: false,
+              segments: [
+                for (final kind in BoardKind.values)
+                  ButtonSegment(value: kind, label: Text(kind.label)),
+              ],
+              selected: {controller.kind},
+              onSelectionChanged: (value) {
+                // 게시판을 바꾸면 검색도 새로 시작합니다.
+                _search.clear();
+                controller.select(value.single);
+              },
+            ),
+            if (controller.kind == BoardKind.local) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.place_outlined,
+                    size: 18,
+                    color: AppColors.blue,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      controller.region ?? '동네를 설정하지 않았어요',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: controller.busy || !controller.loaded
+                        ? null
+                        : _pickRegion,
+                    child: Text(controller.region == null ? '설정' : '변경'),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 4),
+            // 모든 게시판에서 조건 선택은 왼쪽, 검색은 오른쪽에 둡니다.
+            if (controller.kind != BoardKind.race || _marathons == null)
+              Row(
+                children: [
+                  if (controller.kind != BoardKind.race)
+                    BoardFilterMenu<BoardTopic>(
+                      values: BoardTopic.values,
+                      selected: controller.topic,
+                      labelOf: (topic) => topic.label,
+                      onChanged: controller.selectTopic,
+                      tooltip: '말머리 선택',
+                    ),
+                  const SizedBox(width: 12),
+                  const Expanded(child: Text('최신순', style: BoardStyle.meta)),
+                  IconButton(
+                    tooltip: _searching ? '검색 닫기' : '검색',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    onPressed: _toggleSearch,
+                    icon: Icon(_searching ? Icons.search_off : Icons.search),
+                  ),
+                ],
+              ),
+            if (_searching) ...[
+              const SizedBox(height: 8),
+              TextField(
+                key: const ValueKey('board-search'),
+                controller: _search,
+                autofocus: true,
+                maxLength: 50,
+                textInputAction: TextInputAction.search,
+                onSubmitted: controller.search,
+                decoration: InputDecoration(
+                  hintText: '${controller.kind.label} 게시판에서 제목·내용 검색',
+                  prefixIcon: const Icon(Icons.search),
+                  counterText: '',
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    tooltip: '검색',
+                    onPressed: () => controller.search(_search.text),
+                    icon: const Icon(Icons.arrow_forward),
+                  ),
                 ),
               ),
-            ),
-          ],
-          if (!controller.canWrite &&
-              controller.loaded &&
-              controller.kind != BoardKind.race)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                '이메일 인증과 닉네임 등록을 마치면 글을 쓸 수 있어요.',
-                style: Theme.of(context).textTheme.bodyMedium,
+            ],
+            if (!controller.canWrite &&
+                controller.loaded &&
+                controller.kind != BoardKind.race)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '이메일 인증과 닉네임 등록을 마치면 글을 쓸 수 있어요.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
-            ),
-          const SizedBox(height: 8),
-          Expanded(child: _body(context, controller)),
-        ],
-      );
-    },
+            const SizedBox(height: 8),
+            Expanded(child: _body(context, controller)),
+          ],
+        );
+      },
+    ),
   );
 
   String _subtitle(BoardKind kind) => switch (kind) {
@@ -329,7 +321,7 @@ class _BoardScreenState extends State<BoardScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: posts.length + 1,
         separatorBuilder: (_, index) => index < posts.length - 1
-            ? const Divider(height: 1)
+            ? const Divider(height: 1, color: BoardStyle.line, thickness: .5)
             : const SizedBox.shrink(),
         itemBuilder: (context, index) {
           if (index < posts.length) {

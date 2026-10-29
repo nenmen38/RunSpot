@@ -124,6 +124,11 @@ class FakeBoardService implements BoardService {
   Future<void> report(String postId, String reason) async =>
       reported.add('$postId:$reason');
 
+  final reportedComments = <String>[];
+  @override
+  Future<void> reportComment(String commentId, String reason) async =>
+      reportedComments.add('$commentId:$reason');
+
   @override
   Future<void> delete(String postId) async => deleted.add(postId);
 

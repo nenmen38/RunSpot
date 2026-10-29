@@ -98,7 +98,17 @@ void main() {
     expect(service.addedComments.single.$2, '좋아요 😀');
     expect(service.commentParents.single, 'x');
     expect(find.text('러너y님에게 답글 작성 중'), findsNothing);
-    expect(find.byIcon(Icons.subdirectory_arrow_right), findsNWidgets(2));
+    await tester.scrollUntilVisible(
+      find.text('댓글c2'),
+      150,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).last,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(find.text('댓글c2'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -144,13 +154,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('검색 버튼은 말머리 왼쪽 끝에 있습니다', (tester) async {
+  testWidgets('조건 선택은 왼쪽에 검색 버튼은 오른쪽에 있습니다', (tester) async {
     final service = FakeBoardService();
     await tester.pumpWidget(boardApp(service));
     await tester.pumpAndSettle();
     final search = tester.getCenter(find.byTooltip('검색'));
     final all = tester.getCenter(find.text('전체'));
-    expect(search.dx, lessThan(all.dx));
+    expect(search.dx, greaterThan(all.dx));
     expect((search.dy - all.dy).abs(), lessThan(8));
     await tester.tap(find.text('러닝 대회'));
     await tester.pumpAndSettle();

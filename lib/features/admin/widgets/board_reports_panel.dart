@@ -16,7 +16,10 @@ class _BoardReportsPanelState extends State<BoardReportsPanel> {
   Future<void> _resolve(Map<String, dynamic> report, String decision) async {
     final note = await showDialog<String>(
       context: context,
-      builder: (_) => _ReportDecisionDialog(remove: decision == 'removed'),
+      builder: (_) => _ReportDecisionDialog(
+        remove: decision == 'removed',
+        target: report['kind'] == 'comment' ? '댓글' : '게시글',
+      ),
     );
     if (note == null || !mounted || !widget.service.isCurrentOwner) return;
     setState(() => _busy = true);
@@ -47,7 +50,7 @@ class _BoardReportsPanelState extends State<BoardReportsPanel> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       const Divider(height: 32),
-      Text('게시글 신고', style: Theme.of(context).textTheme.titleMedium),
+      Text('게시판 신고', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 12),
       AccountQueryPanel<List<Map<String, dynamic>>>(
         source: widget.service,
@@ -70,6 +73,11 @@ class _BoardReportsPanelState extends State<BoardReportsPanel> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
+                        report['kind'] == 'comment' ? '댓글 신고' : '게시글 신고',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
                         report['title'] as String,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
@@ -79,7 +87,7 @@ class _BoardReportsPanelState extends State<BoardReportsPanel> {
                       const Divider(height: 24),
                       Text('신고 사유: ${report['reason']}'),
                       if (report['is_mine'] == true)
-                        const Text('본인 게시글은 다른 관리자가 처리해야 합니다.')
+                        const Text('본인 콘텐츠는 다른 관리자가 처리해야 합니다.')
                       else
                         Wrap(
                           spacing: 8,
@@ -94,7 +102,11 @@ class _BoardReportsPanelState extends State<BoardReportsPanel> {
                               onPressed: _busy
                                   ? null
                                   : () => _resolve(report, 'removed'),
-                              child: const Text('게시글 삭제'),
+                              child: Text(
+                                report['kind'] == 'comment'
+                                    ? '댓글 삭제'
+                                    : '게시글 삭제',
+                              ),
                             ),
                           ],
                         ),
@@ -110,8 +122,9 @@ class _BoardReportsPanelState extends State<BoardReportsPanel> {
 }
 
 class _ReportDecisionDialog extends StatefulWidget {
-  const _ReportDecisionDialog({required this.remove});
+  const _ReportDecisionDialog({required this.remove, required this.target});
   final bool remove;
+  final String target;
   @override
   State<_ReportDecisionDialog> createState() => _ReportDecisionDialogState();
 }
@@ -126,7 +139,7 @@ class _ReportDecisionDialogState extends State<_ReportDecisionDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.remove ? '게시글을 삭제할까요?' : '신고를 종결할까요?'),
+    title: Text(widget.remove ? '${widget.target}을 삭제할까요?' : '신고를 종결할까요?'),
     content: TextField(
       controller: _note,
       minLines: 2,

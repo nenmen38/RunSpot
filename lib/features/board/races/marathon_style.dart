@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import '../widgets/board_theme.dart';
 
-/// 밝은 배경에서도 보조 글자와 상태 배지의 대비를 확보합니다.
+/// 기존 대회 화면에서도 게시판 공통 색상을 사용합니다.
 abstract final class MarathonStyle {
-  static const secondary = Color(0xFF596574);
+  static const secondary = BoardStyle.secondary;
 }

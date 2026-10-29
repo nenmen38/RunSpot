@@ -1,3 +1,5 @@
+import 'widgets/board_theme.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -121,6 +123,7 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
     // 이미 지난 날짜의 공지를 고칠 때도 기존 날짜를 그대로 보여줍니다.
     final picked = await showDatePicker(
       context: context,
+      builder: (_, child) => BoardTheme(child: child!),
       firstDate: _raceDate != null && _raceDate!.isBefore(today)
           ? _raceDate!
           : today,
@@ -195,236 +198,258 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
   @override
   Widget build(BuildContext context) {
     final region = widget.post?.region ?? widget.controller.region;
-    return ListenableBuilder(
-      listenable: widget.controller,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _isEditing
-                ? '글 수정'
-                : _isRace
-                ? '러닝 대회 공지 등록'
-                : '${_kind.label} 게시판 글쓰기',
+    return BoardTheme(
+      child: ListenableBuilder(
+        listenable: widget.controller,
+        builder: (context, _) => Scaffold(
+          appBar: AppBar(
+            title: Text(
+              _isEditing
+                  ? '글 수정'
+                  : _isRace
+                  ? '러닝 대회 공지 등록'
+                  : '${_kind.label} 게시판 글쓰기',
+            ),
           ),
-        ),
-        body: Form(
-          key: _form,
-          // 화면 밖 입력칸도 검사되도록 모든 칸을 한 번에 만듭니다.
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_kind == BoardKind.local && region != null) ...[
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.place_outlined,
-                        size: 16,
-                        color: AppColors.blue,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '$region 게시판${_isEditing ? '의 글이에요' : '에 등록돼요'}',
-                          style: Theme.of(context).textTheme.bodyMedium,
+          body: Form(
+            key: _form,
+            // 화면 밖 입력칸도 검사되도록 모든 칸을 한 번에 만듭니다.
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_kind == BoardKind.local && region != null) ...[
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.place_outlined,
+                          size: 16,
+                          color: BoardStyle.accent,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (!_isRace) ...[
-                  Text('말머리', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final topic in BoardTopic.values)
-                        ChoiceChip(
-                          label: Text(topic.label),
-                          selected: _topic == topic,
-                          onSelected: (_) => setState(() => _topic = topic),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '$region 게시판${_isEditing ? '의 글이에요' : '에 등록돼요'}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                         ),
-                    ],
-                  ),
-                  if (_submitted && _topic == null)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        '말머리를 선택해 주세요.',
-                        style: TextStyle(color: AppColors.red, fontSize: 12),
-                      ),
+                      ],
                     ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  // 조건부 안내 문구가 끼어들어도 입력 상태가 다른 칸으로 옮겨지지 않게 합니다.
-                  key: const ValueKey('title'),
-                  controller: _title,
-                  maxLength: 80,
-                  decoration: InputDecoration(
-                    labelText: _isRace ? '대회 이름' : '제목',
-                  ),
-                  validator: (value) => _required(
-                    value,
-                    _isRace ? '대회 이름을 입력해 주세요.' : '제목을 입력해 주세요.',
-                    80,
-                  ),
-                ),
-                if (_isRace) ...[
-                  ListTile(
-                    key: const ValueKey('race-date'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.event_outlined),
-                    title: Text(
-                      _raceDate == null
-                          ? '대회 날짜 선택'
-                          : formatRaceDate(_raceDate!),
-                    ),
-                    subtitle: _submitted && _raceDate == null
-                        ? const Text(
-                            '대회 날짜를 선택해 주세요.',
-                            style: TextStyle(color: AppColors.red),
-                          )
-                        : null,
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _pickDate,
-                  ),
-                  TextFormField(
-                    key: const ValueKey('place'),
-                    controller: _place,
-                    maxLength: 80,
-                    decoration: const InputDecoration(labelText: '장소'),
-                    validator: (value) => _required(value, '장소를 입력해 주세요.', 80),
-                  ),
-                  TextFormField(
-                    key: const ValueKey('url'),
-                    controller: _url,
-                    keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: '접수·안내 링크 (선택)',
-                      hintText: 'https://',
-                    ),
-                    validator: _validateUrl,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  key: const ValueKey('body'),
-                  controller: _body,
-                  // 기기 키보드의 이모티콘을 그대로 입력할 수 있습니다.
-                  keyboardType: TextInputType.multiline,
-                  maxLength: 2000,
-                  minLines: 6,
-                  maxLines: 12,
-                  decoration: InputDecoration(
-                    labelText: _isRace ? '접수 기간·종목 등 안내' : '내용',
-                    alignLabelWithHint: true,
-                  ),
-                  validator: (value) => _required(value, '내용을 입력해 주세요.', 2000),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  key: const ValueKey('photos-header'),
-                  children: [
-                    Text(
-                      '사진 ${_photos.length}/$_maxPhotos',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: _photos.length >= _maxPhotos || _busy
-                          ? null
-                          : _pickPhotos,
-                      icon: _picking
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.add_photo_alternate_outlined),
-                      label: const Text('사진 추가'),
-                    ),
+                    const SizedBox(height: 12),
                   ],
-                ),
-                if (_photos.isNotEmpty)
+                  if (!_isRace) ...[
+                    Text('말머리', style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final topic in BoardTopic.values)
+                          ChoiceChip(
+                            label: Text(topic.label),
+                            selected: _topic == topic,
+                            onSelected: (_) => setState(() => _topic = topic),
+                          ),
+                      ],
+                    ),
+                    if (_submitted && _topic == null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          '말머리를 선택해 주세요.',
+                          style: TextStyle(
+                            color: BoardStyle.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                  ],
+                  TextFormField(
+                    // 조건부 안내 문구가 끼어들어도 입력 상태가 다른 칸으로 옮겨지지 않게 합니다.
+                    key: const ValueKey('title'),
+                    controller: _title,
+                    maxLength: 80,
+                    decoration: InputDecoration(
+                      labelText: _isRace ? '대회 이름' : '제목',
+                    ),
+                    validator: (value) => _required(
+                      value,
+                      _isRace ? '대회 이름을 입력해 주세요.' : '제목을 입력해 주세요.',
+                      80,
+                    ),
+                  ),
+                  if (_isRace) ...[
+                    ListTile(
+                      key: const ValueKey('race-date'),
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.event_outlined),
+                      title: Text(
+                        _raceDate == null
+                            ? '대회 날짜 선택'
+                            : formatRaceDate(_raceDate!),
+                      ),
+                      subtitle: _submitted && _raceDate == null
+                          ? const Text(
+                              '대회 날짜를 선택해 주세요.',
+                              style: TextStyle(color: BoardStyle.error),
+                            )
+                          : null,
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _pickDate,
+                    ),
+                    TextFormField(
+                      key: const ValueKey('place'),
+                      controller: _place,
+                      maxLength: 80,
+                      decoration: const InputDecoration(labelText: '장소'),
+                      validator: (value) =>
+                          _required(value, '장소를 입력해 주세요.', 80),
+                    ),
+                    TextFormField(
+                      key: const ValueKey('url'),
+                      controller: _url,
+                      keyboardType: TextInputType.url,
+                      decoration: const InputDecoration(
+                        labelText: '접수·안내 링크 (선택)',
+                        hintText: 'https://',
+                      ),
+                      validator: _validateUrl,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  TextFormField(
+                    key: const ValueKey('body'),
+                    controller: _body,
+                    // 기기 키보드의 이모티콘을 그대로 입력할 수 있습니다.
+                    keyboardType: TextInputType.multiline,
+                    maxLength: 2000,
+                    minLines: 6,
+                    maxLines: 12,
+                    decoration: InputDecoration(
+                      labelText: _isRace ? '접수 기간·종목 등 안내' : '내용',
+                      alignLabelWithHint: true,
+                    ),
+                    validator: (value) =>
+                        _required(value, '내용을 입력해 주세요.', 2000),
+                  ),
+                  const SizedBox(height: 12),
                   Wrap(
-                    key: const ValueKey('photos'),
-                    spacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
                     runSpacing: 8,
+                    key: const ValueKey('photos-header'),
                     children: [
-                      for (final photo in _photos)
-                        Stack(
-                          children: [
-                            photo.bytes == null && photo.url == null
-                                ? Container(
-                                    width: 76,
-                                    height: 76,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.line,
-                                      borderRadius: BorderRadius.circular(10),
+                      Text(
+                        '사진 ${_photos.length}/$_maxPhotos',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      TextButton.icon(
+                        onPressed: _photos.length >= _maxPhotos || _busy
+                            ? null
+                            : _pickPhotos,
+                        icon: _picking
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.add_photo_alternate_outlined),
+                        label: const Text('사진 추가'),
+                      ),
+                    ],
+                  ),
+                  if (_photos.isNotEmpty)
+                    Wrap(
+                      key: const ValueKey('photos'),
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final photo in _photos)
+                          Stack(
+                            children: [
+                              photo.bytes == null && photo.url == null
+                                  ? Container(
+                                      width: 76,
+                                      height: 76,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.line,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.image_outlined),
+                                    )
+                                  : BoardPhoto(
+                                      bytes: photo.bytes,
+                                      url: photo.url,
+                                      size: 76,
                                     ),
-                                    child: const Icon(Icons.image_outlined),
-                                  )
-                                : BoardPhoto(
-                                    bytes: photo.bytes,
-                                    url: photo.url,
-                                    size: 76,
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: IconButton(
+                                  tooltip: '사진 빼기',
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
                                   ),
-                            Positioned(
-                              top: 2,
-                              right: 2,
-                              child: InkWell(
-                                onTap: _busy
-                                    ? null
-                                    : () =>
-                                          setState(() => _photos.remove(photo)),
-                                child: const CircleAvatar(
-                                  radius: 11,
-                                  backgroundColor: Colors.black54,
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                    semanticLabel: '사진 빼기',
+                                  padding: EdgeInsets.zero,
+                                  onPressed: _busy
+                                      ? null
+                                      : () => setState(
+                                          () => _photos.remove(photo),
+                                        ),
+                                  icon: const CircleAvatar(
+                                    radius: 11,
+                                    backgroundColor: Colors.black54,
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 14,
+                                      color: Colors.white,
+                                      semanticLabel: '사진 빼기',
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: Text(
-                    '사진의 촬영 위치 등 기기 정보는 지우고 올려요.',
-                    style: TextStyle(color: AppColors.gray, fontSize: 11),
-                  ),
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                            ],
+                          ),
+                      ],
+                    ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
                     child: Text(
-                      _error!,
-                      style: const TextStyle(color: AppColors.red),
+                      '사진의 촬영 위치 등 기기 정보는 지우고 올려요.',
+                      style: TextStyle(
+                        color: BoardStyle.secondary,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _busy ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: BoardStyle.error),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _busy ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: _uploading || widget.controller.busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_isEditing ? '수정 완료' : '등록'),
                   ),
-                  child: _uploading || widget.controller.busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(_isEditing ? '수정 완료' : '등록'),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

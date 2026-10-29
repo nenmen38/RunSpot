@@ -22,6 +22,7 @@ abstract interface class BoardService {
   Future<String> create(BoardDraft draft);
   Future<void> update(BoardPost post, BoardDraft draft);
   Future<void> report(String postId, String reason);
+  Future<void> reportComment(String commentId, String reason);
   Future<void> delete(String postId);
   Future<({bool liked, int likeCount})> setLike(String postId, bool liked);
   Future<BoardComments> comments(String postId);
@@ -160,6 +161,14 @@ class SupabaseBoardService implements BoardService {
   Future<void> report(String postId, String reason) async {
     await _rpc('report_board_post', {
       'post_id': postId,
+      'requested_reason': reason,
+    });
+  }
+
+  @override
+  Future<void> reportComment(String commentId, String reason) async {
+    await _rpc('report_board_comment', {
+      'comment_id': commentId,
       'requested_reason': reason,
     });
   }

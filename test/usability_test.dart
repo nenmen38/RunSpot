@@ -114,6 +114,8 @@ void main() {
     expect(find.text('수정'), findsNothing);
     await tester.tap(find.text('신고'));
     await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, '스팸·광고'));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
         of: find.byType(AlertDialog),
@@ -124,7 +126,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, '신고'));
     await tester.pumpAndSettle();
-    expect(service.reported, ['other:광고성 글']);
+    expect(service.reported, ['other:스팸·광고\n광고성 글']);
     expect(find.text('신고가 접수되었습니다.'), findsOneWidget);
     await tester.pumpWidget(
       MaterialApp(

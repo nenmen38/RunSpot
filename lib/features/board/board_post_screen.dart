@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
-import 'package:runquest/shared/widgets/badge_pill.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'board_comments_controller.dart';
@@ -10,6 +9,7 @@ import 'board_compose_screen.dart';
 import 'board_controller.dart';
 import 'data/board_photo_service.dart';
 import 'models/board_post.dart';
+import 'widgets/board_theme.dart';
 import 'widgets/board_photo.dart';
 import 'widgets/board_post_tile.dart';
 import 'widgets/board_report_dialog.dart';
@@ -76,19 +76,21 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
   Future<bool> _confirm(String title) async =>
       await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: const Text('삭제하면 되돌릴 수 없어요.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제'),
-            ),
-          ],
+        builder: (context) => BoardTheme(
+          child: AlertDialog(
+            title: Text(title),
+            content: const Text('삭제하면 되돌릴 수 없어요.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
         ),
       ) ==
       true;
@@ -158,87 +160,110 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     _inputFocus.requestFocus();
   }
 
+  Future<void> _reportComment(BoardComment comment) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => const BoardReportDialog(isComment: true),
+    );
+    if (!mounted || reason == null) return;
+    _show(await _comments.report(comment, reason) ?? '신고가 접수되었습니다.');
+  }
+
   Future<void> _deleteComment(BoardComment comment) async {
     if (!await _confirm('댓글을 삭제할까요?') || !mounted) return;
     _show(await _comments.delete(comment));
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.controller, _comments]),
-    builder: (context, _) {
-      final post = _post;
-      final canEdit =
-          post.isMine &&
-          (post.kind != BoardKind.race || widget.controller.canPostRace);
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(post.kind.label),
-          actions: [
-            PopupMenuButton<String>(
-              tooltip: '게시글 메뉴',
-              enabled: !widget.controller.busy,
-              onSelected: (value) => switch (value) {
-                'edit' => _edit(),
-                'report' => _report(),
-                _ => _delete(),
-              },
-              itemBuilder: (_) => [
-                if (canEdit)
-                  const PopupMenuItem(value: 'edit', child: Text('수정')),
-                if (!post.isMine)
-                  const PopupMenuItem(value: 'report', child: Text('신고')),
-                if (post.isMine || widget.controller.canModerate)
-                  const PopupMenuItem(value: 'delete', child: Text('삭제')),
-              ],
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _comments.refresh,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-                  children: [
-                    ..._postBody(context, post),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _liking ? null : _toggleLike,
-                          icon: Icon(
-                            post.liked ? Icons.favorite : Icons.favorite_border,
-                            color: post.liked ? AppColors.red : null,
-                            size: 18,
+  Widget build(BuildContext context) => BoardTheme(
+    child: ListenableBuilder(
+      listenable: Listenable.merge([widget.controller, _comments]),
+      builder: (context, _) {
+        final post = _post;
+        final canEdit =
+            post.isMine &&
+            (post.kind != BoardKind.race || widget.controller.canPostRace);
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(post.kind.label),
+            actions: [
+              PopupMenuButton<String>(
+                tooltip: '게시글 메뉴',
+                enabled: !widget.controller.busy,
+                onSelected: (value) => switch (value) {
+                  'edit' => _edit(),
+                  'report' => _report(),
+                  _ => _delete(),
+                },
+                itemBuilder: (_) => [
+                  if (canEdit)
+                    const PopupMenuItem(value: 'edit', child: Text('수정')),
+                  if (!post.isMine)
+                    const PopupMenuItem(value: 'report', child: Text('신고')),
+                  if (post.isMine || widget.controller.canModerate)
+                    const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                ],
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _comments.refresh,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                    children: [
+                      ..._postBody(context, post),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _liking ? null : _toggleLike,
+                            icon: Icon(
+                              post.liked
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              color: post.liked ? AppColors.red : null,
+                              size: 18,
+                            ),
+                            label: Text('좋아요 ${post.likeCount}'),
                           ),
-                          label: Text('좋아요 ${post.likeCount}'),
-                        ),
-                        const SizedBox(width: 10),
-                        const Icon(
-                          Icons.chat_bubble_outline,
-                          size: 18,
-                          color: AppColors.gray,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '댓글 ${post.commentCount}',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 28),
-                    ..._commentList(context),
-                  ],
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.chat_bubble_outline,
+                                size: 18,
+                                color: BoardStyle.secondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '댓글 ${post.commentCount}',
+                                style: const TextStyle(
+                                  color: BoardStyle.secondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 28),
+                      ..._commentList(context),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (_comments.canWrite) _commentInput(context),
-          ],
-        ),
-      );
-    },
+              if (_comments.canWrite) _commentInput(context),
+            ],
+          ),
+        );
+      },
+    ),
   );
 
   List<Widget> _postBody(BuildContext context, BoardPost post) {
@@ -248,7 +273,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
       if (post.topic != null) ...[
         Align(
           alignment: Alignment.centerLeft,
-          child: BadgePill(text: post.topic!.label),
+          child: BoardLabel(text: post.topic!.label),
         ),
         const SizedBox(height: 8),
       ],
@@ -261,7 +286,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
           formatBoardDateTime(post.createdAt),
           if (post.isEdited) '수정됨',
         ].join(' · '),
-        style: Theme.of(context).textTheme.bodyMedium,
+        style: BoardStyle.meta,
       ),
       if (raceDate != null) ...[
         const SizedBox(height: 14),
@@ -271,11 +296,8 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
         ),
         _InfoRow(icon: Icons.place_outlined, text: post.racePlace!),
       ],
-      const Divider(height: 28),
-      SelectableText(
-        post.body,
-        style: const TextStyle(color: AppColors.ink, fontSize: 14, height: 1.5),
-      ),
+      const SizedBox(height: 24),
+      SelectableText(post.body, style: BoardStyle.body),
       for (final url in post.visibleImageUrls) ...[
         const SizedBox(height: 12),
         BoardPhoto(url: url),
@@ -307,7 +329,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     }
     if (_comments.error != null) {
       return [
-        Text(_comments.error!, style: const TextStyle(color: AppColors.red)),
+        Text(_comments.error!, style: const TextStyle(color: BoardStyle.error)),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
@@ -328,7 +350,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     return [
       for (final (:comment, :isReply) in _comments.threads)
         Padding(
-          padding: EdgeInsets.only(left: isReply ? 22 : 0, top: 6, bottom: 2),
+          padding: EdgeInsets.only(left: isReply ? 22 : 0, top: 16, bottom: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -338,7 +360,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                   child: Icon(
                     Icons.subdirectory_arrow_right,
                     size: 14,
-                    color: AppColors.gray,
+                    color: BoardStyle.secondary,
                   ),
                 ),
               Expanded(
@@ -348,9 +370,10 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                     Text(
                       '${comment.nickname} · ${formatBoardDateTime(comment.createdAt)}',
                       style: const TextStyle(
-                        color: AppColors.gray,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        color: BoardStyle.secondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -358,10 +381,14 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                       comment.body,
                       style: const TextStyle(
                         color: AppColors.ink,
-                        fontSize: 13,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                        height: 1.6,
                       ),
                     ),
-                    Row(
+                    Wrap(
+                      spacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (_comments.canWrite)
                           _CommentAction(
@@ -369,6 +396,23 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                             onTap: _comments.busy
                                 ? null
                                 : () => _startReply(comment),
+                          ),
+                        if (!comment.isMine)
+                          PopupMenuButton<String>(
+                            tooltip: '댓글 메뉴',
+                            enabled: !_comments.busy,
+                            icon: const Icon(
+                              Icons.more_horiz,
+                              size: 18,
+                              color: BoardStyle.secondary,
+                            ),
+                            onSelected: (_) => _reportComment(comment),
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: 'report',
+                                child: Text('신고'),
+                              ),
+                            ],
                           ),
                         if (comment.isMine || _comments.canModerate)
                           _CommentAction(
@@ -387,7 +431,10 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                 children: [
                   IconButton(
                     tooltip: comment.liked ? '댓글 좋아요 취소' : '댓글 좋아요',
-                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
                     onPressed:
                         _comments.canWrite &&
                             !_likingComments.contains(comment.id)
@@ -396,14 +443,16 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                     icon: Icon(
                       comment.liked ? Icons.favorite : Icons.favorite_border,
                       size: 18,
-                      color: comment.liked ? AppColors.red : AppColors.gray,
+                      color: comment.liked
+                          ? AppColors.red
+                          : BoardStyle.secondary,
                     ),
                   ),
                   if (comment.likeCount > 0)
                     Text(
                       '${comment.likeCount}',
                       style: const TextStyle(
-                        color: AppColors.gray,
+                        color: BoardStyle.secondary,
                         fontSize: 11,
                       ),
                     ),
@@ -420,6 +469,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     child: Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
       decoration: const BoxDecoration(
+        color: Colors.white,
         border: Border(top: BorderSide(color: AppColors.line)),
       ),
       child: Column(
@@ -471,7 +521,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.send, color: AppColors.blue),
+                    : const Icon(Icons.send, color: BoardStyle.accent),
               ),
             ],
           ),
@@ -483,24 +533,19 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
 
 class _CommentAction extends StatelessWidget {
   const _CommentAction({required this.label, required this.onTap});
-
   final String label;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(0, 4, 12, 4),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.gray,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+  Widget build(BuildContext context) => TextButton(
+    onPressed: onTap,
+    style: TextButton.styleFrom(
+      foregroundColor: BoardStyle.secondary,
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
     ),
+    child: Text(label),
   );
 }
 

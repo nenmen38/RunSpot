@@ -74,7 +74,7 @@ class BoardCommentsController extends ChangeNotifier {
     Future<void> Function() action,
     String fallback,
   ) async {
-    if (_disposed || busy) return null;
+    if (_disposed || busy) return '처리 중입니다. 잠시 후 다시 시도해 주세요.';
     busy = true;
     notifyListeners();
     String? failure;
@@ -149,6 +149,11 @@ class BoardCommentsController extends ChangeNotifier {
       return _message(exception, '좋아요를 반영하지 못했습니다.');
     }
   }
+
+  Future<String?> report(BoardComment comment, String reason) => _mutate(
+    () => service.reportComment(comment.id, reason),
+    '댓글 신고를 접수하지 못했습니다.',
+  );
 
   Future<String?> delete(BoardComment comment) =>
       _mutate(() => service.deleteComment(comment.id), '댓글을 삭제하지 못했습니다.');
