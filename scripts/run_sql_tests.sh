@@ -13,10 +13,18 @@ psql -X -q -v ON_ERROR_STOP=1 -d postgres \
   -c "create database $DB"
 
 args=(-f supabase/tests/local_auth_stub.sql)
+work="$(mktemp -d)"
+trap 'rm -rf -- "$work"' EXIT
 for migration in supabase/migrations/*.sql; do
   case "$migration" in
     *20261006000100_*) args+=(-f supabase/tests/local_realtime_stub.sql) ;;
     *20261027000100_*) args+=(-f supabase/tests/local_storage_stub.sql) ;;
+    *20261029092427_*)
+      # http·pg_cron 확장은 Supabase에만 있으므로 확장 생성 줄을 빼고 대역을 먼저 적용합니다.
+      args+=(-f supabase/tests/local_http_cron_stub.sql)
+      sed -E '/^create extension if not exists (http|pg_cron)/d' "$migration" > "$work/$(basename "$migration")"
+      args+=(-f "$work/$(basename "$migration")")
+      continue ;;
   esac
   args+=(-f "$migration")
 done
@@ -24,7 +32,7 @@ for test in test_registration registration security live_runner_map run_history 
   running_conditions environment_shared_budget email_verification optional_phone_verification run_feedback \
   run_temperature run_rewards run_statistics run_location_preferences blocks achievements_and_review \
   group_running run_splits segment_integrity review_pending_rewards sustained_speed_review app_usability \
-  board board_engagement board_notifications board_replies_search board_comment_likes board_news_feed account_deletion; do
+  board board_engagement board_notifications board_replies_search board_comment_likes board_news_feed board_safety marathon_catalog account_deletion; do
   args+=(-f "supabase/tests/$test.sql")
 done
 
