@@ -196,6 +196,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     ];
 
     return Scaffold(
+      backgroundColor: _tab == 3 ? Colors.white : null,
       body: SafeArea(
         child: Stack(
           children: [
@@ -222,6 +223,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
         ),
       ),
       bottomNavigationBar: NavigationBar(
+        backgroundColor: _tab == 3 ? Colors.white : null,
+        surfaceTintColor: _tab == 3 ? Colors.transparent : null,
         height: 66,
         selectedIndex: _tab,
         indicatorColor: AppColors.blueSoft,

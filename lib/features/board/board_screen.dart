@@ -10,14 +10,22 @@ import 'board_post_screen.dart';
 import 'data/board_photo_service.dart';
 import 'data/board_service.dart';
 import 'models/board_post.dart';
+import 'races/marathon_board.dart';
+import 'races/marathon_service.dart';
 import 'region_picker_screen.dart';
 import 'widgets/board_post_tile.dart';
 
 class BoardScreen extends StatefulWidget {
-  const BoardScreen({this.service, this.photoService, super.key});
+  const BoardScreen({
+    this.service,
+    this.photoService,
+    this.marathonService,
+    super.key,
+  });
 
   final BoardService? service;
   final BoardPhotoService? photoService;
+  final MarathonService? marathonService;
 
   @override
   State<BoardScreen> createState() => _BoardScreenState();
@@ -31,6 +39,13 @@ class _BoardScreenState extends State<BoardScreen> {
       widget.photoService ?? GalleryBoardPhotoService();
   final _search = TextEditingController();
   bool _searching = false;
+  late final MarathonService? _marathons =
+      widget.marathonService ??
+      (_controller.service is SupabaseBoardService
+          ? SupabaseMarathonService(
+              (_controller.service as SupabaseBoardService).client,
+            )
+          : null);
 
   @override
   void initState() {
@@ -114,6 +129,13 @@ class _BoardScreenState extends State<BoardScreen> {
               ),
               if (controller.canCreate)
                 FilledButton.icon(
+                  style: controller.kind == BoardKind.race
+                      ? FilledButton.styleFrom(
+                          backgroundColor: AppColors.blueDark,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(48, 48),
+                        )
+                      : null,
                   onPressed: controller.busy ? null : _compose,
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   label: Text(
@@ -162,39 +184,41 @@ class _BoardScreenState extends State<BoardScreen> {
             ),
           ],
           const SizedBox(height: 4),
-          // 검색 버튼은 말머리 왼쪽 끝에 둡니다. 대회 게시판은 말머리 없이 검색만 보입니다.
-          Row(
-            children: [
-              IconButton(
-                tooltip: _searching ? '검색 닫기' : '검색',
-                visualDensity: VisualDensity.compact,
-                onPressed: _toggleSearch,
-                icon: Icon(_searching ? Icons.search_off : Icons.search),
-              ),
-              if (controller.kind != BoardKind.race)
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final topic in <BoardTopic?>[
-                          null,
-                          ...BoardTopic.values,
-                        ])
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ChoiceChip(
-                              label: Text(topic?.label ?? '전체'),
-                              selected: controller.topic == topic,
-                              onSelected: (_) => controller.selectTopic(topic),
+          // 대회 검색은 접수 상태 필터와 같은 줄에 표시합니다.
+          if (controller.kind != BoardKind.race || _marathons == null)
+            Row(
+              children: [
+                IconButton(
+                  tooltip: _searching ? '검색 닫기' : '검색',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _toggleSearch,
+                  icon: Icon(_searching ? Icons.search_off : Icons.search),
+                ),
+                if (controller.kind != BoardKind.race)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final topic in <BoardTopic?>[
+                            null,
+                            ...BoardTopic.values,
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(topic?.label ?? '전체'),
+                                selected: controller.topic == topic,
+                                onSelected: (_) =>
+                                    controller.selectTopic(topic),
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
           if (_searching) ...[
             const SizedBox(height: 8),
             TextField(
@@ -238,10 +262,22 @@ class _BoardScreenState extends State<BoardScreen> {
   String _subtitle(BoardKind kind) => switch (kind) {
     BoardKind.local => '우리 동네 러닝 코스·꿀 정보·맛집',
     BoardKind.national => '전국 추천 코스·꿀 정보·맛집',
-    BoardKind.race => '전국 러닝 대회 일정 공지',
+    BoardKind.race => '전국 러닝 대회 일정',
   };
 
   Widget _body(BuildContext context, BoardController controller) {
+    final marathons = _marathons;
+    if (controller.kind == BoardKind.race && marathons != null) {
+      return MarathonBoard(
+        service: marathons,
+        notices: controller.posts,
+        onOpenNotice: _open,
+        refreshNotices: controller.refresh,
+        query: controller.query,
+        onSearch: _toggleSearch,
+        searching: _searching,
+      );
+    }
     if (controller.loading && controller.posts.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
