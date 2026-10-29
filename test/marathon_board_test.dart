@@ -70,7 +70,7 @@ void main() {
     expect(find.text('서울 대회'), findsOneWidget);
     await tester.tap(find.byTooltip('접수 상태 선택'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(PopupMenuItem<String>, '모집중'));
+    await tester.tap(find.widgetWithText(PopupMenuItem<String>, '접수 중'));
     await tester.pumpAndSettle();
     expect(find.text('봄 대회'), findsNothing);
     expect(find.text('서울 대회'), findsOneWidget);

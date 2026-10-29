@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../shared/theme/app_colors.dart';
 
 enum MarathonStatus {
-  upcoming('upcoming', '예정', AppColors.blueDark),
-  open('open', '모집중', Color(0xFF00805A)),
-  closed('closed', '모집 완료', AppColors.gray),
+  upcoming('upcoming', '접수 예정', AppColors.blueDark),
+  open('open', '접수 중', Color(0xFF00805A)),
+  closed('closed', '접수 마감', AppColors.gray),
   unknown('unknown', '접수 미정', AppColors.gray);
 
   const MarathonStatus(this.code, this.label, this.color);
