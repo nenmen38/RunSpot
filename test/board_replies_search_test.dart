@@ -5,6 +5,7 @@ import 'package:runquest/features/board/board_screen.dart';
 import 'package:runquest/features/board/models/board_post.dart';
 import 'package:runquest/features/board/widgets/board_post_tile.dart';
 import 'package:runquest/features/notifications/models/app_notification.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 
 import 'support/board_fakes.dart';
 
@@ -140,6 +141,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.loads.last.kind, BoardKind.local);
     expect(service.loads.last.query, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('검색 버튼은 말머리 왼쪽 끝에 있습니다', (tester) async {
+    final service = FakeBoardService();
+    await tester.pumpWidget(boardApp(service));
+    await tester.pumpAndSettle();
+    final search = tester.getCenter(find.byTooltip('검색'));
+    final all = tester.getCenter(find.text('전체'));
+    expect(search.dx, lessThan(all.dx));
+    expect((search.dy - all.dy).abs(), lessThan(8));
+    await tester.tap(find.text('러닝 대회'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('검색'), findsOneWidget);
+  });
+
+  testWidgets('댓글·답글 오른쪽 하트를 누르면 빨간 하트로 바뀝니다', (tester) async {
+    final service = FakeBoardService();
+    service.onLoad = (_) =>
+        Future.value(feed([postJson('1', board: 'national')]));
+    service.commentRows = [commentJson('x'), commentJson('y', parentId: 'x')];
+    await tester.pumpWidget(boardApp(service));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('전국'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('제목1'));
+    await tester.pumpAndSettle();
+
+    final hearts = find.byTooltip('댓글 좋아요');
+    expect(hearts, findsNWidgets(2));
+    // 하트는 댓글 내용보다 오른쪽 끝에 있습니다.
+    expect(
+      tester.getCenter(hearts.last).dx,
+      greaterThan(tester.getCenter(find.text('댓글y')).dx),
+    );
+    await tester.tap(hearts.last);
+    await tester.pumpAndSettle();
+    expect(service.commentLikes.single, ('y', true));
+    final filled = tester.widget<Icon>(
+      find.descendant(
+        of: find.byTooltip('댓글 좋아요 취소'),
+        matching: find.byType(Icon),
+      ),
+    );
+    expect(filled.icon, Icons.favorite);
+    expect(filled.color, AppColors.red);
+    expect(find.text('1'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('댓글 좋아요 취소'));
+    await tester.pumpAndSettle();
+    expect(service.commentLikes.last, ('y', false));
+    expect(find.byTooltip('댓글 좋아요'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 }

@@ -112,11 +112,6 @@ class _BoardScreenState extends State<BoardScreen> {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: _searching ? '검색 닫기' : '검색',
-                onPressed: _toggleSearch,
-                icon: Icon(_searching ? Icons.search_off : Icons.search),
-              ),
               if (controller.canCreate)
                 FilledButton.icon(
                   onPressed: controller.busy ? null : _compose,
@@ -127,29 +122,6 @@ class _BoardScreenState extends State<BoardScreen> {
                 ),
             ],
           ),
-          if (_searching) ...[
-            const SizedBox(height: 8),
-            TextField(
-              key: const ValueKey('board-search'),
-              controller: _search,
-              autofocus: true,
-              maxLength: 50,
-              textInputAction: TextInputAction.search,
-              onSubmitted: controller.search,
-              decoration: InputDecoration(
-                hintText: '${controller.kind.label} 게시판에서 제목·내용 검색',
-                prefixIcon: const Icon(Icons.search),
-                counterText: '',
-                isDense: true,
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  tooltip: '검색',
-                  onPressed: () => controller.search(_search.text),
-                  icon: const Icon(Icons.arrow_forward),
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           SegmentedButton<BoardKind>(
             showSelectedIcon: false,
@@ -189,22 +161,60 @@ class _BoardScreenState extends State<BoardScreen> {
               ],
             ),
           ],
-          if (controller.kind != BoardKind.race) ...[
-            const SizedBox(height: 4),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final topic in <BoardTopic?>[null, ...BoardTopic.values])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text(topic?.label ?? '전체'),
-                        selected: controller.topic == topic,
-                        onSelected: (_) => controller.selectTopic(topic),
-                      ),
+          const SizedBox(height: 4),
+          // 검색 버튼은 말머리 왼쪽 끝에 둡니다. 대회 게시판은 말머리 없이 검색만 보입니다.
+          Row(
+            children: [
+              IconButton(
+                tooltip: _searching ? '검색 닫기' : '검색',
+                visualDensity: VisualDensity.compact,
+                onPressed: _toggleSearch,
+                icon: Icon(_searching ? Icons.search_off : Icons.search),
+              ),
+              if (controller.kind != BoardKind.race)
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final topic in <BoardTopic?>[
+                          null,
+                          ...BoardTopic.values,
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ChoiceChip(
+                              label: Text(topic?.label ?? '전체'),
+                              selected: controller.topic == topic,
+                              onSelected: (_) => controller.selectTopic(topic),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
+            ],
+          ),
+          if (_searching) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('board-search'),
+              controller: _search,
+              autofocus: true,
+              maxLength: 50,
+              textInputAction: TextInputAction.search,
+              onSubmitted: controller.search,
+              decoration: InputDecoration(
+                hintText: '${controller.kind.label} 게시판에서 제목·내용 검색',
+                prefixIcon: const Icon(Icons.search),
+                counterText: '',
+                isDense: true,
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: '검색',
+                  onPressed: () => controller.search(_search.text),
+                  icon: const Icon(Icons.arrow_forward),
+                ),
               ),
             ),
           ],

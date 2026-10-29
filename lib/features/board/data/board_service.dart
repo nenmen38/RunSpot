@@ -34,6 +34,10 @@ abstract interface class BoardService {
     String? parentId,
   });
   Future<void> deleteComment(String commentId);
+  Future<({bool liked, int likeCount})> setCommentLike(
+    String commentId,
+    bool liked,
+  );
 
   /// 메타데이터를 제거한 JPEG를 본인 폴더에 올리고 저장소 경로를 반환합니다.
   Future<String> uploadPhoto(Uint8List jpeg);
@@ -202,6 +206,23 @@ class SupabaseBoardService implements BoardService {
   @override
   Future<void> deleteComment(String commentId) async {
     await _rpc('delete_board_comment', {'comment_id': commentId});
+  }
+
+  @override
+  Future<({bool liked, int likeCount})> setCommentLike(
+    String commentId,
+    bool liked,
+  ) async {
+    final result = Map<String, dynamic>.from(
+      await _rpc('set_board_comment_like', {
+        'comment_id': commentId,
+        'liked': liked,
+      }) as Map,
+    );
+    return (
+      liked: result['liked'] as bool,
+      likeCount: result['like_count'] as int,
+    );
   }
 
   @override

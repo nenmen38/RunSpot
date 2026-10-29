@@ -46,6 +46,9 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
   // 답글을 쓰는 중이면 대상 댓글입니다.
   BoardComment? _replyTo;
 
+  // 좋아요를 반영하는 중인 댓글입니다.
+  final _likingComments = <String>{};
+
   // 수정·좋아요 뒤에는 목록 컨트롤러의 최신 글을 보여줍니다.
   BoardPost get _post =>
       widget.controller.postById(widget.post.id) ?? widget.post;
@@ -140,6 +143,14 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     } else {
       _show(error);
     }
+  }
+
+  Future<void> _toggleCommentLike(BoardComment comment) async {
+    setState(() => _likingComments.add(comment.id));
+    final error = await _comments.setLike(comment);
+    if (!mounted) return;
+    setState(() => _likingComments.remove(comment.id));
+    _show(error);
   }
 
   void _startReply(BoardComment comment) {
@@ -350,35 +361,54 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                         fontSize: 13,
                       ),
                     ),
-                    if (_comments.canWrite)
-                      GestureDetector(
-                        onTap: _comments.busy
-                            ? null
-                            : () => _startReply(comment),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            '답글 달기',
-                            style: TextStyle(
-                              color: AppColors.gray,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    Row(
+                      children: [
+                        if (_comments.canWrite)
+                          _CommentAction(
+                            label: '답글 달기',
+                            onTap: _comments.busy
+                                ? null
+                                : () => _startReply(comment),
                           ),
-                        ),
-                      ),
+                        if (comment.isMine || _comments.canModerate)
+                          _CommentAction(
+                            label: '삭제',
+                            onTap: _comments.busy
+                                ? null
+                                : () => _deleteComment(comment),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              if (comment.isMine || _comments.canModerate)
-                IconButton(
-                  tooltip: '댓글 삭제',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _comments.busy
-                      ? null
-                      : () => _deleteComment(comment),
-                  icon: const Icon(Icons.close, size: 16),
-                ),
+              // 댓글·답글 오른쪽 끝의 좋아요입니다. 누르면 빨간 하트로 바뀝니다.
+              Column(
+                children: [
+                  IconButton(
+                    tooltip: comment.liked ? '댓글 좋아요 취소' : '댓글 좋아요',
+                    visualDensity: VisualDensity.compact,
+                    onPressed:
+                        _comments.canWrite &&
+                            !_likingComments.contains(comment.id)
+                        ? () => _toggleCommentLike(comment)
+                        : null,
+                    icon: Icon(
+                      comment.liked ? Icons.favorite : Icons.favorite_border,
+                      size: 18,
+                      color: comment.liked ? AppColors.red : AppColors.gray,
+                    ),
+                  ),
+                  if (comment.likeCount > 0)
+                    Text(
+                      '${comment.likeCount}',
+                      style: const TextStyle(
+                        color: AppColors.gray,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -446,6 +476,29 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
             ],
           ),
         ],
+      ),
+    ),
+  );
+}
+
+class _CommentAction extends StatelessWidget {
+  const _CommentAction({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(0, 4, 12, 4),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.gray,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     ),
   );

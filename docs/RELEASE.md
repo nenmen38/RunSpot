@@ -14,7 +14,7 @@
 ## 직접 해야 하는 항목
 
 ### 1. 서버 적용
-- `supabase db push --dry-run`으로 `20261028000100_account_deletion.sql`, `20261028000200_board_notifications.sql`, `20261029000100_board_replies_search.sql`만 남았는지 확인한 뒤 `supabase db push`.
+- `supabase db push --dry-run`으로 `20261028000100_account_deletion.sql`, `20261028000200_board_notifications.sql`, `20261029000100_board_replies_search.sql`, `20261029000200_board_comment_likes.sql`만 남았는지 확인한 뒤 `supabase db push`.
 
 ### 2. 출시 키 만들기 (Android, 한 번만)
 ```powershell

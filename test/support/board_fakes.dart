@@ -173,6 +173,16 @@ class FakeBoardService implements BoardService {
     return 'c';
   }
 
+  final commentLikes = <(String, bool)>[];
+  @override
+  Future<({bool liked, int likeCount})> setCommentLike(
+    String commentId,
+    bool liked,
+  ) async {
+    commentLikes.add((commentId, liked));
+    return (liked: liked, likeCount: liked ? 1 : 0);
+  }
+
   final deletedComments = <String>[];
   @override
   Future<void> deleteComment(String commentId) async {

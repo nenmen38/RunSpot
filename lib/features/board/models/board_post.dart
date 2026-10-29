@@ -130,13 +130,26 @@ class BoardPost {
 }
 
 class BoardComment {
+  const BoardComment({
+    required this.id,
+    required this.body,
+    required this.nickname,
+    required this.isMine,
+    required this.createdAt,
+    this.parentId,
+    this.likeCount = 0,
+    this.liked = false,
+  });
+
   BoardComment.fromJson(Map<String, dynamic> json)
     : id = json['id'] as String,
       body = json['body'] as String,
       nickname = json['nickname'] as String,
       isMine = json['is_mine'] as bool,
       parentId = json['parent_id'] as String?,
-      createdAt = DateTime.parse(json['created_at'] as String).toLocal();
+      createdAt = DateTime.parse(json['created_at'] as String).toLocal(),
+      likeCount = json['like_count'] as int? ?? 0,
+      liked = json['liked'] as bool? ?? false;
 
   final String id;
 
@@ -146,6 +159,19 @@ class BoardComment {
   final String nickname;
   final bool isMine;
   final DateTime createdAt;
+  final int likeCount;
+  final bool liked;
+
+  BoardComment copyWith({int? likeCount, bool? liked}) => BoardComment(
+    id: id,
+    body: body,
+    nickname: nickname,
+    isMine: isMine,
+    createdAt: createdAt,
+    parentId: parentId,
+    likeCount: likeCount ?? this.likeCount,
+    liked: liked ?? this.liked,
+  );
 }
 
 class BoardComments {

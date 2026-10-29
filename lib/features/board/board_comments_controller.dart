@@ -127,6 +127,29 @@ class BoardCommentsController extends ChangeNotifier {
     ];
   }
 
+  /// 좋아요는 서버가 돌려준 상태와 개수로만 표시를 바꿉니다.
+  Future<String?> setLike(BoardComment comment) async {
+    if (_disposed) return null;
+    try {
+      final result = await service
+          .setCommentLike(comment.id, !comment.liked)
+          .timeout(_timeout);
+      if (_disposed) return null;
+      if (!service.isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+      _comments = List.unmodifiable([
+        for (final item in _comments)
+          item.id == comment.id
+              ? item.copyWith(liked: result.liked, likeCount: result.likeCount)
+              : item,
+      ]);
+      notifyListeners();
+      return null;
+    } catch (exception) {
+      if (_disposed) return null;
+      return _message(exception, '좋아요를 반영하지 못했습니다.');
+    }
+  }
+
   Future<String?> delete(BoardComment comment) =>
       _mutate(() => service.deleteComment(comment.id), '댓글을 삭제하지 못했습니다.');
 
