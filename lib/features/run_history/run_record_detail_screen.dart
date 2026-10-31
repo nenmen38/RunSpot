@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../health/data/run_health_service.dart';
+import '../health/models/run_health_data.dart';
 import '../health/widgets/run_health_panel.dart';
 import 'widgets/run_splits_panel.dart';
 
@@ -40,6 +41,7 @@ class RunRecordDetailScreen extends StatefulWidget {
 
 class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
   RunRoute? _route;
+  RunHealthSource? _selectedHealthSource;
   late final RunHealthService _health =
       widget.healthService ?? DeviceRunHealthService();
   bool _loading = true;
@@ -239,6 +241,8 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     child: RunHealthPanel(
                       service: _health,
+                      onSelectedSourceChanged: (source) =>
+                          _selectedHealthSource = source,
                       start: widget.record.startedAt,
                       end: widget.record.endedAt,
                       isCurrentOwner: () =>
@@ -253,6 +257,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                         key: ValueKey(widget.record.id),
                         runId: widget.record.id,
                         service: widget.feedbackService!,
+                        readHeartSource: () => _selectedHealthSource,
                       ),
                     ),
                 ],

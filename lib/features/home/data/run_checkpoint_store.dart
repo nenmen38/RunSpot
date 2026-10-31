@@ -1,3 +1,5 @@
+import '../../run_history/models/run_analysis_data.dart';
+
 import 'dart:convert';
 
 import 'package:path/path.dart' as path;
@@ -93,6 +95,7 @@ class SqliteRunCheckpointStore implements RunCheckpointStore {
         'temperature': summary.temperature?.toJson(),
         'finished': checkpoint.finished,
         'motion_samples': summary.motionSamples,
+        'analysis_data': summary.analysisData?.toJson(),
         'splits': summary.splits?.map((split) => split.toJson()).toList(),
       }),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -117,6 +120,7 @@ class SqliteRunCheckpointStore implements RunCheckpointStore {
       route: RunRoute.fromJson(json['route']),
       splits: RunSplit.decode(json['splits']),
       motionSamples: RunMotionTracker.decode(json['motion_samples']),
+      analysisData: RunAnalysisData.decode(json['analysis_data']),
       temperature: json['temperature'] == null
           ? null
           : RunTemperature.fromJson(

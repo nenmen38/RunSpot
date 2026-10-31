@@ -1,9 +1,13 @@
+import 'package:runquest/features/run_feedback/models/run_feedback_context.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/run_feedback/data/run_feedback_service.dart';
 import 'package:runquest/features/run_feedback/run_feedback_panel.dart';
+import 'package:runquest/features/run_feedback/models/run_feedback_heart_summary.dart';
+import 'package:runquest/features/health/models/run_health_data.dart';
 
 class FakeFeedback implements RunFeedbackService {
   @override
@@ -13,6 +17,7 @@ class FakeFeedback implements RunFeedbackService {
   );
   int loads = 0;
   int generations = 0;
+  RunFeedbackHeartSummary? sentHeart;
   bool fail = false;
   Completer<RunFeedbackState>? response;
   @override
@@ -23,8 +28,15 @@ class FakeFeedback implements RunFeedbackService {
   }
 
   @override
-  Future<RunFeedbackState> generate(String runId) async {
+  Future<RunFeedbackContext?> loadContext(String runId) async => null;
+
+  @override
+  Future<RunFeedbackState> generate(
+    String runId, {
+    RunFeedbackHeartSummary? heartSummary,
+  }) async {
     generations++;
+    sentHeart = heartSummary;
     state = RunFeedbackState(
       status: FeedbackStatus.ready,
       message: '기록을 남기셨습니다. 이전 기록이 없어 비교하기 어렵습니다. 다음 기록과 함께 살펴보세요.',
@@ -35,14 +47,22 @@ class FakeFeedback implements RunFeedbackService {
 }
 
 void main() {
-  Future<void> show(WidgetTester tester, FakeFeedback service) async {
+  Future<void> show(
+    WidgetTester tester,
+    FakeFeedback service, {
+    RunHealthSource? Function()? readHeartSource,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: RunFeedbackPanel(runId: 'run', service: service),
+              child: RunFeedbackPanel(
+                runId: 'run',
+                service: service,
+                readHeartSource: readHeartSource,
+              ),
             ),
           ),
         ),
@@ -64,13 +84,15 @@ void main() {
     await show(tester, service);
     await tester.tap(find.text('AI 피드백 요청'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Google Gemini'), findsOneWidget);
+    expect(find.text('피드백을 생성할까요?'), findsOneWidget);
+    expect(find.text('데이터 이용 안내'), findsNothing);
+    expect(find.textContaining('Google Gemini'), findsNothing);
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(service.generations, 0);
     await tester.tap(find.text('AI 피드백 요청'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('동의하고 요청'));
+    await tester.tap(find.text('생성하기'));
     await tester.pumpAndSettle();
     expect(service.generations, 1);
     expect(find.text(service.state.message!), findsOneWidget);
@@ -78,6 +100,90 @@ void main() {
     await tester.tap(find.byTooltip('피드백 상태 확인'));
     await tester.pumpAndSettle();
     expect(service.generations, 1);
+  });
+  const heartSource = RunHealthSource(
+    id: 'private-device',
+    label: '내 워치',
+    heartSamples: 30,
+    averageHeartRate: 145.4,
+    maxHeartRate: 170,
+  );
+  testWidgets('심박 전송은 기본 해제되며 동의하지 않으면 보내지 않습니다', (tester) async {
+    final service = FakeFeedback();
+    await show(tester, service, readHeartSource: () => heartSource);
+    await tester.tap(find.text('AI 피드백 요청'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
+      isFalse,
+    );
+    await tester.tap(find.text('생성하기'));
+    await tester.pumpAndSettle();
+    expect(service.generations, 1);
+    expect(service.sentHeart, isNull);
+  });
+  testWidgets('심박 전송을 선택한 요청에만 선택 기기의 숫자 요약을 보냅니다', (tester) async {
+    final service = FakeFeedback();
+    await show(tester, service, readHeartSource: () => heartSource);
+    await tester.tap(find.text('AI 피드백 요청'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.tap(find.text('생성하기'));
+    await tester.pumpAndSettle();
+    expect(service.sentHeart?.toJson(), {
+      'average_bpm': 145,
+      'max_bpm': 170,
+      'sample_count': 30,
+    });
+  });
+  testWidgets('동의 중 심박 자료가 바뀌면 오래된 자료를 보내지 않습니다', (tester) async {
+    final service = FakeFeedback();
+    RunHealthSource? source = heartSource;
+    await show(tester, service, readHeartSource: () => source);
+    await tester.tap(find.text('AI 피드백 요청'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(CheckboxListTile));
+    source = null;
+    await tester.tap(find.text('생성하기'));
+    await tester.pumpAndSettle();
+    expect(service.generations, 0);
+    expect(find.textContaining('심박 자료가 변경'), findsOneWidget);
+  });
+  testWidgets('동의 중 백그라운드로 이동하면 새 요청을 보내지 않습니다', (tester) async {
+    final service = FakeFeedback();
+    await show(tester, service, readHeartSource: () => heartSource);
+    await tester.tap(find.text('AI 피드백 요청'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(CheckboxListTile));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.tap(find.text('생성하기'));
+    await tester.pumpAndSettle();
+    expect(service.generations, 0);
+  });
+  testWidgets('좁은 화면에서도 심박 동의 내용을 스크롤하고 취소 후 선택을 초기화합니다', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final service = FakeFeedback();
+    await show(tester, service, readHeartSource: () => heartSource);
+    await tester.tap(find.text('AI 피드백 요청'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byType(CheckboxListTile));
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(service.generations, 0);
+    await tester.tap(find.text('AI 피드백 요청'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
   });
   testWidgets('72시간 제한 상태는 다음 시각과 함께 표시하고 기기 시계로 해제하지 않습니다', (tester) async {
     final service = FakeFeedback()

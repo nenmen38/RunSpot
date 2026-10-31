@@ -66,7 +66,7 @@ class _HealthSettingsScreenState extends State<HealthSettingsScreen> {
           subtitle: const Text('심박 · 활동 칼로리'),
         ),
         const SizedBox(height: 16),
-        const Text('나만 보기 · 서버 저장 없음'),
+        const Text('나만 보기 · AI 심박 활용은 별도 동의'),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: _busy || !widget.isCurrentOwner() ? null : _connect,

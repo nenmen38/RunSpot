@@ -206,6 +206,47 @@ void main() {
     expect(find.text('불러오기'), findsNothing);
   });
 
+  testWidgets('선택 기기를 전달하고 백그라운드와 화면 종료 시 참조를 비웁니다', (tester) async {
+    final service = FakeService()
+      ..result = summarizeRunHealth(
+        [
+          point('a', 140, source: 'a-watch'),
+          point('b', 160, source: 'b-watch'),
+        ],
+        start,
+        end,
+      );
+    RunHealthSource? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RunHealthPanel(
+            service: service,
+            start: start,
+            end: end,
+            isCurrentOwner: () => true,
+            onSelectedSourceChanged: (source) => selected = source,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(selected?.averageHeartRate, 140);
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2. b-watch').last);
+    await tester.pumpAndSettle();
+    expect(selected?.averageHeartRate, 160);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(selected, isNull);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(selected?.averageHeartRate, 140);
+    await tester.pumpWidget(const SizedBox());
+    expect(selected, isNull);
+  });
+
   testWidgets('자료가 없으면 수치를 추정하지 않고 빈 값으로 표시합니다', (tester) async {
     final service = FakeService()..result = summarizeRunHealth([], start, end);
     await tester.pumpWidget(

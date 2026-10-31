@@ -2,6 +2,13 @@ import 'dart:convert';
 
 import 'package:health/health.dart';
 
+class RunHeartObservation {
+  const RunHeartObservation(this.start, this.end, this.bpm);
+  final DateTime start;
+  final DateTime end;
+  final double bpm;
+}
+
 class RunHealthSource {
   const RunHealthSource({
     required this.id,
@@ -11,10 +18,12 @@ class RunHealthSource {
     this.maxHeartRate,
     this.activeCalories,
     this.overlappingCalories = false,
+    this.heartObservations = const [],
   });
   final String id;
   final String label;
   final int heartSamples;
+  final List<RunHeartObservation> heartObservations;
   final double? averageHeartRate;
   final double? maxHeartRate;
   final double? activeCalories;
@@ -106,6 +115,17 @@ RunHealthData summarizeRunHealth(
         id: entry.key,
         label: label,
         heartSamples: heart.length,
+        heartObservations: List.unmodifiable(
+          entry.value
+              .where((point) => point.type == HealthDataType.HEART_RATE)
+              .map(
+                (point) => RunHeartObservation(
+                  point.dateFrom,
+                  point.dateTo,
+                  (point.value as NumericHealthValue).numericValue.toDouble(),
+                ),
+              ),
+        ),
         averageHeartRate: heart.isEmpty
             ? null
             : heart.reduce((a, b) => a + b) / heart.length,

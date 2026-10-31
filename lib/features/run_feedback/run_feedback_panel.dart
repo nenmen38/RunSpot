@@ -3,15 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'data/run_feedback_service.dart';
+import '../health/models/run_health_data.dart';
+import 'models/run_feedback_heart_summary.dart';
+import 'feedback_consent_dialog.dart';
 
 class RunFeedbackPanel extends StatefulWidget {
   const RunFeedbackPanel({
     required this.runId,
     required this.service,
+    this.readHeartSource,
     super.key,
   });
   final String runId;
   final RunFeedbackService service;
+  final RunHealthSource? Function()? readHeartSource;
 
   @override
   State<RunFeedbackPanel> createState() => _RunFeedbackPanelState();
@@ -26,6 +31,7 @@ class _RunFeedbackPanelState extends State<RunFeedbackPanel>
   Timer? _timer;
   int _polls = 0;
   int _epoch = 0;
+  int _consentEpoch = 0;
 
   @override
   void initState() {
@@ -52,6 +58,7 @@ class _RunFeedbackPanelState extends State<RunFeedbackPanel>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _timer?.cancel();
+    if (state != AppLifecycleState.resumed) _consentEpoch++;
     if (state == AppLifecycleState.resumed) {
       _polls = 0;
       unawaited(_load());
@@ -111,42 +118,55 @@ class _RunFeedbackPanelState extends State<RunFeedbackPanel>
     final service = widget.service;
     final runId = widget.runId;
     final epoch = _epoch;
+    var generationStarted = false;
     setState(() {
       _busy = true;
-      _confirming = true;
+      _confirming = false;
     });
     try {
-      final consent = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('AI 피드백 요청'),
-          content: const Text(
-            '이 기록의 거리·시간·페이스와 이전 최대 5회 기록의 숫자 요약을 Google Gemini에 전송합니다. 이메일·전화번호·위치 경로는 보내지 않습니다. Google API 요금제에 따라 요약이 서비스 개선에 사용될 수 있습니다.\n\n요청을 시작하면 실패한 경우에도 72시간 동안 새 요청이 제한됩니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('동의하고 요청'),
-            ),
-          ],
-        ),
+      final consentEpoch = _consentEpoch;
+      final contextData = await service.loadContext(runId);
+      if (!mounted ||
+          epoch != _epoch ||
+          consentEpoch != _consentEpoch ||
+          widget.runId != runId ||
+          widget.service != service ||
+          !service.isCurrentOwner) {
+        return;
+      }
+      final source = widget.readHeartSource?.call();
+      final heartSummary = RunFeedbackHeartSummary.fromSource(
+        source,
+        context: contextData,
       );
-      if (consent != true ||
+      setState(() => _confirming = true);
+      final includeHeart = await showFeedbackConsent(
+        context,
+        heartSummary: heartSummary,
+      );
+      if (includeHeart == null ||
           !mounted ||
+          epoch != _epoch ||
           widget.service != service ||
           widget.runId != runId ||
           !service.isCurrentOwner) {
+        return;
+      }
+      if (consentEpoch != _consentEpoch ||
+          (includeHeart &&
+              !identical(source, widget.readHeartSource?.call()))) {
+        setState(() => _error = '화면 또는 심박 자료가 변경되었습니다. 다시 확인하고 요청해 주세요.');
         return;
       }
       setState(() {
         _error = null;
         _confirming = false;
       });
-      final state = await service.generate(runId);
+      generationStarted = true;
+      final state = await service.generate(
+        runId,
+        heartSummary: includeHeart ? heartSummary : null,
+      );
       if (epoch == _epoch &&
           widget.service == service &&
           widget.runId == runId) {
@@ -154,8 +174,12 @@ class _RunFeedbackPanelState extends State<RunFeedbackPanel>
       }
     } catch (_) {
       if (mounted && epoch == _epoch) {
-        setState(() => _error = '피드백 요청 결과를 확인하지 못했습니다. 상태를 다시 확인해 주세요.');
-        _state = null;
+        setState(
+          () => _error = generationStarted
+              ? '피드백 요청 결과를 확인하지 못했습니다. 상태를 다시 확인해 주세요.'
+              : '분석 자료를 불러오지 못했습니다. 다시 시도해 주세요.',
+        );
+        if (generationStarted) _state = null;
       }
     } finally {
       if (mounted && epoch == _epoch) {
@@ -205,7 +229,7 @@ class _RunFeedbackPanelState extends State<RunFeedbackPanel>
         Text(description),
         if (state?.createdAt != null) ...[
           const SizedBox(height: 8),
-          Text('AI 생성 · ${_date(state!.createdAt!)}'),
+          Text(_date(state!.createdAt!)),
         ],
         if (state?.nextAvailableAt != null &&
             status != FeedbackStatus.ready) ...[

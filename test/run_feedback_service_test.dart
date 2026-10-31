@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:runquest/features/run_feedback/data/run_feedback_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:runquest/features/health/models/run_health_data.dart';
+import 'package:runquest/features/run_feedback/models/run_feedback_heart_summary.dart';
 
 String session(String id) => jsonEncode({
   'access_token': 'token-$id',
@@ -64,6 +66,53 @@ void main() {
     expect(request.url.path.endsWith('/run-feedback'), isTrue);
     expect(jsonDecode(request.body), {'run_id': 'run'});
     expect(request.headers['authorization'], 'Bearer token-owner');
+  });
+  test('선택한 심박 요약은 숫자 세 항목만 전송합니다', () async {
+    late http.Request request;
+    final client = clientFor((r) async {
+      request = r;
+      return {'status': 'not_configured'};
+    });
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(session('owner'));
+    final heart = RunFeedbackHeartSummary.fromSource(
+      const RunHealthSource(
+        id: 'private-id',
+        label: '개인 워치',
+        heartSamples: 10,
+        averageHeartRate: 140.4,
+        maxHeartRate: 160,
+        activeCalories: 100,
+      ),
+    );
+    await SupabaseRunFeedbackService(client)
+        .generate('run', heartSummary: heart);
+    expect(jsonDecode(request.body), {
+      'run_id': 'run',
+      'heart_summary': {'average_bpm': 140, 'max_bpm': 160, 'sample_count': 10},
+    });
+  });
+  test('누락되거나 불완전한 심박 요약은 전송 대상으로 만들지 않습니다', () {
+    expect(RunFeedbackHeartSummary.fromSource(null), isNull);
+    for (final source in [
+      const RunHealthSource(id: 'id', label: '기기', heartSamples: 0),
+      const RunHealthSource(
+        id: 'id',
+        label: '기기',
+        heartSamples: 1,
+        averageHeartRate: 170,
+        maxHeartRate: 150,
+      ),
+      const RunHealthSource(
+        id: 'id',
+        label: '기기',
+        heartSamples: 1,
+        averageHeartRate: double.nan,
+        maxHeartRate: 150,
+      ),
+    ]) {
+      expect(RunFeedbackHeartSummary.fromSource(source), isNull);
+    }
   });
   test('계정 전환 중의 늦은 응답과 이후 요청을 거부합니다', () async {
     final response = Completer<Object>();

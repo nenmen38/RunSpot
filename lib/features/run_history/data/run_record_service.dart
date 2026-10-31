@@ -40,11 +40,15 @@ class SupabaseRunRecordService implements RunRecordService {
     // 계정 전환 중에도 측정한 계정의 세션으로만 요청을 전송합니다.
     final row = await client
         .rpc(
-          summary.motionSamples == null
+          summary.analysisData != null
+              ? 'save_my_run_with_analysis'
+              : summary.motionSamples == null
               ? 'save_my_run_with_splits'
               : 'save_my_run_with_motion',
           params: {
-            if (summary.motionSamples != null)
+            if (summary.analysisData != null)
+              'analysis_data': summary.analysisData!.toJson(),
+            if (summary.analysisData != null || summary.motionSamples != null)
               'motion_samples': summary.motionSamples,
             'client_id': summary.clientRunId,
             'start_time': summary.startedAt.toUtc().toIso8601String(),

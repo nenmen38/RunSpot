@@ -4,12 +4,16 @@ class LocationFix {
     required this.longitude,
     required this.accuracy,
     required this.recordedAt,
+    this.altitude,
+    this.altitudeAccuracy,
   });
 
   final double latitude;
   final double longitude;
   final double accuracy;
   final DateTime recordedAt;
+  final double? altitude;
+  final double? altitudeAccuracy;
 
   bool get isUsable =>
       latitude.isFinite &&

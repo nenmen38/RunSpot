@@ -333,7 +333,7 @@ class LiveMapController extends ChangeNotifier {
       if (_disposed) return;
       locationFailure = const LocationFailure(LocationProblem.unavailable);
       groupPrepared = false;
-      runSession?.pause();
+      runSession?.pause(reason: 1);
       unawaited(_saveCheckpoint());
       _runTimer?.cancel();
       position = null;
@@ -434,7 +434,7 @@ class LiveMapController extends ChangeNotifier {
     if (_disposed) return;
     locationFailure = error;
     groupPrepared = false;
-    runSession?.pause();
+    runSession?.pause(reason: 1);
     unawaited(_saveCheckpoint());
     _runTimer?.cancel();
     _activityGeneration++;
@@ -768,7 +768,7 @@ class LiveMapController extends ChangeNotifier {
   @override
   void dispose() {
     _checkpointTimer?.cancel();
-    runSession?.pause();
+    runSession?.pause(reason: 3);
     unawaited(_saveCheckpoint());
     _disposed = true;
     _preferenceGeneration++;

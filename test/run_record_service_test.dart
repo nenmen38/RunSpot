@@ -1,3 +1,5 @@
+import 'package:runquest/features/run_history/models/run_analysis_data.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -80,6 +82,52 @@ void main() {
       'temperature_c': null,
       'temperature_observed_at': null,
     });
+  });
+
+  test('분석 자료가 있는 기록은 같은 저장 요청에 함께 포함합니다', () async {
+    late http.Request request;
+    final client = SupabaseClient(
+      'https://example.supabase.co',
+      '테스트용 공개 키',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((value) async {
+        request = value;
+        return http.Response(
+          jsonEncode(row),
+          200,
+          request: value,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(session('owner', 'token-a'));
+    final analysis = RunAnalysisData(
+      windows: [
+        [0, 1500000, 0, 1500000],
+      ],
+      pauses: [],
+      elevation: [],
+      gps: [],
+    );
+    await SupabaseRunRecordService(client).save(
+      RunSummary(
+        clientRunId: summary.clientRunId,
+        startedAt: summary.startedAt,
+        endedAt: summary.endedAt,
+        distanceMeters: summary.distanceMeters,
+        duration: summary.duration,
+        route: summary.route,
+        motionSamples: const [],
+        analysisData: analysis,
+      ),
+    );
+    expect(request.url.path, '/rest/v1/rpc/save_my_run_with_analysis');
+    final body = jsonDecode(request.body) as Map;
+    expect(body['analysis_data'], analysis.toJson());
+    expect(body['motion_samples'], []);
+    expect(body.containsKey('heart_summary'), isFalse);
+    expect(request.headers['authorization'], 'Bearer token-a');
   });
 
   test('새 측정은 원시 시각·정확도를 보내고 판정 결과는 서버에서 받습니다', () async {

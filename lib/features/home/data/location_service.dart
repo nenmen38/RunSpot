@@ -75,6 +75,8 @@ class DeviceLocationService implements LocationService {
     longitude: position.longitude,
     accuracy: position.accuracy,
     recordedAt: position.timestamp,
+    altitude: position.altitude,
+    altitudeAccuracy: position.altitudeAccuracy,
   );
 
   @override

@@ -1,4 +1,8 @@
+import '../models/run_feedback_context.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/run_feedback_heart_summary.dart';
 
 enum FeedbackStatus {
   available,
@@ -67,7 +71,11 @@ class RunFeedbackState {
 abstract interface class RunFeedbackService {
   bool get isCurrentOwner;
   Future<RunFeedbackState> load(String runId);
-  Future<RunFeedbackState> generate(String runId);
+  Future<RunFeedbackContext?> loadContext(String runId);
+  Future<RunFeedbackState> generate(
+    String runId, {
+    RunFeedbackHeartSummary? heartSummary,
+  });
 }
 
 class SupabaseRunFeedbackService implements RunFeedbackService {
@@ -96,11 +104,29 @@ class SupabaseRunFeedbackService implements RunFeedbackService {
   }
 
   @override
-  Future<RunFeedbackState> generate(String runId) async {
+  Future<RunFeedbackContext?> loadContext(String runId) async {
+    final session = _session();
+    final result = await client
+        .rpc('my_run_analysis', params: {'requested_run_id': runId})
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    _session();
+    return RunFeedbackContext.fromJson(
+      Map<String, dynamic>.from(result as Map),
+    );
+  }
+
+  @override
+  Future<RunFeedbackState> generate(
+    String runId, {
+    RunFeedbackHeartSummary? heartSummary,
+  }) async {
     final session = _session();
     final response = await client.functions.invoke(
       'run-feedback',
-      body: {'run_id': runId},
+      body: {
+        'run_id': runId,
+        if (heartSummary != null) 'heart_summary': heartSummary.toJson(),
+      },
       headers: {'Authorization': 'Bearer ${session.accessToken}'},
     );
     _session();

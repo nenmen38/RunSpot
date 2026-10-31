@@ -8,7 +8,7 @@ import '../../../shared/widgets/metric_values.dart';
 import '../../../shared/theme/app_colors.dart';
 
 const healthPrivacyNotice =
-    '본인 기기의 심박·칼로리 자료를 불러옵니다. 자료는 화면에서만 사용하며 서버에 저장하지 않습니다.';
+    '본인 기기의 심박·칼로리 자료를 불러옵니다. 자료는 화면에서 사용합니다. AI 피드백 요청 시 별도로 동의하면 평균·최대·구간별 심박 요약을 서버와 Google Gemini에 전송하며, 심박이 언급된 피드백은 저장됩니다.';
 
 Future<bool> confirmHealthAccess(BuildContext context) async =>
     await showDialog<bool>(
@@ -36,12 +36,14 @@ class RunHealthPanel extends StatefulWidget {
     required this.start,
     required this.end,
     required this.isCurrentOwner,
+    this.onSelectedSourceChanged,
     super.key,
   });
   final RunHealthService service;
   final DateTime start;
   final DateTime end;
   final bool Function() isCurrentOwner;
+  final ValueChanged<RunHealthSource?>? onSelectedSourceChanged;
   @override
   State<RunHealthPanel> createState() => _RunHealthPanelState();
 }
@@ -70,6 +72,7 @@ class _RunHealthPanelState extends State<RunHealthPanel>
   @override
   void dispose() {
     _generation++;
+    widget.onSelectedSourceChanged?.call(null);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -81,6 +84,7 @@ class _RunHealthPanelState extends State<RunHealthPanel>
     if (_foreground) {
       unawaited(_load());
     } else {
+      widget.onSelectedSourceChanged?.call(null);
       _generation++;
       setState(() {
         _data = null;
@@ -96,6 +100,7 @@ class _RunHealthPanelState extends State<RunHealthPanel>
     if (oldWidget.start != widget.start ||
         oldWidget.end != widget.end ||
         oldWidget.service != widget.service) {
+      widget.onSelectedSourceChanged?.call(null);
       _generation++;
       _data = null;
       _selected = null;
@@ -111,6 +116,7 @@ class _RunHealthPanelState extends State<RunHealthPanel>
     if (_busy || !_foreground || !widget.isCurrentOwner()) {
       return;
     }
+    widget.onSelectedSourceChanged?.call(null);
     setState(() {
       _busy = true;
       _data = null;
@@ -144,6 +150,7 @@ class _RunHealthPanelState extends State<RunHealthPanel>
           _data = data;
           if (data.sources.isNotEmpty) _selected = data.sources.first.id;
         });
+        widget.onSelectedSourceChanged?.call(data.sources.firstOrNull);
       }
     } catch (error) {
       if (mounted &&
@@ -226,7 +233,14 @@ class _RunHealthPanelState extends State<RunHealthPanel>
                     ),
                   ),
               ],
-              onChanged: (value) => setState(() => _selected = value),
+              onChanged: (value) {
+                setState(() => _selected = value);
+                widget.onSelectedSourceChanged?.call(
+                  _data?.sources
+                      .where((source) => source.id == value)
+                      .firstOrNull,
+                );
+              },
             ),
         ],
         ...[

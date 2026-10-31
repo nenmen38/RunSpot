@@ -1,3 +1,4 @@
+import { type HeartSummary, safeHeartSummary } from "./heart_summary.ts";
 import { boundedJson, type Feedback, type Summary } from "./gemini.ts";
 export type State = {
   status: string;
@@ -48,11 +49,12 @@ export function feedbackHandler(
       const gateway = createGateway(authorization);
       const owner = await gateway.authenticate(authorization.slice(7));
       if (!owner) return reply({ error: "unauthorized" }, 401);
-      let body: { run_id?: string };
+      let body: { run_id?: string; heart_summary?: unknown };
+      let heartSummary: HeartSummary | undefined;
       try {
         body = await boundedJson(
           new Response(request.body),
-          128,
+          131072,
         ) as typeof body;
       } catch {
         return reply({ error: "invalid_request" }, 400);
@@ -60,8 +62,17 @@ export function feedbackHandler(
       if (
         !body || typeof body.run_id !== "string" ||
         !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.run_id) ||
-        Object.keys(body).length !== 1
+        Object.keys(body).some((key) =>
+          !["run_id", "heart_summary"].includes(key)
+        )
       ) {
+        return reply({ error: "invalid_request" }, 400);
+      }
+      try {
+        if ("heart_summary" in body) {
+          heartSummary = safeHeartSummary(body.heart_summary);
+        }
+      } catch {
         return reply({ error: "invalid_request" }, 400);
       }
       let state: State;
@@ -78,7 +89,13 @@ export function feedbackHandler(
         throw new Error("invalid_reservation");
       }
       try {
-        const result = await generator.generate(reservation.summary);
+        const result = await generator.generate({
+          ...reservation.summary,
+          // 동의된 요약은 이번 생성에만 사용하고 별도 저장하지 않습니다.
+          ...(heartSummary === undefined
+            ? {}
+            : { heart_summary: heartSummary }),
+        });
         await gateway.finish(reservation.request_id, result);
       } catch {
         // 실패 후 다시 호출하지 않고 예약과 예산을 유지합니다.

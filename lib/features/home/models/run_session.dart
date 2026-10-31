@@ -1,3 +1,6 @@
+import '../../run_history/models/run_analysis_data.dart';
+import 'run_analysis_tracker.dart';
+
 import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
@@ -24,6 +27,7 @@ class RunSummary {
     this.temperature,
     this.splits,
     this.motionSamples,
+    this.analysisData,
   });
   final String clientRunId;
   final DateTime startedAt;
@@ -34,6 +38,7 @@ class RunSummary {
   final RunTemperature? temperature;
   final List<RunSplit>? splits;
   final List<List<num>>? motionSamples;
+  final RunAnalysisData? analysisData;
 }
 
 class RunSession {
@@ -41,12 +46,15 @@ class RunSession {
     : _pace = RunPace(now: paceNow),
       _clientRunId = const Uuid().v4(),
       _startedAt = DateTime.now().toUtc() {
+    _analysis = RunAnalysisTracker(_startedAt)
+      ..resume(_startedAt, Duration.zero);
     _splits = RunSplitTracker();
     _motion = RunMotionTracker(notBefore: _startedAt);
     _startSegment(start);
     _clock.start();
   }
 
+  RunAnalysisTracker? _analysis;
   RunSplitTracker? _splits;
   RunMotionTracker? _motion = RunMotionTracker();
   final _clock = Stopwatch();
@@ -83,6 +91,13 @@ class RunSession {
             restored: checkpoint.motionSamples,
             notBefore: _startedAt,
           );
+    if (checkpoint.analysisData != null) {
+      _analysis = RunAnalysisTracker(
+        _startedAt,
+        restored: checkpoint.analysisData,
+      );
+      if (!finished) _analysis!.restorePause(checkpoint.endedAt);
+    }
     _restoredDuration = checkpoint.duration;
     _distanceMeters = checkpoint.distanceMeters;
     if (checkpoint.splits != null) {
@@ -113,12 +128,14 @@ class RunSession {
   RunSummary checkpoint() {
     if (_summary != null) return _summary!;
     final measuredDuration = duration;
+    final checkpointTime = DateTime.now().toUtc();
     return RunSummary(
       clientRunId: _clientRunId,
       startedAt: _startedAt,
-      endedAt: DateTime.now().toUtc(),
+      endedAt: checkpointTime,
       distanceMeters: distanceMeters,
       duration: measuredDuration,
+      analysisData: _analysis?.snapshot(checkpointTime, measuredDuration),
       motionSamples: _motion?.snapshot(),
       splits: _splits?.snapshot(distanceMeters, measuredDuration),
       route: RunRoute(
@@ -131,6 +148,8 @@ class RunSession {
   }
 
   void _startSegment(LocationFix fix) {
+    _analysis?.breakElevation();
+    _analysis?.altitude(fix, _distanceMeters);
     _motion?.breakSegment();
     _motion?.accept(fix);
     if (!RunMotionTracker.usable(fix)) {
@@ -148,6 +167,13 @@ class RunSession {
 
   void accept(LocationFix fix) {
     if (!isRunning) return;
+    _analysis?.observe(
+      fix,
+      _distanceMeters,
+      accepted:
+          RunMotionTracker.usable(fix) &&
+          (_previous == null || !RunMotionTracker.jumped(_previous!, fix)),
+    );
     _motion?.accept(fix);
     if (!RunMotionTracker.usable(fix)) {
       _previous = null;
@@ -180,6 +206,7 @@ class RunSession {
       return;
     }
     _distanceMeters += distance;
+    _analysis?.altitude(fix, _distanceMeters);
     _splits?.advance(_distanceMeters, duration);
     _previous = fix;
     _segment!.add(fix);
@@ -187,22 +214,24 @@ class RunSession {
     _pace.accept(_distanceMeters, fix.recordedAt);
   }
 
-  void pause() {
+  void pause({int reason = 0}) {
     _motion?.breakSegment();
     _clock.stop();
+    _analysis?.pause(DateTime.now().toUtc(), duration, reason);
     _previous = null;
     _segment = null;
     _pace.clear();
   }
 
   void resume(LocationFix fix) {
-    if (isFinished) return;
+    if (isFinished || isRunning) return;
+    _analysis?.resume(DateTime.now().toUtc(), duration);
     _startSegment(fix);
     _clock.start();
   }
 
   RunSummary finish({RunTemperature? Function(DateTime)? temperatureAtEnd}) {
-    pause();
+    pause(reason: 4);
     if (_summary != null) return _summary!;
     final endedAt = DateTime.now().toUtc();
     // 재시도에도 종료 시각과 당시 기온을 그대로 보존합니다.
@@ -211,6 +240,7 @@ class RunSession {
       startedAt: _startedAt,
       endedAt: endedAt,
       temperature: temperatureAtEnd?.call(endedAt),
+      analysisData: _analysis?.snapshot(endedAt, duration),
       distanceMeters: _distanceMeters,
       duration: duration,
       motionSamples: _motion?.snapshot(),

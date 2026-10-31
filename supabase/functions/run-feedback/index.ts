@@ -1,3 +1,4 @@
+import { buildRunContext } from "./run_context.ts";
 import { createClient } from "@supabase/supabase-js";
 import { GeminiFeedback } from "./gemini.ts";
 import { feedbackHandler, type Gateway, type State } from "./handler.ts";
@@ -27,12 +28,21 @@ Deno.serve(feedbackHandler((authorization): Gateway => {
       return data as State;
     },
     async reserve(ownerId, runId) {
+      // 자료 조회와 숫자 요약에 실패하면 예산을 예약하지 않습니다.
+      const contextResult = await client.rpc("my_run_analysis", {
+        requested_run_id: runId,
+      });
+      if (contextResult.error) throw contextResult.error;
+      const context = buildRunContext(contextResult.data);
       const { data, error } = await admin.rpc("reserve_run_feedback", {
         owner_id: ownerId,
         target_run: runId,
       });
       if (error) throw error;
-      return data as State;
+      const state = data as State;
+      return state.summary
+        ? { ...state, summary: { ...state.summary, context } }
+        : state;
     },
     async finish(requestId, result) {
       const { error } = await admin.rpc("finish_run_feedback", {

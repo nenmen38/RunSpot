@@ -1,3 +1,5 @@
+import '../models/run_analysis_data.dart';
+
 import 'dart:convert';
 
 import 'package:path/path.dart' as path;
@@ -61,7 +63,7 @@ class SqliteRunOutbox implements RunOutbox {
   Future<Database> _create() async => _factory.openDatabase(
     await _databasePath(),
     options: OpenDatabaseOptions(
-      version: 5,
+      version: 6,
       singleInstance: false,
       onConfigure: (db) async {
         await db.execute('PRAGMA synchronous = FULL');
@@ -80,11 +82,17 @@ class SqliteRunOutbox implements RunOutbox {
             temperature_json TEXT,
             splits_json TEXT,
             motion_json TEXT,
+            analysis_json TEXT,
             PRIMARY KEY(namespace, owner_id, client_run_id)
           )
         ''');
       },
       onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 6) {
+          await db.execute(
+            'ALTER TABLE pending_runs ADD COLUMN analysis_json TEXT',
+          );
+        }
         if (oldVersion < 5) {
           await db.execute(
             'ALTER TABLE pending_runs ADD COLUMN motion_json TEXT',
@@ -133,6 +141,9 @@ class SqliteRunOutbox implements RunOutbox {
       'distance_m': summary.distanceMeters,
       'duration_us': summary.duration.inMicroseconds,
       'route_json': jsonEncode(summary.route.toJson()),
+      'analysis_json': summary.analysisData == null
+          ? null
+          : jsonEncode(summary.analysisData!.toJson()),
       'motion_json': summary.motionSamples == null
           ? null
           : jsonEncode(summary.motionSamples),
@@ -190,6 +201,11 @@ class SqliteRunOutbox implements RunOutbox {
               distanceMeters: (row['distance_m'] as num).toDouble(),
               duration: Duration(microseconds: row['duration_us'] as int),
               route: RunRoute.fromJson(jsonDecode(row['route_json'] as String)),
+              analysisData: row['analysis_json'] == null
+                  ? null
+                  : RunAnalysisData.decode(
+                      jsonDecode(row['analysis_json'] as String),
+                    ),
               motionSamples: row['motion_json'] == null
                   ? null
                   : RunMotionTracker.decode(

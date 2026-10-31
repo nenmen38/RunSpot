@@ -1,3 +1,4 @@
+import 'run_analysis_data.dart';
 import '../../home/models/run_session.dart';
 import 'run_route.dart';
 import 'run_temperature.dart';
@@ -18,6 +19,7 @@ class RunRecord {
     this.temperature,
     this.splits,
     this.motionEvidence,
+    this.analysisData,
     this.reviewPending = false,
     this.integrityStatus = 'pending',
   });
@@ -34,6 +36,7 @@ class RunRecord {
   final RunTemperature? temperature;
   final List<RunSplit>? splits;
   final List<RunMotionEvidence>? motionEvidence;
+  final RunAnalysisData? analysisData;
   final bool reviewPending;
   final String integrityStatus;
 
@@ -48,6 +51,7 @@ class RunRecord {
     route: summary.route,
     temperature: summary.temperature,
     splits: summary.splits,
+    analysisData: summary.analysisData,
   );
 
   RunRecord withHidden(bool value) => RunRecord(
@@ -63,6 +67,7 @@ class RunRecord {
     temperature: temperature,
     splits: splits,
     motionEvidence: motionEvidence,
+    analysisData: analysisData,
     reviewPending: reviewPending,
     integrityStatus: integrityStatus,
   );
