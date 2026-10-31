@@ -4,8 +4,9 @@ create function pg_temp.assert_true(ok boolean,message text)
 returns void language plpgsql as $$
 begin if ok is distinct from true then raise exception '%',message; end if; end;
 $$;
+-- 목록 구성 비교의 정렬 기준을 고정합니다. 실제 최신순은 아래에서 별도로 검증합니다.
 create function pg_temp.titles(feed jsonb) returns text[] language sql as $$
-  select coalesce(array_agg(p->>'title' order by p->>'title'),'{}') from jsonb_array_elements(feed->'posts') p;
+  select coalesce(array_agg(p->>'title' order by (p->>'title') collate "C"),'{}') from jsonb_array_elements(feed->'posts') p;
 $$;
 create function pg_temp.age_board() returns void language sql security definer as $$
   update runspot_private.board_posts set created_at=created_at-interval '1 minute';
