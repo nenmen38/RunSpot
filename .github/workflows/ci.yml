@@ -48,3 +48,16 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - run: scripts/run_sql_tests.sh
+
+  operations:
+    name: 알림·사진 정리 서버 함수 검증
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
+      - run: deno fmt --check supabase/functions/operations-worker
+      - run: deno check supabase/functions/operations-worker/index.ts
+      - run: deno test supabase/functions/operations-worker

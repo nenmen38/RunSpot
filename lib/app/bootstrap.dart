@@ -1,10 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../firebase_options.dart';
+import '../features/diagnostics/error_reporter.dart';
+import '../features/notifications/data/push_service.dart';
 import '../features/run_share/data/share_photo_service.dart';
 import 'local_config_loader.dart';
 
@@ -40,7 +41,8 @@ Future<void> initializeApp() async {
     url: supabaseUrl,
     publishableKey: supabasePublishableKey,
   );
-  await _configureFirebaseMessagingForDebug();
+  await ErrorReporter.initialize().catchError((_) {});
+  PushService.instance.start();
 }
 
 Future<Map<String, String>> _loadFallbackConfig() async {
@@ -78,28 +80,4 @@ String _requiredSupabasePublishableKey(String value, String? fallback) {
     );
   }
   return trimmed;
-}
-
-Future<void> _configureFirebaseMessagingForDebug() async {
-  final messaging = FirebaseMessaging.instance;
-
-  await messaging.requestPermission();
-
-  if (!kDebugMode) {
-    return;
-  }
-
-  try {
-    final token = await messaging.getToken();
-    // ignore: prefer_interpolation_to_compose_strings
-    debugPrint('FCM token: ' + (token ?? 'null'));
-
-    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-      // ignore: prefer_interpolation_to_compose_strings
-      debugPrint('FCM token refreshed: ' + token);
-    });
-  } catch (error) {
-    // ignore: prefer_interpolation_to_compose_strings
-    debugPrint('FCM token error: ' + error.toString());
-  }
 }

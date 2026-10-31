@@ -1,3 +1,6 @@
+import '../notifications/push_settings_screen.dart';
+
+import 'package:runquest/features/notifications/data/push_service.dart';
 import 'package:flutter/material.dart';
 
 import '../health/data/run_health_service.dart';
@@ -85,6 +88,14 @@ class SettingsScreen extends StatelessWidget {
     appBar: AppBar(title: const Text('설정')),
     body: ListView(
       children: [
+        ListTile(
+          leading: const Icon(Icons.notifications_outlined),
+          title: const Text('알림 설정'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(builder: (_) => const PushSettingsScreen()),
+          ),
+        ),
         ListTile(
           leading: const Icon(Icons.privacy_tip_outlined),
           title: const Text('계정·공개 설정'),
@@ -206,6 +217,7 @@ class SettingsScreen extends StatelessWidget {
             );
             if (confirmed == true && context.mounted && isCurrentOwner()) {
               try {
+                await PushService.instance.detach();
                 await Supabase.instance.client.auth.signOut();
               } catch (_) {
                 if (context.mounted) {

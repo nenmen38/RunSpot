@@ -9,3 +9,11 @@ language sql as $$ select row(503,null,null,null)::extensions.http_response $$;
 create schema if not exists cron;
 create function cron.schedule(job_name text,schedule text,command text) returns bigint
 language sql as $$ select 1::bigint $$;
+
+-- 운영 작업 호출도 외부 통신 없이 응답 구조만 검사합니다.
+create type extensions.http_header as (field varchar,value varchar);
+create type extensions.http_request as (method varchar,uri varchar,headers extensions.http_header[],content_type varchar,content varchar);
+create function extensions.http_header(field varchar,value varchar) returns extensions.http_header
+language sql as $$ select row(field,value)::extensions.http_header $$;
+create function extensions.http(request extensions.http_request) returns extensions.http_response
+language sql as $$ select row(503,null,null,null)::extensions.http_response $$;

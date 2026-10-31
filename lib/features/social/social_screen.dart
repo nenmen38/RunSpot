@@ -18,6 +18,9 @@ class SocialScreen extends StatefulWidget {
     this.blockService,
     this.groupController,
     this.onProfileTap,
+    this.initialTab = 0,
+    this.openGroupOnStart = false,
+    this.onInitialGroupOpened,
     super.key,
   });
 
@@ -26,6 +29,9 @@ class SocialScreen extends StatefulWidget {
   final BlockService? blockService;
   final GroupController? groupController;
   final VoidCallback? onProfileTap;
+  final int initialTab;
+  final bool openGroupOnStart;
+  final VoidCallback? onInitialGroupOpened;
 
   @override
   State<SocialScreen> createState() => _SocialScreenState();
@@ -47,6 +53,20 @@ class _SocialScreenState extends State<SocialScreen>
       widget.friendService ?? SupabaseFriendService(Supabase.instance.client),
     );
     _friends.setActive(true);
+    if (widget.openGroupOnStart && widget.groupController != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.onInitialGroupOpened?.call();
+        Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => GroupRunningScreen(
+              controller: widget.groupController!,
+              friends: _friends,
+            ),
+          ),
+        );
+      });
+    }
   }
 
   @override
@@ -64,6 +84,7 @@ class _SocialScreenState extends State<SocialScreen>
   @override
   Widget build(BuildContext context) => DefaultTabController(
     length: 4,
+    initialIndex: widget.initialTab,
     child: AnimatedBuilder(
       animation: _friends,
       builder: (context, _) => Column(

@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import '../features/notifications/data/push_service.dart';
+
 import 'package:flutter/material.dart';
 
 import '../shared/maps/run_map.dart';
@@ -64,6 +68,11 @@ class RunQuestShell extends StatefulWidget {
 
 class _RunQuestShellState extends State<RunQuestShell> {
   int _tab = 0;
+  StreamSubscription<PushDestination>? _pushSubscription;
+  StreamSubscription<PushDestination>? _pushMessages;
+  int _socialRevision = 0;
+  int _socialInitialTab = 0;
+  bool _openGroupOnStart = false;
   late final LiveMapController _map;
   ConditionsController? _conditions;
   ProgressService? _progress;
@@ -88,6 +97,31 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _board = widget.boardService;
     } else {
       final client = Supabase.instance.client;
+      _pushSubscription = PushService.instance.destinations.stream.listen(
+        _openPush,
+      );
+      _pushMessages = PushService.instance.messages.stream.listen((
+        destination,
+      ) {
+        _notifications?.refreshCount();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('새 활동 알림이 도착했어요.'),
+              action: SnackBarAction(
+                label: '확인',
+                onPressed: () {
+                  _openPush(destination);
+                },
+              ),
+            ),
+          );
+        }
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final destination = PushService.instance.pending;
+        if (destination != null) _openPush(destination);
+      });
       _blocks = SupabaseBlockService(client);
       _achievements = SupabaseAchievementService(client);
       _reviews = SupabaseReviewService(client);
@@ -125,12 +159,35 @@ class _RunQuestShellState extends State<RunQuestShell> {
 
   @override
   void dispose() {
+    _pushSubscription?.cancel();
+    _pushMessages?.cancel();
     _groups?.dispose();
     _notifications?.dispose();
     if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
     super.dispose();
+  }
+
+  void _openPush(PushDestination destination) {
+    if (!mounted ||
+        !_map.runHistory.service.isCurrentOwner ||
+        Supabase.instance.client.auth.currentUser?.id !=
+            destination.recipientId) {
+      return;
+    }
+    PushService.instance.pending = null;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (destination.kind == 'board_comment') {
+      unawaited(_openPost(destination.targetId));
+      return;
+    }
+    setState(() {
+      _socialRevision++;
+      _socialInitialTab = destination.kind == 'friend_request' ? 1 : 0;
+      _openGroupOnStart = destination.kind == 'group_invite';
+      _tab = 1;
+    });
   }
 
   void _openHistory() {
@@ -166,6 +223,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
   Widget build(BuildContext context) {
     final pages = [
       SocialScreen(
+        key: ValueKey(_socialRevision),
+        initialTab: _socialInitialTab,
+        openGroupOnStart: _openGroupOnStart,
+        onInitialGroupOpened: () => _openGroupOnStart = false,
         rankingService: _ranking,
         friendService: widget.friendService,
         blockService: _blocks,

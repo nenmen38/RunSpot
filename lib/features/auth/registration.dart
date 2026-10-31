@@ -1,3 +1,4 @@
+import 'package:runquest/features/notifications/data/push_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -56,6 +57,7 @@ class _RegistrationGateState extends State<RegistrationGate> {
   Future<void> _signOut() async {
     setState(() => _error = null);
     try {
+      await PushService.instance.detach();
       await Supabase.instance.client.auth.signOut();
     } catch (_) {
       if (mounted) setState(() => _error = '로그아웃하지 못했습니다.');

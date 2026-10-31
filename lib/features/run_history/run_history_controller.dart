@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import '../diagnostics/error_reporter.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -111,7 +113,12 @@ class RunHistoryController extends ChangeNotifier {
       (_) {},
       onError: (Object _, StackTrace _) {},
     );
-    await persisted;
+    try {
+      await persisted;
+    } catch (_, stack) {
+      ErrorReporter.report('run_storage', stack);
+      rethrow;
+    }
     final pending = RunRecord.pending(summary);
     if (_disposed || !service.isCurrentOwner) return pending;
     pendingRecords = [
@@ -126,7 +133,8 @@ class RunHistoryController extends ChangeNotifier {
         syncError = null;
         _failures = 0;
         return saved;
-      } catch (failure) {
+      } catch (failure, stack) {
+        ErrorReporter.report('run_upload', stack);
         if (!_disposed && service.isCurrentOwner) {
           syncError = message(failure);
           _retryable = _canRetry(failure);
@@ -199,7 +207,8 @@ class RunHistoryController extends ChangeNotifier {
           try {
             await _upload(summary);
             uploaded = true;
-          } catch (failure) {
+          } catch (failure, stack) {
+            ErrorReporter.report('run_upload', stack);
             failed = true;
             if (!_disposed && service.isCurrentOwner) {
               syncError = message(failure);
@@ -208,7 +217,8 @@ class RunHistoryController extends ChangeNotifier {
           }
           _notify();
         }
-      } catch (failure) {
+      } catch (failure, stack) {
+        ErrorReporter.report('run_upload', stack);
         failed = true;
         if (!_disposed && service.isCurrentOwner) {
           syncError = message(failure);

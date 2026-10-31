@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../diagnostics/error_reporter.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -369,7 +371,10 @@ class LiveMapController extends ChangeNotifier {
       _acceptPosition(fix);
       await _syncTracking();
       _startTimers();
-    } on LocationFailure catch (error) {
+    } on LocationFailure catch (error, stack) {
+      if (error.problem == LocationProblem.unavailable) {
+        ErrorReporter.report('run_tracking', stack);
+      }
       if (!_disposed && generation == _activityGeneration) {
         locationFailure = error;
       }
@@ -411,7 +416,10 @@ class LiveMapController extends ChangeNotifier {
       if (_disposed || !_active || generation != _activityGeneration) return;
       _acceptPosition(fix);
       if (sharing) await refresh();
-    } on LocationFailure catch (error) {
+    } on LocationFailure catch (error, stack) {
+      if (error.problem == LocationProblem.unavailable) {
+        ErrorReporter.report('run_tracking', stack);
+      }
       if (_active && generation == _activityGeneration) {
         await _locationLost(error);
       }
@@ -486,7 +494,10 @@ class LiveMapController extends ChangeNotifier {
           (_) => unawaited(_saveCheckpoint()),
         );
       }
-    } on LocationFailure catch (error) {
+    } on LocationFailure catch (error, stack) {
+      if (error.problem == LocationProblem.unavailable) {
+        ErrorReporter.report('run_tracking', stack);
+      }
       if (!_disposed && generation == _activityGeneration) {
         runError = error.message;
         locationFailure = error;
@@ -548,7 +559,8 @@ class LiveMapController extends ChangeNotifier {
       _checkpointTimer?.cancel();
       _checkpointTimer = null;
       return summary;
-    } catch (error) {
+    } catch (error, stack) {
+      ErrorReporter.report('run_tracking', stack);
       if (!_disposed) {
         runError = '기록을 저장하지 못했습니다. ${RunHistoryController.message(error)}';
       }
@@ -611,7 +623,8 @@ class LiveMapController extends ChangeNotifier {
         if (value) _scheduleRefresh();
       });
       await refresh();
-    } catch (error) {
+    } catch (error, stack) {
+      ErrorReporter.report('run_tracking', stack);
       if (!_disposed && generation == _generation) {
         sharing = false;
         sharingError = _message(error);
@@ -653,7 +666,8 @@ class LiveMapController extends ChangeNotifier {
           await runnerService.publish(fix);
         }
       });
-    } catch (error) {
+    } catch (error, stack) {
+      ErrorReporter.report('run_tracking', stack);
       if (!_disposed && sharing && generation == _generation) {
         await setSharing(false);
         sharingError = _message(error);
@@ -686,7 +700,8 @@ class LiveMapController extends ChangeNotifier {
         sharingError = null;
         _notify();
       }
-    } catch (error) {
+    } catch (error, stack) {
+      ErrorReporter.report('run_tracking', stack);
       if (!_disposed && generation == _generation) {
         runners = [];
         sharingError = _message(error);
