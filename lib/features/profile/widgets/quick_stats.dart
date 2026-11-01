@@ -5,6 +5,7 @@ import '../../../shared/widgets/account_query_panel.dart';
 import '../../../shared/formatters/run_format.dart';
 import '../data/statistics_service.dart';
 import '../models/run_statistics.dart';
+import 'run_growth_panel.dart';
 
 class QuickStats extends StatelessWidget {
   const QuickStats({required this.service, super.key});
@@ -47,6 +48,11 @@ class QuickStats extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 20),
+        if (stats.growth case final growth?)
+          RunGrowthPanel(growth: growth)
+        else
+          const Text('성장 추이를 보려면 서버 업데이트가 필요합니다.'),
       ],
     ),
   );

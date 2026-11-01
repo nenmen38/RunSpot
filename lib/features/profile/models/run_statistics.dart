@@ -1,6 +1,9 @@
-/// 서버에 저장된 기록의 주간 거리와 누적 통계입니다.
+import 'run_growth.dart';
+
+/// 서버에 저장된 기록의 주간·누적 통계와 월별 성장 추이입니다.
 class RunStatistics {
   const RunStatistics({
+    this.growth,
     required this.weekStartedAt,
     required this.weeklyDistanceMeters,
     required this.completedRuns,
@@ -8,6 +11,7 @@ class RunStatistics {
     required this.paceDurationSeconds,
   });
 
+  final RunGrowth? growth;
   final DateTime weekStartedAt;
   final int weeklyDistanceMeters;
   final int completedRuns;
@@ -32,6 +36,9 @@ class RunStatistics {
       throw const FormatException('개인 통계 응답이 올바르지 않습니다.');
     }
     return RunStatistics(
+      growth: json['growth'] == null
+          ? null
+          : RunGrowth.fromJson(json['growth']),
       weekStartedAt: week,
       weeklyDistanceMeters: values[0] as int,
       completedRuns: values[1] as int,

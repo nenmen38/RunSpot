@@ -86,3 +86,48 @@ select pg_temp.assert_true(pg_temp.fails('select public.friend_weekly_ranking()'
 reset role;
 rollback;
 \echo '개인 통계·친구 주간 랭킹 집계 및 권한 테스트 통과'
+
+-- 성장 추이는 전체 기록을 집계하고 월 경계·구간 완성도·계정 격리를 지킵니다.
+begin;
+create function pg_temp.growth_assert(ok boolean,message text)
+returns void language plpgsql as $$
+begin if ok is distinct from true then raise exception '%',message; end if; end; $$;
+insert into auth.users(id,email,email_confirmed_at) values
+ ('00000000-0000-0000-0000-000000000851','growth851@example.com',now()),
+ ('00000000-0000-0000-0000-000000000852','growth852@example.com',now());
+create temp table growth_month as select
+ date_trunc('month',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul' as start;
+-- 11km 중 마지막 5km가 가장 빠르므로 첫 5km만 비교하는 오류도 검출합니다.
+insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,split_data,hidden)
+select '00000000-0000-0000-0000-000000000851',gen_random_uuid(),start-interval '2 hours',start,11000,3600,
+ (select jsonb_agg(jsonb_build_object('distance_m',1000,'duration_us',case when n<=6 then 350000000 else 300000000 end) order by n)
+ from generate_series(1,11) n),true from growth_month;
+insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec)
+select '00000000-0000-0000-0000-000000000851',gen_random_uuid(),start-interval '2 hours',start-interval '1 microsecond',20000,7200 from growth_month;
+-- 거리만 채운 옛 기록, 미완성 마지막 구간, 미래 기록, 반려·검토 보류를 구분합니다.
+insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,split_data,integrity_status)
+select '00000000-0000-0000-0000-000000000851',gen_random_uuid(),v.ended-interval '5 hours',v.ended,v.metres,v.seconds,v.splits,v.status
+from growth_month m cross join lateral (values
+ (m.start,4999,1499,(select jsonb_agg(jsonb_build_object('distance_m',case when n=5 then 999 else 1000 end,'duration_us',case when n=5 then 299000000 else 300000000 end)) from generate_series(1,5) n),'pending'),
+ (now()+interval '1 day',50000,18000,null,'pending'),
+ (m.start,40000,14400,null,'rejected'),
+ (m.start,30000,1000,null,'pending')
+) v(ended,metres,seconds,splits,status);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000851',true);
+select pg_temp.growth_assert(jsonb_array_length(public.my_run_statistics()->'growth'->'monthly_distances')=12,'거리 없는 달도 12개월 포함');
+select pg_temp.growth_assert(public.my_run_statistics()->'growth'->'monthly_distances'->11 @>
+ '{"distance_m":15999,"completed_runs":2}'::jsonb,'한국 시간 월 시작과 숨김 포함, 미래·반려·보류 제외');
+select pg_temp.growth_assert(public.my_run_statistics()->'growth'->'monthly_distances'->10 @>
+ '{"distance_m":20000,"completed_runs":1}'::jsonb,'월 시작 직전 기록은 지난달');
+select pg_temp.growth_assert(public.my_run_statistics()->'growth'->'longest_run' @> '{"distance_m":20000}'::jsonb,'구간 없는 옛 기록도 최장 거리에 포함');
+select pg_temp.growth_assert(public.my_run_statistics()->'growth'->'best_5k' @> '{"duration_us":1500000000}'::jsonb,'연속 후반 5km 기록과 미완성 구간 제외');
+select pg_temp.growth_assert(public.my_run_statistics()->'growth'->'best_10k' @> '{"duration_us":3250000000}'::jsonb,'연속 10km 구간 기록');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000852',true);
+select pg_temp.growth_assert(public.my_run_statistics()->'growth' @>
+ '{"longest_run":null,"best_5k":null,"best_10k":null}'::jsonb,'다른 계정의 최고 기록 미노출');
+select pg_temp.growth_assert(not exists(select 1 from jsonb_array_elements(public.my_run_statistics()->'growth'->'monthly_distances') m
+ where (m->>'distance_m')::int<>0),'빈 계정의 월별 거리 0');
+reset role;
+rollback;
+\echo '개인 성장 추이·월 경계·최고 기록·계정 격리 테스트 통과'
