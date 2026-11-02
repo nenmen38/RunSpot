@@ -142,6 +142,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ?.temperatureAt(widget.controller.position, endedAt),
       );
       if (!mounted || summary == null) return;
+      if (!summary.canSaveRecord) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('300m 미만 러닝은 저장하지 않습니다.')));
+        return;
+      }
       final history = widget.controller.runHistory;
       RunRecord currentRecord() =>
           history.visibleRecords

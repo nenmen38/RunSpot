@@ -540,19 +540,21 @@ class LiveMapController extends ChangeNotifier {
     await _saveCheckpoint();
     _activityGeneration++;
     _runTimer?.cancel();
-    unawaited(_syncTracking());
+    final trackingStopped = _syncTracking();
     runError = null;
     savingRun = true;
     _notify();
     try {
       // 위치 공유 정리 중 연결이 끊겨도 완료 기록의 기기 저장은 지연하지 않습니다.
       if (sharing || changingSharing) unawaited(setSharing(false));
-      await runHistory.save(summary);
+      // 짧은 러닝은 종료만 처리하고 저장 대기 목록과 서버 기록에 넣지 않습니다.
+      if (summary.canSaveRecord) await runHistory.save(summary);
       if (checkpointStore != null) {
         final cleared = _checkpointWrites.then((_) => checkpointStore!.clear());
         _checkpointWrites = cleared.catchError((Object _) {});
         await cleared;
       }
+      await trackingStopped;
       if (_disposed) return null;
       runSession = null;
       recoveredRun = false;
