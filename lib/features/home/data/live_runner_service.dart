@@ -7,7 +7,7 @@ import '../models/live_runner.dart';
 abstract interface class LiveRunnerService {
   Future<void> publish(LocationFix fix);
   Future<void> stopSharing();
-  Future<List<LiveRunner>> nearby(int radiusMeters);
+  Future<List<LiveRunner>> nearby(int radiusMeters, LocationFix origin);
   Future<void> connect(
     void Function() onChanged,
     void Function(bool) onConnection,
@@ -24,7 +24,7 @@ class SupabaseLiveRunnerService implements LiveRunnerService {
   RealtimeChannel? _channel;
 
   void _requireOwner() {
-    if (_ownerId == null || client.auth.currentUser?.id != _ownerId) {
+    if (_ownerId == null || client.auth.currentSession?.user.id != _ownerId) {
       throw const AuthException('로그인이 필요합니다.');
     }
   }
@@ -49,12 +49,22 @@ class SupabaseLiveRunnerService implements LiveRunnerService {
   }
 
   @override
-  Future<List<LiveRunner>> nearby(int radiusMeters) async {
+  Future<List<LiveRunner>> nearby(int radiusMeters, LocationFix origin) async {
     _requireOwner();
-    final rows = await client.rpc(
-      'map_nearby_runners',
-      params: {'radius_m': radiusMeters},
-    ) as List<dynamic>;
+    final session = client.auth.currentSession!;
+    final rows =
+        await client
+                .rpc(
+                  'map_nearby_runners_at',
+                  params: {
+                    'radius_m': radiusMeters,
+                    'viewer_latitude': origin.latitude,
+                    'viewer_longitude': origin.longitude,
+                  },
+                )
+                .setHeader('Authorization', 'Bearer ${session.accessToken}')
+            as List<dynamic>;
+    _requireOwner();
     return rows
         .map((row) => LiveRunner.fromJson(row as Map<String, dynamic>))
         .toList();

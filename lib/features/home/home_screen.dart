@@ -83,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.conditionsController?.setLocation(widget.controller.position);
     widget.notificationController?.setActive(widget.isActive);
     unawaited(widget.controller.runHistory.setActive(true));
+    widget.controller.setMapVisible(widget.isActive);
     unawaited(widget.controller.start());
   }
 
@@ -244,6 +245,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state != AppLifecycleState.inactive) {
       _foreground = state == AppLifecycleState.resumed;
     }
+    widget.controller.setMapVisible(widget.isActive);
     widget.conditionsController?.setActive(_foreground && widget.isActive);
     widget.notificationController?.setActive(_foreground && widget.isActive);
     // 권한 대화상자의 일시적인 inactive 상태에서는 공유를 중단하지 않습니다.
@@ -273,6 +275,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (oldWidget.notificationController != widget.notificationController) {
       oldWidget.notificationController?.setActive(false);
     }
+    widget.controller.setMapVisible(widget.isActive);
     widget.conditionsController?.setActive(_foreground && widget.isActive);
     widget.notificationController?.setActive(_foreground && widget.isActive);
   }
@@ -283,6 +286,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.notificationController?.setActive(false);
     WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_changed);
+    widget.controller.setMapVisible(false);
     widget.groupController?.removeListener(_groupChanged);
     _map.dispose();
     super.dispose();
@@ -326,6 +330,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     return Column(
       children: [
+        if (notifications != null)
+          GroupInviteBanner(
+            controller: notifications,
+            onOpenPost: widget.onOpenPost ?? (_) {},
+          ),
         Expanded(
           child: Stack(
             children: [
@@ -573,18 +582,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            '위치 공유',
+                            '주변 러너',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           Text(
-                            state.sharing
-                                ? '주변 러너 ${state.runners.length}명'
-                                : state.shareWhileRunning
-                                ? '러닝 중에만 공유합니다.'
-                                : '프로필에서 러닝 시 위치 공유를 설정하세요.',
+                            '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
                           ),
                         ],
                       ),
@@ -597,16 +602,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                   ],
                 ),
-                if (state.sharing && !state.connected) const Text('실시간 연결 중'),
+                if (state.canViewNearby && !state.connected)
+                  const Text('실시간 연결 중'),
+                if (state.nearbyError != null)
+                  Text(
+                    state.nearbyError!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 if (state.sharingError != null)
                   Text(
                     state.sharingError!,
                     style: const TextStyle(color: Colors.red),
                   ),
-                if (state.sharing &&
+                if (state.canViewNearby &&
                     state.connected &&
                     state.runners.isEmpty &&
-                    state.sharingError == null)
+                    state.nearbyError == null)
                   const Text('주변에 위치를 공유 중인 러너가 없습니다.'),
                 if (state.recoveredRun)
                   const Text(

@@ -11,7 +11,7 @@ import 'models/app_notification.dart';
 class NotificationController extends ChangeNotifier {
   NotificationController(
     this.service, {
-    this.pollInterval = const Duration(minutes: 1),
+    this.pollInterval = const Duration(seconds: 10),
     this.onGroupChanged,
   });
 
@@ -27,6 +27,9 @@ class NotificationController extends ChangeNotifier {
   int _generation = 0;
   int unreadCount = 0;
   List<AppNotification> items = const [];
+  List<AppNotification> pendingInvites = const [];
+  bool _refreshingCount = false;
+  bool _invitesLoaded = false;
   bool loading = false;
 
   /// 응답을 보내는 중인 초대 알림과 마지막 응답 실패 안내입니다.
@@ -49,19 +52,55 @@ class NotificationController extends ChangeNotifier {
     if (service.isCurrentOwner) return true;
     unreadCount = 0;
     items = const [];
+    pendingInvites = const [];
+    _invitesLoaded = false;
     return false;
   }
 
   /// 알림 수 확인은 화면을 방해하지 않도록 실패해도 조용히 넘어갑니다.
   Future<void> refreshCount() async {
-    if (_disposed || loading) return;
+    if (_disposed || loading || _refreshingCount || responding != null) return;
+    if (!_checkOwner()) {
+      notifyListeners();
+      return;
+    }
+    _refreshingCount = true;
     final generation = _generation;
     try {
       final count = await service.unreadCount().timeout(_timeout);
       if (_disposed || generation != _generation) return;
-      if (_checkOwner()) unreadCount = count;
+      if (!_checkOwner()) {
+        notifyListeners();
+        return;
+      }
+      // 읽음으로 바꾸지 않고 응답 가능한 초대를 홈에서도 확인합니다.
+      final loaded = !_invitesLoaded || count > 0 || pendingInvites.isNotEmpty
+          ? await service.load().timeout(_timeout)
+          : <AppNotification>[];
+      if (_disposed || generation != _generation) return;
+      if (_checkOwner()) {
+        unreadCount = count;
+        _setPendingInvites(loaded);
+      }
       notifyListeners();
-    } catch (_) {}
+    } catch (_) {
+      if (!_disposed && generation == _generation) {
+        pendingInvites = const [];
+        _invitesLoaded = false;
+        notifyListeners();
+      }
+    } finally {
+      _refreshingCount = false;
+    }
+  }
+
+  void _setPendingInvites(List<AppNotification> loaded) {
+    _invitesLoaded = true;
+    pendingInvites = List.unmodifiable(
+      loaded.where(
+        (item) => item.kind == NotificationKind.groupInvite && item.canRespond,
+      ),
+    );
   }
 
   /// 알림창을 열 때 목록을 불러오고, 보여준 알림까지 읽음으로 바꿉니다.
@@ -79,6 +118,7 @@ class NotificationController extends ChangeNotifier {
         return;
       }
       items = List.unmodifiable(loaded);
+      _setPendingInvites(loaded);
       final unread = loaded.where((item) => !item.read);
       if (unread.isNotEmpty) {
         final seenUntil = unread
@@ -106,7 +146,10 @@ class NotificationController extends ChangeNotifier {
   /// 초대를 수락·거절합니다. 성공하면 null, 실패하면 안내 문구를 반환합니다.
   Future<String?> respond(AppNotification item, {required bool accept}) async {
     final groupId = item.groupId;
-    if (_disposed || responding != null || groupId == null) return null;
+    if (_disposed || loading || responding != null || groupId == null) {
+      return null;
+    }
+    ++_generation;
     responding = item.id;
     respondError = null;
     notifyListeners();
@@ -128,7 +171,10 @@ class NotificationController extends ChangeNotifier {
     // 성공·실패와 관계없이 서버의 최신 초대 상태를 다시 보여줍니다.
     try {
       final loaded = await service.load().timeout(_timeout);
-      if (!_disposed && _checkOwner()) items = List.unmodifiable(loaded);
+      if (!_disposed && _checkOwner()) {
+        items = List.unmodifiable(loaded);
+        _setPendingInvites(loaded);
+      }
     } catch (_) {}
     if (_disposed) return failure;
     responding = null;

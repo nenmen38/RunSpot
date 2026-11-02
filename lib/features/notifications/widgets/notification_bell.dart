@@ -18,17 +18,6 @@ class NotificationBell extends StatelessWidget {
   final NotificationController controller;
   final void Function(String postId) onOpenPost;
 
-  Future<void> _open(BuildContext context) async {
-    unawaited(controller.open());
-    final postId = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => NotificationSheet(controller: controller),
-    );
-    if (postId != null) onOpenPost(postId);
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
@@ -36,7 +25,7 @@ class NotificationBell extends StatelessWidget {
       final count = controller.unreadCount;
       return IconButton.filled(
         tooltip: count == 0 ? '알림' : '알림 $count개',
-        onPressed: () => _open(context),
+        onPressed: () => showNotificationSheet(context, controller, onOpenPost),
         style: IconButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: AppColors.ink,
@@ -45,6 +34,68 @@ class NotificationBell extends StatelessWidget {
           isLabelVisible: count > 0,
           label: Text(count > 99 ? '99+' : '$count'),
           child: const Icon(Icons.campaign_outlined),
+        ),
+      );
+    },
+  );
+}
+
+Future<void> showNotificationSheet(
+  BuildContext context,
+  NotificationController controller,
+  void Function(String) onOpenPost,
+) async {
+  unawaited(controller.open());
+  final postId = await showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => NotificationSheet(controller: controller),
+  );
+  if (context.mounted && postId != null) onOpenPost(postId);
+}
+
+/// 푸시 권한과 관계없이 홈에 대기 중인 초대 내용을 표시합니다.
+class GroupInviteBanner extends StatelessWidget {
+  const GroupInviteBanner({
+    required this.controller,
+    required this.onOpenPost,
+    super.key,
+  });
+  final NotificationController controller;
+  final void Function(String) onOpenPost;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) {
+      if (!controller.service.isCurrentOwner ||
+          controller.pendingInvites.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      final invite = controller.pendingInvites.first;
+      return Material(
+        color: AppColors.blueSoft,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.directions_run, color: AppColors.blue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  invite.message,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              TextButton(
+                onPressed: () =>
+                    showNotificationSheet(context, controller, onOpenPost),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
         ),
       );
     },
@@ -138,7 +189,7 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final invite = item.kind == NotificationKind.groupInvite;
-    final busy = controller.responding != null;
+    final busy = controller.loading || controller.responding != null;
     return ListTile(
       tileColor: item.read ? null : AppColors.blueSoft,
       leading: Icon(

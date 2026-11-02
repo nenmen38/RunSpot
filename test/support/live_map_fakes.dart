@@ -86,6 +86,9 @@ class FakeRunnerService implements LiveRunnerService {
   void Function()? onChanged;
   void Function(bool)? onConnection;
   int? lastRadius;
+  LocationFix? lastOrigin;
+  Completer<List<LiveRunner>>? pendingNearby;
+  Object? nearbyFailure;
 
   @override
   Future<void> publish(LocationFix fix) async {
@@ -101,9 +104,11 @@ class FakeRunnerService implements LiveRunnerService {
   }
 
   @override
-  Future<List<LiveRunner>> nearby(int radiusMeters) async {
+  Future<List<LiveRunner>> nearby(int radiusMeters, LocationFix origin) async {
     lastRadius = radiusMeters;
-    return runners;
+    lastOrigin = origin;
+    if (nearbyFailure != null) throw nearbyFailure!;
+    return pendingNearby == null ? runners : await pendingNearby!.future;
   }
 
   @override

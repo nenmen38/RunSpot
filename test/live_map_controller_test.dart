@@ -64,6 +64,87 @@ void main() {
     });
   }
 
+  test('홈 조회는 러닝이나 위치 공개 없이 주변 러너를 표시합니다', () async {
+    service.runners = [
+      LiveRunner(
+        id: 'other',
+        nickname: '러닝중',
+        latitude: 37.567,
+        longitude: 126.978,
+        distanceMeters: 50,
+        updatedAt: DateTime.now(),
+      ),
+    ];
+    await controller.start();
+    await controller.refresh();
+    expect(controller.runners.single.id, 'other');
+    expect(controller.runSession, isNull);
+    expect(history.visibleRecords, isEmpty);
+    expect(service.actions, isEmpty);
+    expect(controller.sharing, isFalse);
+    controller.setMapVisible(false);
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.runners, isEmpty);
+    expect(service.onChanged, isNull);
+    controller.setMapVisible(true);
+    await Future<void>.delayed(Duration.zero);
+    await controller.refresh();
+    expect(controller.runners.single.id, 'other');
+    expect(service.actions, isEmpty);
+  });
+
+  test('홈을 벗어난 뒤 도착한 조회 응답은 표시하지 않습니다', () async {
+    service.pendingNearby = Completer<List<LiveRunner>>();
+    await controller.start();
+    controller.setMapVisible(false);
+    service.pendingNearby!.complete([
+      LiveRunner(
+        id: 'late',
+        nickname: '이전러너',
+        latitude: 37.567,
+        longitude: 126.978,
+        distanceMeters: 50,
+        updatedAt: DateTime.now(),
+      ),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.runners, isEmpty);
+    expect(service.actions, isEmpty);
+  });
+
+  test('조회 실패는 내 위치를 공개하거나 개인 측정을 중단하지 않습니다', () async {
+    service.nearbyFailure = StateError('조회 실패');
+    await controller.startRun();
+    await controller.refresh();
+    expect(controller.runners, isEmpty);
+    expect(controller.nearbyError, isNotNull);
+    expect(controller.runSession!.isRunning, isTrue);
+    expect(controller.sharing, isFalse);
+    expect(service.actions, isEmpty);
+  });
+
+  test('위치 권한을 잃으면 주변 러너와 조회 구독을 제거합니다', () async {
+    service.runners = [
+      LiveRunner(
+        id: 'other',
+        nickname: '러너',
+        latitude: 37.567,
+        longitude: 126.978,
+        distanceMeters: 50,
+        updatedAt: DateTime.now(),
+      ),
+    ];
+    await controller.start();
+    await controller.refresh();
+    expect(controller.runners, isNotEmpty);
+    location.failure = const LocationFailure(LocationProblem.denied);
+    await controller.start();
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.runners, isEmpty);
+    expect(service.onChanged, isNull);
+    expect(service.actions, isEmpty);
+  });
+
   test('현재 위치는 기본적으로 서버에 전송하지 않습니다', () async {
     await controller.start();
     expect(controller.position, isNotNull);
@@ -75,7 +156,7 @@ void main() {
     expect(service.actions, isEmpty);
   });
 
-  test('러닝 시작 전에는 위치가 있어도 공유와 주변 조회를 허용하지 않습니다', () async {
+  test('러닝 전에도 주변은 조회하지만 내 위치는 공개하지 않습니다', () async {
     await controller.start();
     expect(controller.position, isNotNull);
     expect(controller.canShareLocation, isFalse);
@@ -83,8 +164,9 @@ void main() {
     await controller.refresh();
     expect(controller.sharing, isFalse);
     expect(service.actions, isEmpty);
-    expect(service.lastRadius, isNull);
-    expect(service.onChanged, isNull);
+    expect(service.lastRadius, 1000);
+    expect(service.lastOrigin?.latitude, controller.position?.latitude);
+    expect(service.onChanged, isNotNull);
   });
 
   test('일시 정지 시 공유를 중단하고 러닝을 계속해도 자동 공개하지 않습니다', () async {
@@ -111,17 +193,14 @@ void main() {
 
   test('공유 준비 중 일시 정지하면 위치를 전송하지 않습니다', () async {
     await controller.startRun();
-    service.pendingDisconnect = Completer<void>();
     final sharing = controller.setSharing(true);
-    await Future<void>.delayed(Duration.zero);
     controller.pauseRun();
-    service.pendingDisconnect!.complete();
     await sharing;
     await Future<void>.delayed(Duration.zero);
     expect(service.actions, ['stop']);
     expect(controller.sharing, isFalse);
     expect(controller.changingSharing, isFalse);
-    expect(service.onChanged, isNull);
+    expect(service.onChanged, isNotNull);
   });
 
   for (final finish in [false, true]) {
@@ -144,7 +223,7 @@ void main() {
       expect(service.actions, ['publish', 'stop']);
       expect(controller.sharing, isFalse);
       expect(controller.changingSharing, isFalse);
-      expect(service.onChanged, isNull);
+      expect(service.onChanged, isNotNull);
       await controller.setSharing(true);
       expect(service.actions, ['publish', 'stop']);
     });
@@ -400,7 +479,7 @@ void main() {
     expect(service.actions, isEmpty);
   });
 
-  test('공유를 켜면 주변 러너를 조회하고 끄면 삭제합니다', () async {
+  test('공유를 꺼도 주변 러너는 유지하고 내 공개 위치만 삭제합니다', () async {
     service.runners = [
       LiveRunner(
         id: 'runner',
@@ -418,7 +497,7 @@ void main() {
     expect(controller.runners.single.nickname, '함께러너');
     expect(service.lastRadius, 1000);
     await controller.setSharing(false);
-    expect(controller.runners, isEmpty);
+    expect(controller.runners.single.nickname, '함께러너');
     expect(service.actions, ['publish', 'stop']);
   });
 
@@ -471,7 +550,7 @@ void main() {
     await controller.setSharing(true);
     expect(controller.sharing, isFalse);
     expect(controller.sharingError, '이메일 인증이 필요합니다.');
-    expect(service.onChanged, isNull);
+    expect(service.onChanged, isNotNull);
   });
 
   test('공유 중 GPS 정확도가 나빠지면 마지막 위치를 삭제합니다', () async {

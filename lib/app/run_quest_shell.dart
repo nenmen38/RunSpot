@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import '../features/notifications/data/push_service.dart';
+import '../features/group_running/widgets/group_start_countdown.dart';
+
 import 'package:flutter/material.dart';
 
 import '../shared/maps/run_map.dart';
@@ -48,6 +51,8 @@ class RunQuestShell extends StatefulWidget {
     this.statisticsService,
     this.rankingService,
     this.boardService,
+    this.groupController,
+    this.notificationController,
     super.key,
   });
 
@@ -59,6 +64,8 @@ class RunQuestShell extends StatefulWidget {
   final StatisticsService? statisticsService;
   final RankingService? rankingService;
   final BoardService? boardService;
+  final GroupController? groupController;
+  final NotificationController? notificationController;
 
   @override
   State<RunQuestShell> createState() => _RunQuestShellState();
@@ -66,6 +73,12 @@ class RunQuestShell extends StatefulWidget {
 
 class _RunQuestShellState extends State<RunQuestShell> {
   int _tab = 0;
+  StreamSubscription<PushDestination>? _pushSubscription;
+  StreamSubscription<PushDestination>? _pushMessages;
+  int _socialRevision = 0;
+  int _socialInitialTab = 0;
+  bool _openGroupOnStart = false;
+  String? _countdownKey;
   late final LiveMapController _map;
   ConditionsController? _conditions;
   ProgressService? _progress;
@@ -88,6 +101,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _statistics = widget.statisticsService;
       _ranking = widget.rankingService;
       _board = widget.boardService;
+      _groups = widget.groupController;
+      _notifications = widget.notificationController;
     } else {
       final client = Supabase.instance.client;
       _blocks = SupabaseBlockService(client);
@@ -117,24 +132,97 @@ class _RunQuestShellState extends State<RunQuestShell> {
           ),
         ),
       );
-      _groups = GroupController(SupabaseGroupService(client), _map);
+      _groups =
+          widget.groupController ??
+          GroupController(SupabaseGroupService(client), _map);
       _board = widget.boardService ?? SupabaseBoardService(client);
-      _notifications = NotificationController(
-        SupabaseNotificationService(client),
-        // 알림창에서 초대에 응답하면 함께 달리기 상태를 바로 새로 고칩니다.
-        onGroupChanged: () => unawaited(_groups?.refresh()),
-      );
+      _notifications =
+          widget.notificationController ??
+          NotificationController(
+            SupabaseNotificationService(client),
+            onGroupChanged: () => unawaited(_groups?.refresh()),
+          );
     }
+    _pushSubscription = PushService.instance.destinations.stream.listen(
+      _openPush,
+    );
+    _pushMessages = PushService.instance.messages.stream.listen((destination) {
+      if (!mounted ||
+          !_map.runHistory.service.isCurrentOwner ||
+          _map.runHistory.service.ownerId != destination.recipientId) {
+        return;
+      }
+      _notifications?.refreshCount();
+      if (destination.kind == 'group_invite') unawaited(_groups?.refresh());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              destination.kind == 'group_invite'
+                  ? '함께 달리기 초대가 도착했어요.'
+                  : '새 활동 알림이 도착했어요.',
+            ),
+            action: SnackBarAction(
+              label: '확인',
+              onPressed: () {
+                _openPush(destination);
+              },
+            ),
+          ),
+        );
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final destination = PushService.instance.pending;
+      if (destination != null) _openPush(destination);
+    });
+    _groups?.addListener(_groupStateChanged);
+  }
+
+  void _groupStateChanged() {
+    final group = _groups?.countdownGroup;
+    final key = group == null ? null : '${group.id}:${group.startsAt}';
+    if (_countdownKey == key) return;
+    _countdownKey = key;
+    if (key == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _countdownKey != key) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      setState(() => _tab = 0);
+    });
   }
 
   @override
   void dispose() {
-    _groups?.dispose();
-    _notifications?.dispose();
+    _pushSubscription?.cancel();
+    _pushMessages?.cancel();
+    _groups?.removeListener(_groupStateChanged);
+    if (widget.groupController == null) _groups?.dispose();
+    if (widget.notificationController == null) _notifications?.dispose();
     if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
     super.dispose();
+  }
+
+  void _openPush(PushDestination destination) {
+    if (!mounted ||
+        !_map.runHistory.service.isCurrentOwner ||
+        _map.runHistory.service.ownerId != destination.recipientId) {
+      return;
+    }
+    PushService.instance.pending = null;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (destination.kind == 'board_comment') {
+      unawaited(_openPost(destination.targetId));
+      return;
+    }
+    setState(() {
+      _socialRevision++;
+      _socialInitialTab = destination.kind == 'friend_request' ? 1 : 0;
+      _openGroupOnStart = destination.kind == 'group_invite';
+      _tab = 1;
+    });
   }
 
   void _openHistory() {
@@ -170,6 +258,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
   Widget build(BuildContext context) {
     final pages = [
       SocialScreen(
+        key: ValueKey(_socialRevision),
+        initialTab: _socialInitialTab,
+        openGroupOnStart: _openGroupOnStart,
+        onInitialGroupOpened: () => _openGroupOnStart = false,
         rankingService: _ranking,
         friendService: widget.friendService,
         blockService: _blocks,
@@ -223,6 +315,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
                 child: pages[_tab - 1],
               ),
+            if (_groups case final groups?)
+              Positioned.fill(child: GroupStartCountdown(controller: groups)),
           ],
         ),
       ),

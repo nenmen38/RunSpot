@@ -72,3 +72,43 @@ select pg_temp.assert_true((select count(*)=2 from runspot_private.feedback_requ
 select pg_temp.assert_true((select not prosecdef from pg_proc where oid='public.my_run_feedback(uuid)'::regprocedure),'공개 API 호출자 권한 유지');
 rollback;
 \echo '러닝 피드백 권한·72시간·예산 테스트 통과'
+
+
+begin;
+create function pg_temp.reset_assert(ok boolean,message text) returns void language plpgsql as $$
+begin if ok is distinct from true then raise exception '%',message; end if; end; $$;
+create function pg_temp.denied(statement text) returns boolean language plpgsql as $$
+begin execute statement; return false; exception when insufficient_privilege then return true; end; $$;
+insert into auth.users(id,email,email_confirmed_at) values
+ ('00000000-0000-0000-0000-000000000841','reset841@example.com',now()),
+ ('00000000-0000-0000-0000-000000000842','reset842@example.com',now());
+insert into public.runs(id,user_id,client_run_id,started_at,ended_at,distance_m,duration_sec)
+select ('10000000-0000-0000-0000-'||lpad(n::text,12,'0'))::uuid,
+ ('00000000-0000-0000-0000-'||lpad(n::text,12,'0'))::uuid,gen_random_uuid(),now()-interval '1 hour',now(),1000,600
+from generate_series(841,842) n;
+insert into runspot_private.feedback_requests(user_id,run_id,state,created_at,finished_at)
+select user_id,id,'failed',now()-interval '1 hour',now()-interval '59 minutes'
+from public.runs where id in ('10000000-0000-0000-0000-000000000841','10000000-0000-0000-0000-000000000842');
+insert into runspot_private.feedback_cooldown_resets(user_id,reason)
+values('00000000-0000-0000-0000-000000000841','계정별 대기 시간 초기화 검증');
+select pg_temp.reset_assert(runspot_private.feedback_state('00000000-0000-0000-0000-000000000841','10000000-0000-0000-0000-000000000841')->>'status'='available','초기화한 계정만 다시 요청 가능');
+select pg_temp.reset_assert(runspot_private.feedback_state('00000000-0000-0000-0000-000000000842','10000000-0000-0000-0000-000000000842')->>'status'='cooldown','다른 계정의 대기 시간 유지');
+select pg_temp.reset_assert((select count(*)=2 and min(created_at)=now()-interval '1 hour' from runspot_private.feedback_requests),'요청 이력과 원래 시각 유지');
+update runspot_private.feedback_limits set daily_calls=2;
+select pg_temp.reset_assert(public.reserve_run_feedback('00000000-0000-0000-0000-000000000841','10000000-0000-0000-0000-000000000841')->>'status'='budget_exhausted','초기화 후에도 전체 호출 예산 유지');
+update runspot_private.feedback_limits set daily_calls=100;
+select pg_temp.reset_assert(public.reserve_run_feedback('00000000-0000-0000-0000-000000000841','10000000-0000-0000-0000-000000000841')->>'status'='reserved','초기화 후 한 번의 새 예약 허용');
+select pg_temp.reset_assert(public.reserve_run_feedback('00000000-0000-0000-0000-000000000841','10000000-0000-0000-0000-000000000841')->>'status'='processing','새 요청 진행 중 중복 실행 차단');
+-- 운영자의 잘못된 추가 초기화가 있더라도 진행 중인 요청은 보호합니다.
+update runspot_private.feedback_cooldown_resets set reset_at=clock_timestamp();
+select pg_temp.reset_assert(runspot_private.feedback_state('00000000-0000-0000-0000-000000000841','10000000-0000-0000-0000-000000000841')->>'status'='processing','진행 중 요청은 초기화로 우회할 수 없음');
+-- 새 요청 이후의 정상적인 대기 기준을 다시 확인합니다.
+update runspot_private.feedback_cooldown_resets set reset_at=now()-interval '30 minutes';
+update runspot_private.feedback_requests set state='failed',finished_at=clock_timestamp() where state='pending';
+select pg_temp.reset_assert(runspot_private.feedback_state('00000000-0000-0000-0000-000000000841','10000000-0000-0000-0000-000000000841')->>'status'='cooldown','새 요청 이후 72시간 제한 복구');
+set local role authenticated;
+select pg_temp.reset_assert(pg_temp.denied('select * from runspot_private.feedback_cooldown_resets'),'일반 사용자의 초기화 자료 조회 차단');
+select pg_temp.reset_assert(pg_temp.denied('insert into runspot_private.feedback_cooldown_resets(user_id,reason) values(auth.uid(),''우회'')'),'일반 사용자의 대기 초기화 차단');
+reset role;
+rollback;
+\echo '피드백 계정별 초기화·호출 예산·권한·중복 요청 테스트 통과'

@@ -127,8 +127,8 @@ void main() {
     controller.setActive(true);
     await tester.pump();
     expect(controller.unreadCount, 1);
-    await tester.pump(const Duration(minutes: 1));
-    await tester.pump(const Duration(minutes: 1));
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pump(const Duration(seconds: 10));
     expect(service.countCalls, 3);
     controller.setActive(false);
     await tester.pump(const Duration(minutes: 5));
@@ -264,6 +264,71 @@ void main() {
     notifications.dispose();
     map.dispose();
     history.dispose();
+  });
+
+  testWidgets('홈 초대 배너는 읽음 처리 없이 표시되고 수락 뒤 사라집니다', (tester) async {
+    final service = FakeNotificationService()
+      ..unread = 1
+      ..rows = [_inviteJson('group')];
+    final controller = NotificationController(service);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GroupInviteBanner(controller: controller, onOpenPost: (_) {}),
+        ),
+      ),
+    );
+    await controller.refreshCount();
+    await tester.pump();
+    expect(find.text('방장님이 함께 달리기에 초대했어요.'), findsOneWidget);
+    expect(service.marked, isEmpty);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('수락'));
+    await tester.pumpAndSettle();
+    expect(service.responses, [('group', true)]);
+    expect(controller.pendingInvites, isEmpty);
+    expect(find.textContaining('참여했어요'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('이미 읽은 대기 초대도 표시하고 취소·계정 변경 시 배너를 지웁니다', (tester) async {
+    final service = FakeNotificationService()
+      ..rows = [
+        {..._inviteJson('group'), 'read': true},
+      ];
+    final controller = NotificationController(service);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GroupInviteBanner(controller: controller, onOpenPost: (_) {}),
+        ),
+      ),
+    );
+    await controller.refreshCount();
+    await tester.pump();
+    expect(find.text('방장님이 함께 달리기에 초대했어요.'), findsOneWidget);
+    service.rows = [
+      {
+        ..._inviteJson('group'),
+        'can_respond': false,
+        'invite_status': 'cancelled',
+      },
+    ];
+    await controller.refreshCount();
+    await tester.pump();
+    expect(controller.pendingInvites, isEmpty);
+    service.unread = 1;
+    service.rows = [_inviteJson('group')];
+    await controller.refreshCount();
+    service.owner = false;
+    await controller.refreshCount();
+    await tester.pump();
+    expect(find.text('방장님이 함께 달리기에 초대했어요.'), findsNothing);
+    expect(controller.pendingInvites, isEmpty);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('함께 달리기 초대 알림에서 수락하면 참여하고 버튼이 사라집니다', (tester) async {

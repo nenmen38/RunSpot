@@ -190,6 +190,66 @@ class LiveMapController extends ChangeNotifier {
 
   bool savingRun = false;
   bool locating = false;
+  bool _mapVisible = true;
+  bool _nearbySubscribed = false;
+  int _nearbyGeneration = 0;
+  Future<void> _nearbyWork = Future.value();
+  String? nearbyError;
+  bool get canViewNearby =>
+      !_disposed &&
+      _active &&
+      _mapVisible &&
+      runHistory.service.isCurrentOwner &&
+      position?.isUsable == true &&
+      locationFailure == null;
+
+  void setMapVisible(bool visible) {
+    if (_disposed || _mapVisible == visible) return;
+    _mapVisible = visible;
+    unawaited(_syncNearby());
+  }
+
+  Future<void> _syncNearby() async {
+    if (!canViewNearby) {
+      final wasSubscribed = _nearbySubscribed;
+      ++_nearbyGeneration;
+      _nearbySubscribed = false;
+      _refreshTimer?.cancel();
+      runners = [];
+      connected = false;
+      nearbyError = null;
+      if (wasSubscribed) {
+        final work = _nearbyWork.then((_) => runnerService.disconnect());
+        _nearbyWork = work.catchError((Object _) {});
+        await _nearbyWork;
+      }
+      _notify();
+      return;
+    }
+    if (_nearbySubscribed) return;
+    _nearbySubscribed = true;
+    final generation = _nearbyGeneration;
+    unawaited(refresh());
+    final work = _nearbyWork.then((_) async {
+      if (!canViewNearby || generation != _nearbyGeneration) return;
+      await runnerService.connect(_scheduleRefresh, (value) {
+        if (!canViewNearby || generation != _nearbyGeneration) return;
+        connected = value;
+        if (!value) runners = [];
+        _notify();
+        if (value) _scheduleRefresh();
+      });
+    });
+    _nearbyWork = work.catchError((Object _) {
+      if (!_disposed && generation == _nearbyGeneration) {
+        _nearbySubscribed = false;
+        connected = false;
+        _notify();
+      }
+    });
+    await _nearbyWork;
+  }
+
   bool sharing = false;
   bool changingSharing = false;
   bool connected = false;
@@ -337,6 +397,7 @@ class LiveMapController extends ChangeNotifier {
       unawaited(_saveCheckpoint());
       _runTimer?.cancel();
       position = null;
+      unawaited(_syncNearby());
       if (sharing || changingSharing) unawaited(setSharing(false));
       _notify();
     }
@@ -385,6 +446,7 @@ class LiveMapController extends ChangeNotifier {
     } finally {
       if (!_disposed) {
         locating = false;
+        unawaited(_syncNearby());
         _notify();
         if (_active && generation != _activityGeneration && !startingRun) {
           unawaited(start());
@@ -404,7 +466,11 @@ class LiveMapController extends ChangeNotifier {
     }
     position = fix;
     locationFailure = null;
-    if (_active) _notify();
+    if (_active) {
+      _notify();
+      unawaited(_syncNearby());
+      _scheduleRefresh();
+    }
     if (_active && sharing && !changingSharing) unawaited(_publish());
   }
 
@@ -415,7 +481,8 @@ class LiveMapController extends ChangeNotifier {
       final fix = await locationService.current();
       if (_disposed || !_active || generation != _activityGeneration) return;
       _acceptPosition(fix);
-      if (sharing) await refresh();
+      await _syncNearby();
+      await refresh();
     } on LocationFailure catch (error, stack) {
       if (error.problem == LocationProblem.unavailable) {
         ErrorReporter.report('run_tracking', stack);
@@ -439,6 +506,7 @@ class LiveMapController extends ChangeNotifier {
     _runTimer?.cancel();
     _activityGeneration++;
     position = null;
+    unawaited(_syncNearby());
     unawaited(_syncTracking());
     if (sharing || changingSharing) await setSharing(false);
     _notify();
@@ -592,13 +660,9 @@ class LiveMapController extends ChangeNotifier {
     final generation = ++_generation;
     changingSharing = true;
     sharingError = null;
-    runners = [];
     sharing = false;
-    connected = false;
-    _refreshTimer?.cancel();
     _notify();
     try {
-      await runnerService.disconnect();
       if (!value) {
         await _enqueue(runnerService.stopSharing);
         return;
@@ -617,24 +681,13 @@ class LiveMapController extends ChangeNotifier {
       if (!canShareLocation || generation != _generation) return;
       sharing = true;
       _lastPublished = DateTime.now();
-      await runnerService.connect(_scheduleRefresh, (value) {
-        if (_disposed || !sharing || generation != _generation) return;
-        connected = value;
-        if (!value) runners = [];
-        _notify();
-        if (value) _scheduleRefresh();
-      });
+      await _syncNearby();
       await refresh();
     } catch (error, stack) {
       ErrorReporter.report('run_tracking', stack);
       if (!_disposed && generation == _generation) {
         sharing = false;
         sharingError = _message(error);
-        try {
-          await runnerService.disconnect();
-        } catch (_) {
-          // 채널 정리에 실패해도 위치 삭제 요청을 계속합니다.
-        }
         try {
           await _enqueue(runnerService.stopSharing);
         } catch (_) {
@@ -679,39 +732,42 @@ class LiveMapController extends ChangeNotifier {
   }
 
   void _scheduleRefresh() {
-    if (!canShareLocation || !sharing || _refreshTimer?.isActive == true) {
+    if (!canViewNearby || _refreshTimer?.isActive == true) {
       return;
     }
     _refreshTimer = Timer(const Duration(seconds: 1), refresh);
   }
 
   Future<void> refresh() async {
-    if (!canShareLocation || !sharing || _refreshing) return;
+    if (!canViewNearby || _refreshing) return;
     _refreshing = true;
-    final generation = _generation;
+    final generation = _nearbyGeneration;
+    final origin = position!;
     final radius = radiusMeters;
     final revision = _runnerRevision;
     try {
-      final result = await runnerService.nearby(radius);
+      final result = await runnerService.nearby(radius, origin);
       if (!_disposed &&
-          sharing &&
-          generation == _generation &&
+          canViewNearby &&
+          generation == _nearbyGeneration &&
           radius == radiusMeters &&
           revision == _runnerRevision) {
         runners = result;
-        sharingError = null;
+        nearbyError = null;
         _notify();
       }
     } catch (error, stack) {
       ErrorReporter.report('run_tracking', stack);
-      if (!_disposed && generation == _generation) {
+      if (canViewNearby && generation == _nearbyGeneration) {
         runners = [];
-        sharingError = _message(error);
+        nearbyError = _message(error);
         _notify();
       }
     } finally {
       _refreshing = false;
-      if (revision != _runnerRevision) unawaited(refresh());
+      if (generation != _nearbyGeneration || revision != _runnerRevision) {
+        unawaited(refresh());
+      }
     }
   }
 
@@ -734,6 +790,7 @@ class LiveMapController extends ChangeNotifier {
     if (_disposed || _active == active) return;
     _active = active;
     _activityGeneration++;
+    if (!active) unawaited(_syncNearby());
     if (active) {
       if (runSession?.isRunning == true) {
         await _syncTracking();
@@ -742,6 +799,8 @@ class LiveMapController extends ChangeNotifier {
       } else {
         await start();
       }
+      unawaited(_syncNearby());
+      unawaited(refresh());
       if (shareWhileRunning) unawaited(_applySharingPreference());
     } else {
       groupPrepared = false;
@@ -774,6 +833,7 @@ class LiveMapController extends ChangeNotifier {
     unawaited(_saveCheckpoint());
     _disposed = true;
     _preferenceGeneration++;
+    _nearbyGeneration++;
     _generation++;
     _activityGeneration++;
     _heartbeat?.cancel();
@@ -786,7 +846,11 @@ class LiveMapController extends ChangeNotifier {
           .catchError((Object _) {}),
     );
     unawaited(_tracker.close().catchError((Object _) {}));
-    unawaited(runnerService.disconnect().catchError((Object _) {}));
+    unawaited(
+      _nearbyWork
+          .then((_) => runnerService.disconnect())
+          .catchError((Object _) {}),
+    );
     unawaited(_enqueue(runnerService.stopSharing).catchError((Object _) {}));
     super.dispose();
   }

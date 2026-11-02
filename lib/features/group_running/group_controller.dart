@@ -48,6 +48,25 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
         : (group.startsAt!.difference(now).inMilliseconds / 1000).ceil();
   }
 
+  /// GPS 준비와 서버 출발 예약이 모두 유효한 본인 그룹만 표시합니다.
+  RunningGroup? get countdownGroup {
+    if (_disposed ||
+        !_foreground ||
+        !service.isCurrentOwner ||
+        !map.groupPrepared) {
+      return null;
+    }
+    return groups
+        .where(
+          (group) =>
+              group.id == preparedGroupId &&
+              group.myStatus == 'accepted' &&
+              (group.state == 'scheduled' || group.state == 'running') &&
+              (secondsUntil(group) ?? 0) > 0,
+        )
+        .firstOrNull;
+  }
+
   Future<void> refresh({bool force = true}) async {
     if (_disposed || !_foreground || loading || !service.isCurrentOwner) return;
     if (!force &&
@@ -146,7 +165,10 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> prepare(String groupId) async {
-    if (busy || _disposed || preparedGroupId != null || !service.isCurrentOwner) {
+    if (busy ||
+        _disposed ||
+        preparedGroupId != null ||
+        !service.isCurrentOwner) {
       return;
     }
     busy = true;
@@ -184,7 +206,8 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
         .firstOrNull;
     if (group == null) return;
     final seconds = secondsUntil(group);
-    if (seconds != null && seconds <= 0 && _startingGroup == null) {
+    if (seconds == null) return;
+    if (seconds <= 0 && _startingGroup == null) {
       unawaited(_start(group, seconds));
     }
     notifyListeners();
@@ -254,6 +277,7 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
     } else {
       unawaited(refresh());
     }
+    if (!_disposed) notifyListeners();
   }
 
   @override
