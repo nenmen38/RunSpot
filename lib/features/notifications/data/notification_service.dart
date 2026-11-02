@@ -9,6 +9,9 @@ abstract interface class NotificationService {
 
   /// [seenUntil]까지 만들어진 알림을 읽음으로 바꿉니다.
   Future<void> markRead(DateTime seenUntil);
+
+  /// 함께 달리기 초대를 수락하거나 거절합니다.
+  Future<void> respondToInvite(String groupId, {required bool accept});
 }
 
 class SupabaseNotificationService implements NotificationService {
@@ -40,6 +43,14 @@ class SupabaseNotificationService implements NotificationService {
     for (final row in await _rpc('my_notifications') as List)
       AppNotification.fromJson(Map<String, dynamic>.from(row as Map)),
   ];
+
+  @override
+  Future<void> respondToInvite(String groupId, {required bool accept}) async {
+    await _rpc('group_action', {
+      'requested_group': groupId,
+      'operation': accept ? 'accept' : 'reject',
+    });
+  }
 
   @override
   Future<void> markRead(DateTime seenUntil) async {

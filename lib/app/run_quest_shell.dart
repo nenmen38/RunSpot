@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../shared/maps/run_map.dart';
@@ -119,6 +121,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _board = widget.boardService ?? SupabaseBoardService(client);
       _notifications = NotificationController(
         SupabaseNotificationService(client),
+        // 알림창에서 초대에 응답하면 함께 달리기 상태를 바로 새로 고칩니다.
+        onGroupChanged: () => unawaited(_groups?.refresh()),
       );
     }
   }
