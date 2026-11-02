@@ -12,10 +12,14 @@ class NotificationController extends ChangeNotifier {
   NotificationController(
     this.service, {
     this.pollInterval = const Duration(minutes: 1),
+    this.onGroupChanged,
   });
 
   final NotificationService service;
   final Duration pollInterval;
+
+  /// 초대에 응답한 뒤 함께 달리기 화면을 새로 고칩니다.
+  final VoidCallback? onGroupChanged;
   static const _timeout = Duration(seconds: 15);
   bool _disposed = false;
   bool _active = false;
@@ -24,6 +28,10 @@ class NotificationController extends ChangeNotifier {
   int unreadCount = 0;
   List<AppNotification> items = const [];
   bool loading = false;
+
+  /// 응답을 보내는 중인 초대 알림과 마지막 응답 실패 안내입니다.
+  String? responding;
+  String? respondError;
   String? error;
 
   /// 홈 화면이 보이는 동안에만 주기적으로 새 알림 수를 확인합니다.
@@ -93,6 +101,40 @@ class NotificationController extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  /// 초대를 수락·거절합니다. 성공하면 null, 실패하면 안내 문구를 반환합니다.
+  Future<String?> respond(AppNotification item, {required bool accept}) async {
+    final groupId = item.groupId;
+    if (_disposed || responding != null || groupId == null) return null;
+    responding = item.id;
+    respondError = null;
+    notifyListeners();
+    String? failure;
+    try {
+      await service.respondToInvite(groupId, accept: accept).timeout(_timeout);
+      onGroupChanged?.call();
+    } catch (exception) {
+      failure = switch (exception) {
+        AuthException() => '다시 로그인해 주세요.',
+        TimeoutException() => '응답이 지연됩니다. 잠시 후 다시 확인해 주세요.',
+        PostgrestException(:final code?, :final message)
+            when {'42501', '22023', 'P0001'}.contains(code) =>
+          message,
+        _ => unexpectedServerError(exception, '초대에 응답하지 못했습니다.'),
+      };
+    }
+    if (_disposed) return failure;
+    // 성공·실패와 관계없이 서버의 최신 초대 상태를 다시 보여줍니다.
+    try {
+      final loaded = await service.load().timeout(_timeout);
+      if (!_disposed && _checkOwner()) items = List.unmodifiable(loaded);
+    } catch (_) {}
+    if (_disposed) return failure;
+    responding = null;
+    respondError = failure;
+    notifyListeners();
+    return failure;
   }
 
   @override

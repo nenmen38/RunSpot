@@ -54,6 +54,24 @@ class FakeNotificationService implements NotificationService {
     return rows.map(AppNotification.fromJson).toList();
   }
 
+  final responses = <(String, bool)>[];
+  Object? respondError;
+  @override
+  Future<void> respondToInvite(String groupId, {required bool accept}) async {
+    responses.add((groupId, accept));
+    if (respondError != null) throw respondError!;
+    rows = [
+      for (final row in rows)
+        row['group_id'] == groupId
+            ? {
+                ...row,
+                'invite_status': accept ? 'accepted' : 'declined',
+                'can_respond': false,
+              }
+            : row,
+    ];
+  }
+
   @override
   Future<void> markRead(DateTime seenUntil) async {
     marked.add(seenUntil);
@@ -247,4 +265,83 @@ void main() {
     map.dispose();
     history.dispose();
   });
+
+  testWidgets('함께 달리기 초대 알림에서 수락하면 참여하고 버튼이 사라집니다', (tester) async {
+    final service = FakeNotificationService()
+      ..unread = 1
+      ..rows = [_inviteJson('g1'), notificationJson('2', kind: 'like')];
+    var groupRefreshes = 0;
+    final controller = NotificationController(
+      service,
+      onGroupChanged: () => groupRefreshes++,
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NotificationBell(controller: controller, onOpenPost: (_) {}),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.campaign_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('방장님이 함께 달리기에 초대했어요.'), findsOneWidget);
+    expect(find.text('수락'), findsOneWidget);
+    expect(find.text('거절'), findsOneWidget);
+
+    await tester.tap(find.text('수락'));
+    await tester.pumpAndSettle();
+    expect(service.responses.single, ('g1', true));
+    expect(groupRefreshes, 1);
+    expect(find.text('수락'), findsNothing);
+    expect(find.textContaining('참여했어요'), findsOneWidget);
+    // 초대 알림은 눌러도 창이 닫히지 않습니다.
+    await tester.tap(find.text('방장님이 함께 달리기에 초대했어요.'));
+    await tester.pumpAndSettle();
+    expect(find.text('알림'), findsOneWidget);
+  });
+
+  testWidgets('초대 거절과 응답 실패를 알림창에 보여줍니다', (tester) async {
+    final service = FakeNotificationService()
+      ..rows = [_inviteJson('g1')]
+      ..respondError = const PostgrestException(
+        message: '대기 중인 초대만 응답할 수 있습니다.',
+        code: 'P0001',
+      );
+    final controller = NotificationController(service);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NotificationBell(controller: controller, onOpenPost: (_) {}),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.campaign_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('수락'));
+    await tester.pumpAndSettle();
+    expect(find.text('대기 중인 초대만 응답할 수 있습니다.'), findsOneWidget);
+
+    service.respondError = null;
+    await tester.tap(find.text('거절'));
+    await tester.pumpAndSettle();
+    expect(service.responses.last, ('g1', false));
+    expect(find.textContaining('거절했어요'), findsOneWidget);
+    expect(find.text('대기 중인 초대만 응답할 수 있습니다.'), findsNothing);
+  });
 }
+
+Map<String, dynamic> _inviteJson(String groupId) => {
+  'id': 'n-$groupId',
+  'kind': 'group_invite',
+  'post_id': null,
+  'post_title': null,
+  'group_id': groupId,
+  'invite_status': 'invited',
+  'can_respond': true,
+  'nickname': '방장',
+  'comment': null,
+  'created_at': '2026-11-02T01:00:00.000000+00:00',
+  'read': false,
+};

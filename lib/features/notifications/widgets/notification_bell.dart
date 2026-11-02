@@ -101,42 +101,97 @@ class NotificationSheet extends StatelessWidget {
     if (controller.items.isEmpty) {
       return const Center(
         child: Text(
-          '아직 알림이 없어요.\n내 글에 좋아요나 댓글이 달리면 알려 드릴게요.',
+          '아직 알림이 없어요.\n내 글 반응이나 함께 달리기 초대가 오면 알려 드릴게요.',
           textAlign: TextAlign.center,
         ),
       );
     }
-    return ListView.separated(
-      itemCount: controller.items.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) =>
-          _NotificationTile(item: controller.items[index]),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (controller.respondError case final message?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(message, style: const TextStyle(color: AppColors.red)),
+          ),
+        Expanded(
+          child: ListView.separated(
+            itemCount: controller.items.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) => _NotificationTile(
+              item: controller.items[index],
+              controller: controller,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.item});
+  const _NotificationTile({required this.item, required this.controller});
 
   final AppNotification item;
+  final NotificationController controller;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    tileColor: item.read ? null : AppColors.blueSoft,
-    leading: Icon(
-      item.kind == NotificationKind.like
-          ? Icons.favorite
-          : Icons.chat_bubble_outline,
-      color: item.kind == NotificationKind.like
-          ? Colors.redAccent
-          : AppColors.blue,
-    ),
-    title: Text(item.message, maxLines: 2, overflow: TextOverflow.ellipsis),
-    subtitle: Text(
-      '${item.postTitle} · ${formatBoardTime(item.createdAt.toLocal())}',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    ),
-    onTap: () => Navigator.of(context).pop(item.postId),
-  );
+  Widget build(BuildContext context) {
+    final invite = item.kind == NotificationKind.groupInvite;
+    final busy = controller.responding != null;
+    return ListTile(
+      tileColor: item.read ? null : AppColors.blueSoft,
+      leading: Icon(
+        switch (item.kind) {
+          NotificationKind.like => Icons.favorite,
+          NotificationKind.groupInvite => Icons.directions_run,
+          _ => Icons.chat_bubble_outline,
+        },
+        color: item.kind == NotificationKind.like
+            ? Colors.redAccent
+            : AppColors.blue,
+      ),
+      title: Text(item.message, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${item.detail} · ${formatBoardTime(item.createdAt.toLocal())}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          // 대기 중인 초대는 알림창에서 바로 수락하거나 거절합니다.
+          if (invite && item.canRespond)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  OutlinedButton(
+                    onPressed: busy
+                        ? null
+                        : () => controller.respond(item, accept: false),
+                    child: const Text('거절'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: busy
+                        ? null
+                        : () => controller.respond(item, accept: true),
+                    child: controller.responding == item.id
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('수락'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+      onTap: item.postId == null
+          ? null
+          : () => Navigator.of(context).pop(item.postId),
+    );
+  }
 }
