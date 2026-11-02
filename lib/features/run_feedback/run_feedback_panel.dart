@@ -6,15 +6,19 @@ import 'data/run_feedback_service.dart';
 import '../health/models/run_health_data.dart';
 import 'models/run_feedback_heart_summary.dart';
 import 'feedback_consent_dialog.dart';
+import 'widgets/run_feedback_card.dart';
+import '../run_history/models/run_record.dart';
 
 class RunFeedbackPanel extends StatefulWidget {
   const RunFeedbackPanel({
     required this.runId,
     required this.service,
     this.readHeartSource,
+    this.record,
     super.key,
   });
   final String runId;
+  final RunRecord? record;
   final RunFeedbackService service;
   final RunHealthSource? Function()? readHeartSource;
 
@@ -208,50 +212,19 @@ class _RunFeedbackPanelState extends State<RunFeedbackPanel>
       FeedbackStatus.budgetExhausted => '현재 서비스의 AI 요청 한도에 도달했습니다.',
       null => '피드백 상태 확인 중',
     };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '러닝 피드백',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-            ),
-            IconButton(
-              tooltip: '피드백 상태 확인',
-              onPressed: _busy ? null : _load,
-              icon: const Icon(Icons.refresh),
-            ),
-          ],
-        ),
-        Text(description),
-        if (state?.createdAt != null) ...[
-          const SizedBox(height: 8),
-          Text(_date(state!.createdAt!)),
-        ],
-        if (state?.nextAvailableAt != null &&
-            status != FeedbackStatus.ready) ...[
-          const SizedBox(height: 8),
-          Text('다음 요청: ${_date(state!.nextAvailableAt!)}'),
-        ],
-        if (_error != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ],
-        const SizedBox(height: 12),
-        if (_busy && !_confirming) const LinearProgressIndicator(),
-        if (status == FeedbackStatus.available)
-          FilledButton.icon(
-            onPressed: _busy ? null : _generate,
-            icon: const Icon(Icons.auto_awesome_outlined),
-            label: const Text('AI 피드백 요청'),
-          ),
-      ],
+    return RunFeedbackCard(
+      state: state,
+      description: description,
+      record: widget.record?.id == widget.runId ? widget.record : null,
+      busy: _busy && !_confirming,
+      onRefresh: _busy ? null : _load,
+      onGenerate: _busy ? null : _generate,
+      createdLabel: state?.createdAt == null ? null : _date(state!.createdAt!),
+      nextLabel:
+          state?.nextAvailableAt == null || status == FeedbackStatus.ready
+          ? null
+          : _date(state!.nextAvailableAt!),
+      error: _error,
     );
   }
 }

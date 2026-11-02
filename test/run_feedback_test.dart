@@ -95,7 +95,9 @@ void main() {
     await tester.tap(find.text('생성하기'));
     await tester.pumpAndSettle();
     expect(service.generations, 1);
-    expect(find.text(service.state.message!), findsOneWidget);
+    expect(find.text('기록을 남기셨습니다.'), findsOneWidget);
+    expect(find.text('이전 기록이 없어 비교하기 어렵습니다.'), findsOneWidget);
+    expect(find.text('다음 기록과 함께 살펴보세요.'), findsOneWidget);
     expect(find.text('AI 피드백 요청'), findsNothing);
     await tester.tap(find.byTooltip('피드백 상태 확인'));
     await tester.pumpAndSettle();

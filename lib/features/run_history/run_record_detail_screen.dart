@@ -256,6 +256,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                       child: RunFeedbackPanel(
                         key: ValueKey(widget.record.id),
                         runId: widget.record.id,
+                        record: widget.record,
                         service: widget.feedbackService!,
                         readHeartSource: () => _selectedHealthSource,
                       ),
