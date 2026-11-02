@@ -37,6 +37,33 @@ void main() {
     await location.updates.close();
   });
 
+  void restoreDistance(double distance) {
+    final now = DateTime.now().toUtc();
+    controller.runSession = RunSession.restore(
+      RunSummary(
+        clientRunId: 'minimum-distance-test',
+        startedAt: now.subtract(const Duration(minutes: 5)),
+        endedAt: now,
+        distanceMeters: distance,
+        duration: const Duration(minutes: 5),
+      ),
+    );
+  }
+
+  for (final distance in [0.0, 100.0, 299.49, 299.99, 300.0, 300.01]) {
+    test('$distance미터 종료 시 300미터 이상만 저장합니다', () async {
+      restoreDistance(distance);
+      final summary = await controller.finishRun();
+      expect(summary!.canSaveRecord, distance >= 300);
+      expect(historyService.attempts.length, distance >= 300 ? 1 : 0);
+      expect(outbox.rows, isEmpty);
+      expect(history.visibleRecords.length, distance >= 300 ? 1 : 0);
+      expect(controller.runSession, isNull);
+      await controller.startRun();
+      expect(controller.runSession!.isRunning, isTrue);
+    });
+  }
+
   test('현재 위치는 기본적으로 서버에 전송하지 않습니다', () async {
     await controller.start();
     expect(controller.position, isNotNull);
@@ -142,14 +169,16 @@ void main() {
     await controller.startRun();
     await controller.setSharing(true);
     await controller.finishRun();
+    await Future<void>.delayed(Duration.zero);
     expect(controller.sharing, isFalse);
     expect(controller.runSession, isNull);
     expect(service.actions, ['publish', 'stop']);
-    expect(historyService.records, hasLength(1));
+    expect(historyService.records, isEmpty);
   });
 
   test('서버 저장 실패 시 기기에 보관하고 다음 러닝을 시작할 수 있습니다', () async {
     await controller.startRun();
+    restoreDistance(300);
     historyService.saveFailure = StateError('연결 실패');
     final result = await controller.finishRun();
     expect(result, isNotNull);
@@ -169,6 +198,7 @@ void main() {
 
   test('기기 저장 실패 시 종료 결과를 유지하고 서버에 보내지 않습니다', () async {
     await controller.startRun();
+    restoreDistance(300);
     outbox.putFailure = StateError('저장 공간 부족');
     expect(await controller.finishRun(), isNull);
     expect(controller.runSession!.isFinished, isTrue);
@@ -184,6 +214,7 @@ void main() {
 
   test('저장 중에는 종료와 시작을 중복 실행하지 않습니다', () async {
     await controller.startRun();
+    restoreDistance(300);
     historyService.pendingSave = Completer<void>();
     final finish = controller.finishRun();
     expect(controller.savingRun, isTrue);

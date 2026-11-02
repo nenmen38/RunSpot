@@ -68,6 +68,19 @@ Future<void> openPrivacySettings(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+void restoreRecordableRun(LiveMapController controller) {
+  final now = DateTime.now().toUtc();
+  controller.runSession = RunSession.restore(
+    RunSummary(
+      clientRunId: 'recordable-widget-run',
+      startedAt: now.subtract(const Duration(minutes: 5)),
+      endedAt: now,
+      distanceMeters: 300,
+      duration: const Duration(minutes: 5),
+    ),
+  );
+}
+
 void main() {
   var sharingEligible = false;
   setUp(() => sharingEligible = false);
@@ -201,6 +214,7 @@ void main() {
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(controller.runSession!.isRunning, isTrue);
+    restoreRecordableRun(controller);
     await tester.tap(find.text('러닝 종료'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -221,7 +235,7 @@ void main() {
     await tester.tap(find.text('내 기록'));
     await tester.pumpAndSettle();
     expect(find.text('내 기록'), findsOneWidget);
-    expect(find.text('0.00 km'), findsOneWidget);
+    expect(find.text('0.30 km'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('최근 러닝'), findsOneWidget);
@@ -501,6 +515,29 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('300m 미만 종료는 안내만 표시하고 기록과 공유 결과를 만들지 않습니다', (tester) async {
+    final controller = await showApp(tester, const Size(390, 844));
+    await tester.tap(find.text('러닝 시작'));
+    await tester.pump();
+    await tester.tap(find.text('러닝 종료'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('종료'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('300m 미만 러닝은 저장하지 않습니다.'), findsOneWidget);
+    expect(find.text('러닝 완료'), findsNothing);
+    expect(find.text('기기에 저장됨'), findsNothing);
+    expect(controller.runSession, isNull);
+    expect(controller.runHistory.visibleRecords, isEmpty);
+    expect((controller.runHistory.outbox as FakeRunOutbox).rows, isEmpty);
+    expect(
+      (controller.runHistory.service as FakeRunRecordService).attempts,
+      isEmpty,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('오프라인으로 종료해도 기기 저장 결과를 표시하고 다시 시작합니다', (tester) async {
     final controller = await showApp(tester, const Size(320, 568));
     final service = controller.runHistory.service as FakeRunRecordService;
@@ -508,6 +545,7 @@ void main() {
     service.listFailure = const SocketException('오프라인');
     await tester.tap(find.text('러닝 시작'));
     await tester.pump();
+    restoreRecordableRun(controller);
     await tester.tap(find.text('러닝 종료'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -541,6 +579,7 @@ void main() {
       }
       await tester.tap(find.text('러닝 시작'));
       await tester.pump();
+      restoreRecordableRun(controller);
       await tester.tap(find.text('러닝 종료'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -618,6 +657,7 @@ void main() {
       }
       await tester.tap(find.text('러닝 시작'));
       await tester.pump();
+      restoreRecordableRun(controller);
       await tester.tap(find.text('러닝 종료'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));

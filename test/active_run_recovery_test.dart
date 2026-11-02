@@ -12,11 +12,11 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'support/live_map_fakes.dart';
 import 'support/run_history_fakes.dart';
 
-RunSummary _summary() => RunSummary(
+RunSummary _summary({double distance = 820}) => RunSummary(
   clientRunId: 'c34e9422-5f84-44a2-a468-5574ee69d871',
   startedAt: DateTime.now().toUtc().subtract(const Duration(minutes: 10)),
   endedAt: DateTime.now().toUtc().subtract(const Duration(minutes: 5)),
-  distanceMeters: 820,
+  distanceMeters: distance,
   duration: const Duration(minutes: 4),
   route: RunRoute([
     [const LatLng(37.5, 127), const LatLng(37.501, 127)],
@@ -76,35 +76,40 @@ void main() {
     await reopened.close();
   });
 
-  test('지도 초기화 때 복구하며 종료 저장 뒤 복구 원본을 제거합니다', () async {
-    final dir = await Directory.systemTemp.createTemp('runspot-controller-');
-    addTearDown(() => dir.delete(recursive: true));
-    final store = SqliteRunCheckpointStore(
-      ownerId: 'owner',
-      namespace: 'server',
-      factory: databaseFactoryFfi,
-      databasePath: () async => '${dir.path}/active.sqlite',
-    );
-    await store.save(RunCheckpoint(_summary(), finished: false));
-    final location = FakeLocationService();
-    final records = FakeRunRecordService();
-    final history = RunHistoryController(records, outbox: FakeRunOutbox());
-    final controller = LiveMapController(
-      locationService: location,
-      runnerService: FakeRunnerService(),
-      runHistory: history,
-      checkpointStore: store,
-    );
-    await controller.start();
-    expect(controller.recoveredRun, isTrue);
-    expect(controller.runSession!.isRunning, isFalse);
-    expect(controller.sharing, isFalse);
-    final summary = await controller.finishRun();
-    expect(summary!.distanceMeters, 820);
-    expect(await store.load(), isNull);
-    controller.dispose();
-    history.dispose();
-    await location.updates.close();
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-  });
+  for (final distance in [299.99, 300.0, 820.0]) {
+    test('$distance미터 복구 러닝은 최소 거리 판정 후 복구 원본을 제거합니다', () async {
+      final dir = await Directory.systemTemp.createTemp('runspot-controller-');
+      addTearDown(() => dir.delete(recursive: true));
+      final store = SqliteRunCheckpointStore(
+        ownerId: 'owner',
+        namespace: 'server',
+        factory: databaseFactoryFfi,
+        databasePath: () async => '${dir.path}/active.sqlite',
+      );
+      await store.save(
+        RunCheckpoint(_summary(distance: distance), finished: false),
+      );
+      final location = FakeLocationService();
+      final records = FakeRunRecordService();
+      final history = RunHistoryController(records, outbox: FakeRunOutbox());
+      final controller = LiveMapController(
+        locationService: location,
+        runnerService: FakeRunnerService(),
+        runHistory: history,
+        checkpointStore: store,
+      );
+      await controller.start();
+      expect(controller.recoveredRun, isTrue);
+      expect(controller.runSession!.isRunning, isFalse);
+      expect(controller.sharing, isFalse);
+      final summary = await controller.finishRun();
+      expect(summary!.distanceMeters, distance);
+      expect(records.records.length, distance >= 300 ? 1 : 0);
+      expect(await store.load(), isNull);
+      controller.dispose();
+      history.dispose();
+      await location.updates.close();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    });
+  }
 }

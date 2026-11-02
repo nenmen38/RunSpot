@@ -29,6 +29,11 @@ class RunSummary {
     this.motionSamples,
     this.analysisData,
   });
+  static const minimumRecordDistanceMeters = 300;
+
+  bool get canSaveRecord =>
+      distanceMeters.isFinite && distanceMeters >= minimumRecordDistanceMeters;
+
   final String clientRunId;
   final DateTime startedAt;
   final DateTime endedAt;
