@@ -66,6 +66,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _map = RunMapController();
   bool _mapReady = false;
   bool _following = true;
+  Timer? _mapReturnTimer;
+  final _touchPointers = <int>{};
   bool _endingRun = false;
   String? _selectedId;
   bool _foreground = true;
@@ -75,6 +77,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   double get _recommendedZoom =>
       widget.controller.runSession == null ? _overviewZoom : _runningZoom;
+
+  void _scheduleMapReturn() {
+    _mapReturnTimer?.cancel();
+    if (_following ||
+        _touchPointers.isNotEmpty ||
+        !_foreground ||
+        !widget.isActive) {
+      return;
+    }
+    _mapReturnTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted ||
+          !_foreground ||
+          !widget.isActive ||
+          _touchPointers.isNotEmpty ||
+          ModalRoute.of(context)?.isCurrent == false) {
+        return;
+      }
+      _returnToPosition();
+    });
+  }
+
+  void _returnToPosition() {
+    _mapReturnTimer?.cancel();
+    setState(() {
+      _following = true;
+      _selectedId = null;
+      _pendingZoom = _recommendedZoom;
+      _animateZoom = true;
+    });
+    _changed();
+  }
+
+  void _touchEnded(int pointer) {
+    _touchPointers.remove(pointer);
+    _scheduleMapReturn();
+  }
 
   Future<bool> _openRunner(LiveRunner runner) async {
     final blocks = widget.blockService;
@@ -94,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       widget.controller.hideBlockedRunner(runner.id);
       unawaited(widget.controller.refresh());
     }
+    _scheduleMapReturn();
     return blocked;
   }
 
@@ -122,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (hasRun != _hasRun) {
       _hasRun = hasRun;
       _following = true;
+      _mapReturnTimer?.cancel();
       _pendingZoom = _recommendedZoom;
       _animateZoom = hasRun;
     }
@@ -270,6 +310,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state != AppLifecycleState.inactive) {
       _foreground = state == AppLifecycleState.resumed;
     }
+    if (!_foreground) _touchPointers.clear();
+    _scheduleMapReturn();
     widget.controller.setMapVisible(widget.isActive);
     widget.conditionsController?.setActive(_foreground && widget.isActive);
     widget.notificationController?.setActive(_foreground && widget.isActive);
@@ -300,6 +342,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (oldWidget.notificationController != widget.notificationController) {
       oldWidget.notificationController?.setActive(false);
     }
+    if (oldWidget.isActive != widget.isActive) {
+      if (!widget.isActive) _touchPointers.clear();
+      _scheduleMapReturn();
+    }
     widget.controller.setMapVisible(widget.isActive);
     widget.conditionsController?.setActive(_foreground && widget.isActive);
     widget.notificationController?.setActive(_foreground && widget.isActive);
@@ -307,6 +353,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _mapReturnTimer?.cancel();
     widget.conditionsController?.setActive(false);
     widget.notificationController?.setActive(false);
     WidgetsBinding.instance.removeObserver(this);
@@ -353,308 +400,323 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           cluster.members.length > 1 &&
           cluster.members.any((member) => member.id == ownerId),
     );
-    return Column(
-      children: [
-        if (notifications != null)
-          GroupInviteBanner(
-            controller: notifications,
-            onOpenPost: widget.onOpenPost ?? (_) {},
-          ),
-        Expanded(
-          child: Stack(
-            children: [
-              RunMap(
-                controller: _map,
-                bridgeFactory: widget.mapBridgeFactory,
-                position: position == null || ownClustered
-                    ? null
-                    : LatLng(position.latitude, position.longitude),
-                segments:
-                    state.runSession?.routeSegments
-                        .map(
-                          (s) => s
-                              .map((p) => LatLng(p.latitude, p.longitude))
-                              .toList(),
-                        )
-                        .toList() ??
-                    const [],
-                markers: clusters
-                    .where(
-                      (cluster) =>
-                          cluster.members.length > 1 ||
-                          cluster.members.single.id != ownerId,
-                    )
-                    .map(
-                      (cluster) => RunMapMarker(
-                        id: cluster.id,
-                        point: cluster.point,
-                        nickname: cluster.members.length > 1
-                            ? '함께 달리기 ${cluster.members.length}명'
-                            : cluster.members.single.nickname,
-                        memberCount: cluster.members.length,
-                        selected: cluster.members.any(
-                          (member) => member.id == _selectedId,
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        _touchPointers.add(event.pointer);
+        _mapReturnTimer?.cancel();
+      },
+      onPointerUp: (event) => _touchEnded(event.pointer),
+      onPointerCancel: (event) => _touchEnded(event.pointer),
+      onPointerSignal: (_) => _scheduleMapReturn(),
+      child: Column(
+        children: [
+          if (notifications != null)
+            GroupInviteBanner(
+              controller: notifications,
+              onOpenPost: widget.onOpenPost ?? (_) {},
+            ),
+          Expanded(
+            child: Stack(
+              children: [
+                RunMap(
+                  controller: _map,
+                  bridgeFactory: widget.mapBridgeFactory,
+                  position: position == null || ownClustered
+                      ? null
+                      : LatLng(position.latitude, position.longitude),
+                  segments:
+                      state.runSession?.routeSegments
+                          .map(
+                            (s) => s
+                                .map((p) => LatLng(p.latitude, p.longitude))
+                                .toList(),
+                          )
+                          .toList() ??
+                      const [],
+                  markers: clusters
+                      .where(
+                        (cluster) =>
+                            cluster.members.length > 1 ||
+                            cluster.members.single.id != ownerId,
+                      )
+                      .map(
+                        (cluster) => RunMapMarker(
+                          id: cluster.id,
+                          point: cluster.point,
+                          nickname: cluster.members.length > 1
+                              ? '함께 달리기 ${cluster.members.length}명'
+                              : cluster.members.single.nickname,
+                          memberCount: cluster.members.length,
+                          selected: cluster.members.any(
+                            (member) => member.id == _selectedId,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onReady: () {
+                    _mapReady = true;
+                    _pendingZoom = _recommendedZoom;
+                    _changed();
+                  },
+                  onGesture: () {
+                    if (_following) setState(() => _following = false);
+                    _scheduleMapReturn();
+                  },
+                  onTap: () {
+                    setState(() => _selectedId = null);
+                    _scheduleMapReturn();
+                  },
+                  onMarkerTap: (id) async {
+                    final cluster = clusters
+                        .where((item) => item.id == id)
+                        .firstOrNull;
+                    if (cluster == null) return;
+                    if (cluster.members.length == 1) {
+                      setState(() => _selectedId = id);
+                      await _openRunner(cluster.members.single);
+                      return;
+                    }
+                    final member = await showModalBottomSheet<LiveRunner>(
+                      context: context,
+                      builder: (context) => SafeArea(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const ListTile(title: Text('함께 달리는 참여자')),
+                              for (final member in cluster.members)
+                                ListTile(
+                                  leading: const Icon(Icons.directions_run),
+                                  title: Text(member.nickname),
+                                  subtitle: Text(
+                                    '${_distance(member.distanceMeters)} 거리',
+                                  ),
+                                  onTap: () => Navigator.pop(context, member),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                    )
-                    .toList(),
-                onReady: () {
-                  _mapReady = true;
-                  _pendingZoom = _recommendedZoom;
-                  _changed();
-                },
-                onGesture: () {
-                  if (_following) setState(() => _following = false);
-                },
-                onTap: () => setState(() => _selectedId = null),
-                onMarkerTap: (id) async {
-                  final cluster = clusters
-                      .where((item) => item.id == id)
-                      .firstOrNull;
-                  if (cluster == null) return;
-                  if (cluster.members.length == 1) {
-                    setState(() => _selectedId = id);
-                    await _openRunner(cluster.members.single);
-                    return;
-                  }
-                  final member = await showModalBottomSheet<LiveRunner>(
-                    context: context,
-                    builder: (context) => SafeArea(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                    );
+                    if (!mounted ||
+                        member == null ||
+                        !state.runHistory.service.isCurrentOwner) {
+                      return;
+                    }
+                    // 선택하는 동안 공유가 중단된 참여자의 이전 위치는 사용하지 않습니다.
+                    final current = state.runners
+                        .where((runner) => runner.id == member.id)
+                        .firstOrNull;
+                    final target = member.id == ownerId ? state.position : null;
+                    if (current == null && target == null) return;
+                    setState(() {
+                      _selectedId = current?.id;
+                      _following = member.id == ownerId;
+                    });
+                    if (await _openRunner(member) || !mounted) return;
+                    _map.move(
+                      current == null
+                          ? LatLng(target!.latitude, target.longitude)
+                          : LatLng(current.latitude, current.longitude),
+                      _runningZoom,
+                    );
+                  },
+                ),
+                if (state.locating || state.locationFailure != null)
+                  Positioned(
+                    left: 12,
+                    // 확성기 버튼을 가리지 않도록 오른쪽을 비웁니다.
+                    right: notifications == null ? 12 : 64,
+                    top: 12,
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
                           children: [
-                            const ListTile(title: Text('함께 달리는 참여자')),
-                            for (final member in cluster.members)
-                              ListTile(
-                                leading: const Icon(Icons.directions_run),
-                                title: Text(member.nickname),
-                                subtitle: Text(
-                                  '${_distance(member.distanceMeters)} 거리',
+                            if (state.locating) ...[
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
                                 ),
-                                onTap: () => Navigator.pop(context, member),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            Expanded(
+                              child: Text(
+                                state.locating
+                                    ? '현재 위치 확인 중'
+                                    : state.locationFailure!.message,
+                              ),
+                            ),
+                            if (!state.locating)
+                              IconButton(
+                                tooltip: '다시 시도 또는 기기 설정',
+                                icon: const Icon(Icons.refresh),
+                                onPressed: () {
+                                  final problem =
+                                      state.locationFailure?.problem;
+                                  if (problem == LocationProblem.disabled ||
+                                      problem ==
+                                          LocationProblem.deniedForever) {
+                                    unawaited(
+                                      state.locationService.openSettings(
+                                        problem!,
+                                      ),
+                                    );
+                                  } else {
+                                    unawaited(state.start());
+                                  }
+                                },
                               ),
                           ],
                         ),
                       ),
                     ),
-                  );
-                  if (!mounted ||
-                      member == null ||
-                      !state.runHistory.service.isCurrentOwner) {
-                    return;
-                  }
-                  // 선택하는 동안 공유가 중단된 참여자의 이전 위치는 사용하지 않습니다.
-                  final current = state.runners
-                      .where((runner) => runner.id == member.id)
-                      .firstOrNull;
-                  final target = member.id == ownerId ? state.position : null;
-                  if (current == null && target == null) return;
-                  setState(() {
-                    _selectedId = current?.id;
-                    _following = member.id == ownerId;
-                  });
-                  if (await _openRunner(member) || !mounted) return;
-                  _map.move(
-                    current == null
-                        ? LatLng(target!.latitude, target.longitude)
-                        : LatLng(current.latitude, current.longitude),
-                    _runningZoom,
-                  );
-                },
-              ),
-              if (state.locating || state.locationFailure != null)
-                Positioned(
-                  left: 12,
-                  // 확성기 버튼을 가리지 않도록 오른쪽을 비웁니다.
-                  right: notifications == null ? 12 : 64,
-                  top: 12,
-                  child: Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          if (state.locating) ...[
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            const SizedBox(width: 10),
-                          ],
-                          Expanded(
-                            child: Text(
-                              state.locating
-                                  ? '현재 위치 확인 중'
-                                  : state.locationFailure!.message,
-                            ),
-                          ),
-                          if (!state.locating)
-                            IconButton(
-                              tooltip: '다시 시도 또는 기기 설정',
-                              icon: const Icon(Icons.refresh),
-                              onPressed: () {
-                                final problem = state.locationFailure?.problem;
-                                if (problem == LocationProblem.disabled ||
-                                    problem == LocationProblem.deniedForever) {
-                                  unawaited(
-                                    state.locationService.openSettings(
-                                      problem!,
-                                    ),
-                                  );
-                                } else {
-                                  unawaited(state.start());
-                                }
-                              },
-                            ),
-                        ],
-                      ),
+                  ),
+                if (notifications != null)
+                  Positioned(
+                    right: 12,
+                    top: 12,
+                    child: NotificationBell(
+                      controller: notifications,
+                      onOpenPost: (postId) => widget.onOpenPost?.call(postId),
                     ),
                   ),
-                ),
-              if (notifications != null)
                 Positioned(
                   right: 12,
-                  top: 12,
-                  child: NotificationBell(
-                    controller: notifications,
-                    onOpenPost: (postId) => widget.onOpenPost?.call(postId),
-                  ),
-                ),
-              Positioned(
-                right: 12,
-                bottom: 46,
-                child: IconButton.filled(
-                  tooltip: '내 위치로 이동',
-                  onPressed: () {
-                    setState(() {
-                      _following = true;
-                      _pendingZoom = _recommendedZoom;
-                    });
-                    _changed();
-                    if (position == null) unawaited(state.start());
-                  },
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: _following
-                        ? AppColors.blue
-                        : AppColors.ink,
-                  ),
-                  icon: const Icon(Icons.my_location),
-                ),
-              ),
-              if (selected != null)
-                Positioned(
-                  left: 12,
-                  right: 68,
                   bottom: 46,
-                  child: Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    child: ListTile(
-                      leading: const Icon(
-                        Icons.directions_run,
-                        color: Color(0xFF16836F),
-                      ),
-                      title: Text(
-                        selected.nickname,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${_distance(selected.distanceMeters)} 거리',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.blockService case final service?)
-                            BlockButton(
-                              service: service,
-                              userId: selected.id,
-                              nickname: selected.nickname,
-                              onChanged: () {
-                                setState(() => _selectedId = null);
-                                state.hideBlockedRunner(selected.id);
-                                unawaited(state.refresh());
-                              },
+                  child: IconButton.filled(
+                    tooltip: '내 위치로 이동',
+                    onPressed: () {
+                      _returnToPosition();
+                      if (position == null) unawaited(state.start());
+                    },
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: _following
+                          ? AppColors.blue
+                          : AppColors.ink,
+                    ),
+                    icon: const Icon(Icons.my_location),
+                  ),
+                ),
+                if (selected != null)
+                  Positioned(
+                    left: 12,
+                    right: 68,
+                    bottom: 46,
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.directions_run,
+                          color: Color(0xFF16836F),
+                        ),
+                        title: Text(
+                          selected.nickname,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${_distance(selected.distanceMeters)} 거리',
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.blockService case final service?)
+                              BlockButton(
+                                service: service,
+                                userId: selected.id,
+                                nickname: selected.nickname,
+                                onChanged: () {
+                                  setState(() => _selectedId = null);
+                                  state.hideBlockedRunner(selected.id);
+                                  unawaited(state.refresh());
+                                },
+                              ),
+                            IconButton(
+                              tooltip: '닫기',
+                              icon: const Icon(Icons.close),
+                              onPressed: () =>
+                                  setState(() => _selectedId = null),
                             ),
-                          IconButton(
-                            tooltip: '닫기',
-                            icon: const Icon(Icons.close),
-                            onPressed: () => setState(() => _selectedId = null),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-        ),
-        if (widget.conditionsController != null)
-          ConditionsPanel(controller: widget.conditionsController!),
-        Material(
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '주변 러너',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          Text(
-                            '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (state.changingSharing)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                  ],
-                ),
-                if (state.canViewNearby && !state.connected)
-                  const Text('실시간 연결 중'),
-                if (state.nearbyError != null)
-                  Text(
-                    state.nearbyError!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                if (state.sharingError != null)
-                  Text(
-                    state.sharingError!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                if (state.recoveredRun)
-                  const Text(
-                    '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
-                  ),
-                RunControls(
-                  controller: state,
-                  busy: _endingRun,
-                  onFinish: _finishRun,
-                ),
               ],
             ),
           ),
-        ),
-      ],
+          if (widget.conditionsController != null)
+            ConditionsPanel(controller: widget.conditionsController!),
+          Material(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '주변 러너',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (state.changingSharing)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
+                  ),
+                  if (state.canViewNearby && !state.connected)
+                    const Text('실시간 연결 중'),
+                  if (state.nearbyError != null)
+                    Text(
+                      state.nearbyError!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  if (state.sharingError != null)
+                    Text(
+                      state.sharingError!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  if (state.recoveredRun)
+                    const Text(
+                      '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
+                    ),
+                  RunControls(
+                    controller: state,
+                    busy: _endingRun,
+                    onFinish: _finishRun,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
