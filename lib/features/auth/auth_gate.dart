@@ -27,7 +27,15 @@ class _AuthGateState extends State<AuthGate> {
       if (!mounted) {
         return;
       }
-      setState(() => _signedIn = state.session != null);
+      final signedIn = state.session != null;
+      if (_signedIn && !signedIn) {
+        // 로그인 화면 위에 남아 있는 설정·상세 화면을 함께 닫습니다.
+        Navigator.of(
+          context,
+          rootNavigator: true,
+        ).popUntil((route) => route.isFirst);
+      }
+      setState(() => _signedIn = signedIn);
     });
   }
 

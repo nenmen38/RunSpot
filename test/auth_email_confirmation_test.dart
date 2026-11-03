@@ -70,6 +70,24 @@ void main() {
     expect(find.text('이메일 인증을 완료한 후 로그인해 주세요.'), findsOneWidget);
   }
 
+  testWidgets('가입 규칙에 맞지 않는 비밀번호는 서버로 보내지 않습니다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(const MaterialApp(home: AuthScreen()));
+    await tester.ensureVisible(find.text('새 계정 만들기'));
+    await tester.tap(find.text('새 계정 만들기'));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'runner@example.com');
+    await tester.enterText(fields.at(1), 'password123');
+    await tester.enterText(fields.at(2), 'password123');
+    await tester.ensureVisible(find.text('회원가입').last);
+    await tester.tap(find.text('회원가입').last);
+    await tester.pumpAndSettle();
+    expect(requests, isEmpty);
+    expect(find.textContaining('영문 대문자·소문자·숫자·특수기호'), findsWidgets);
+  });
+
   testWidgets('미인증 로그인은 가입 확인 메일을 재전송할 수 있습니다', (tester) async {
     await showPending(tester);
     await tester.ensureVisible(find.text('인증 메일 재전송'));

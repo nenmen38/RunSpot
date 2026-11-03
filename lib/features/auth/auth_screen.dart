@@ -6,6 +6,7 @@ import 'package:runquest/shared/widgets/panel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_redirect.dart';
+import 'password_policy.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -66,12 +67,11 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    if (password.length < 6) {
-      setState(() => _message = '비밀번호는 6자 이상이어야 합니다.');
-      return;
-    }
-
     if (_isSignUp) {
+      if (!PasswordPolicy.isValid(password)) {
+        setState(() => _message = PasswordPolicy.description);
+        return;
+      }
       if (password != _passwordConfirmationController.text) {
         setState(() => _message = '비밀번호가 일치하지 않습니다.');
         return;
@@ -223,7 +223,11 @@ class _AuthScreenState extends State<AuthScreen> {
                             ? AutofillHints.newPassword
                             : AutofillHints.password,
                       ],
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
+                        helperText: _isSignUp
+                            ? PasswordPolicy.description
+                            : null,
+                        helperMaxLines: 2,
                         labelText: '비밀번호',
                         prefixIcon: Icon(Icons.lock_outline),
                         border: OutlineInputBorder(),
@@ -321,6 +325,9 @@ class _AuthScreenState extends State<AuthScreen> {
 }
 
 String _authErrorMessage(AuthException error) {
+  if (error.code == 'weak_password') {
+    return PasswordPolicy.description;
+  }
   if (error.code == 'email_not_confirmed') {
     return '이메일 인증을 완료한 후 로그인해 주세요.';
   }
