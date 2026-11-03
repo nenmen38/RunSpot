@@ -116,7 +116,9 @@ void main() {
       ];
     await showSocial(tester, service);
     for (final label in ['요청', '검색', '랭킹', '친구']) {
-      await tester.tap(find.text(label));
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text(label)),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }

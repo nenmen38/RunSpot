@@ -96,7 +96,7 @@ void main() {
     await tester.tap(find.text('새로고침'));
     await tester.pumpAndSettle();
     expect(find.text('친구러너'), findsNothing);
-    expect(find.text('친구 랭킹을 불러오지 못했습니다.'), findsOneWidget);
+    expect(find.text('랭킹을 불러오지 못했습니다.'), findsOneWidget);
     service.failed = false;
     service.result = WeeklyRanking.fromJson({
       ...rankingJson,
@@ -163,7 +163,7 @@ void main() {
     pending.complete(WeeklyRanking.fromJson(rankingJson));
     await tester.pumpAndSettle();
     expect(find.text('친구러너'), findsNothing);
-    expect(find.text('표시할 주간 순위가 없습니다.'), findsOneWidget);
+    expect(find.text('아직 표시할 기록이 없습니다.'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

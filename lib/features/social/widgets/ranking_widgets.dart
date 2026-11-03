@@ -21,7 +21,7 @@ class RankRow extends StatelessWidget {
           SizedBox(
             width: 30,
             child: Text(
-              '#${runner.rank}',
+              runner.rank == 0 ? '—' : '#${runner.rank}',
               style: const TextStyle(
                 color: AppColors.blue,
                 fontWeight: FontWeight.w900,

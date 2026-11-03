@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:runquest/features/profile/data/statistics_service.dart';
 import 'package:runquest/features/social/data/ranking_service.dart';
+import 'package:runquest/features/social/models/weekly_ranking.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'support/statistics_fakes.dart';
@@ -25,6 +26,30 @@ String session(String owner, String token) => jsonEncode({
 });
 
 void main() {
+  test('랭킹 기준과 대상은 계정 고정 토큰과 함께 서버에 전달합니다', () async {
+    http.Request? last;
+    final client = SupabaseClient(
+      'https://example.supabase.co',
+      '공개 키',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((request) async {
+        last = request;
+        return http.Response(
+          jsonEncode({...rankingJson, 'entries': []}),
+          200,
+          headers: {'content-type': 'application/json'},
+          request: request,
+        );
+      }),
+    );
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(session('owner', 'token-a'));
+    await SupabaseRankingService(client)
+        .loadRanking(RankingCategory.fiveK, RankingAudience.all);
+    expect(last!.url.path, '/rest/v1/rpc/runner_ranking');
+    expect(jsonDecode(last!.body), {'category': 'five_k', 'audience': 'all'});
+    expect(last!.headers['authorization'], 'Bearer token-a');
+  });
   for (final ranking in [false, true]) {
     test('${ranking ? '랭킹' : '통계'} 조회는 계정 고정 토큰을 사용하고 집계 응답을 해석합니다', () async {
       final requests = <http.Request>[];

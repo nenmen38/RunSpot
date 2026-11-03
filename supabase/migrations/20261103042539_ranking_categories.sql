@@ -1,0 +1,59 @@
+-- 한국 시간 주간 거리·활동 일수와 전체 기간 5km 최고 기록을 공개 범위 안에서 비교합니다.
+create function runspot_private.runner_ranking(category text,audience text)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare viewer uuid := auth.uid(); week_start timestamptz := date_trunc('week',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'; result jsonb;
+begin
+  if viewer is null or not runspot_private.is_active(viewer) then
+    raise exception '로그인이 필요합니다.' using errcode='42501';
+  end if;
+  if category is null or category not in ('distance','consistency','five_k') or audience is null or audience not in ('friends','all') then
+    raise exception '랭킹 기준을 확인해 주세요.' using errcode='22023';
+  end if;
+  if not runspot_private.can_interact() then
+    return jsonb_build_object('can_interact',false,'week_started_at',week_start,'entries','[]'::jsonb);
+  end if;
+  with participants as materialized (
+    select p.id,p.nickname from public.profiles p
+    where p.id=viewer or (
+      p.nickname is not null and runspot_private.email_verified(p.id)
+      and runspot_private.can_read(p.id,p.visibility)
+      and ((audience='all' and p.visibility='public') or (audience='friends' and exists(
+        select 1 from public.friendships f where f.user_low=least(viewer,p.id) and f.user_high=greatest(viewer,p.id) and f.status='accepted')))
+    )
+  ), eligible as materialized (
+    select r.* from public.runs r join participants p on p.id=r.user_id
+    where r.ended_at<=now() and r.distance_m>=300 and r.duration_sec>0
+      and not r.review_pending and r.integrity_status<>'rejected'
+      and (category='five_k' or r.ended_at>=week_start)
+      and (category<>'five_k' or r.distance_m>=5000)
+  ), splits as (
+    select r.user_id,r.id,s.ordinality,
+      (s.value->>'distance_m')::numeric as metres,(s.value->>'duration_us')::bigint as micros
+    from eligible r cross join lateral jsonb_array_elements(r.split_data) with ordinality s
+    where category='five_k'
+  ), windows as (
+    select user_id,count(*) over w as n,min(metres) over w as metres,min(micros) over w as positive,sum(micros) over w as elapsed
+    from splits window w as (partition by id order by ordinality rows between current row and 4 following)
+  ), scores as (
+    select user_id,case when category='distance' then floor(sum(distance_m))::bigint
+      else count(distinct (ended_at at time zone 'Asia/Seoul')::date) end as score
+      from eligible where category<>'five_k' group by user_id
+    union all
+    select user_id,min(elapsed)::bigint from windows where n=5 and metres=1000 and positive>0 group by user_id
+  ), ranked as (
+    select rank() over(order by case when category='five_k' then -s.score else s.score end desc) as rank,
+      p.id,p.nickname,s.score,p.id=viewer as is_me
+    from scores s join participants p on p.id=s.user_id where s.score>0
+  )
+  select coalesce(jsonb_agg(jsonb_build_object('rank',rank,'nickname',nickname,'score',score,'is_me',is_me)
+    order by rank,nickname,id),'[]'::jsonb) into result from ranked where rank<=100 or is_me;
+  return jsonb_build_object('can_interact',true,'week_started_at',week_start,'entries',result);
+end;
+$$;
+create function public.runner_ranking(category text default 'distance',audience text default 'friends')
+returns jsonb language sql stable security invoker set search_path = '' as $$
+  select runspot_private.runner_ranking(category,audience);
+$$;
+revoke all on function runspot_private.runner_ranking(text,text),public.runner_ranking(text,text) from public,anon,authenticated;
+grant execute on function runspot_private.runner_ranking(text,text),public.runner_ranking(text,text) to authenticated;
+notify pgrst,'reload schema';

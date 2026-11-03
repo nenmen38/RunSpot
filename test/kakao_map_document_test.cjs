@@ -50,7 +50,11 @@ test('시작 확대는 700ms SDK 애니메이션으로 한 번만 실행합니�
 test('단절된 경로를 각각 그리고 출발·도착을 따로 표시합니다',()=>{
   const f=documentFixture(),d=data();d.segments=[[[37,127],[37.1,127]],[[38,128],[38.1,128]]];d.endpoints=true;
   f.update(d);assert.equal(f.lines.length,4);assert.equal(f.lines[0].path.length,2);assert.equal(f.lines[2].path[0].getLat(),38);
-  assert.deepEqual(f.overlays.filter(o=>o.content.className.startsWith('endpoint')).map(o=>o.content.textContent),['출발','도착']);
+  assert.deepEqual(f.overlays.filter(o=>o.content.className.startsWith('endpoint')).map(o=>o.content.attributes['aria-label']),['출발','도착']);
+  for (const marker of f.overlays.filter(o=>o.content.className.startsWith('endpoint'))) {
+    assert.equal(marker.content.textContent,undefined);
+    assert.match(marker.content.innerHTML,/<svg /);
+  }
   const lines=f.lines.length;f.update(d);assert.equal(f.lines.length,lines);
   f.update({...d,segments:[]});assert.ok(f.lines.every(l=>l.map===null));
 });

@@ -9,7 +9,8 @@
     .runner { width:44px; height:44px; border:2px solid white; border-radius:50%; background:#16836f; color:white; font:700 14px sans-serif; padding:0; }
     .runner.group { background:#6750a4; width:50px; height:50px; }
     .runner.selected { background:#202428; }
-    .endpoint { font:700 14px sans-serif; background:white; color:#16836f; border:2px solid currentColor; padding:3px 6px; border-radius:4px; }
+    .endpoint { box-sizing:border-box; display:flex; align-items:center; justify-content:center; width:32px; height:32px; background:white; color:#16836f; border:2px solid currentColor; border-radius:50%; box-shadow:0 1px 6px #0004; }
+    .endpoint svg { width:20px; height:20px; }
     .endpoint.end { color:#c13647; }
   </style>
 </head>
@@ -78,7 +79,11 @@ window.createRunspotMap = () => {
         const points=data.segments.flat();
         if(data.endpoints&&points.length){
           const first=points[0],last=points[points.length-1];
-          const marker=(xy,text,end)=>{const element=document.createElement('div');element.className=end?'endpoint end':'endpoint';element.textContent=text;ends.push(overlay(xy,element,7));};
+          const marker=(xy,text,end)=>{const element=document.createElement('div');element.className=end?'endpoint end':'endpoint';element.setAttribute('aria-label',text);element.title=text;
+            element.innerHTML=end
+              ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 3h10l1 3h5v11h-8l-1-3H7v7H5V3zm2 2v7h6l1 3h5V8h-4l-1-3H7z"/></svg>'
+              : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="4"/></svg>';
+            ends.push(overlay(xy,element,7));};
           marker(first,'출발',false);
           if(first[0]!==last[0]||first[1]!==last[1])marker(last,'도착',true);
         }
