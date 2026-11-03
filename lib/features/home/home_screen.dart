@@ -641,11 +641,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     state.sharingError!,
                     style: const TextStyle(color: Colors.red),
                   ),
-                if (state.canViewNearby &&
-                    state.connected &&
-                    state.runners.isEmpty &&
-                    state.nearbyError == null)
-                  const Text('주변에 위치를 공유 중인 러너가 없습니다.'),
                 if (state.recoveredRun)
                   const Text(
                     '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
