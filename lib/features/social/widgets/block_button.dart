@@ -17,7 +17,7 @@ Future<bool> confirmUserBlock(
       content: Text(
         blocked
             ? '$nickname님의 차단을 해제할까요? 친구 관계는 복원되지 않습니다.'
-            : '$nickname님을 차단할까요? 친구 관계와 대기 요청을 삭제하고 서로 위치와 랭킹을 볼 수 없게 됩니다.',
+            : '$nickname님을 차단할까요? 서로의 위치·게시글·댓글·랭킹이 보이지 않으며 친구 관계와 대기 요청이 삭제됩니다. 함께 달리기 연결도 종료됩니다.',
       ),
       actions: [
         TextButton(

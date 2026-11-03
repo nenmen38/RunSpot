@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../firebase_options.dart';
+import '../features/settings/data/password_service.dart';
+import '../features/auth/data/kakao_sign_in_service.dart';
 import '../features/diagnostics/error_reporter.dart';
 import '../features/notifications/data/push_service.dart';
 import '../features/run_share/data/share_photo_service.dart';
@@ -36,6 +38,12 @@ Future<void> initializeApp() async {
     localConfig['SUPABASE_PUBLISHABLE_KEY'],
   );
 
+  PasswordService.configure(supabaseUrl, supabasePublishableKey);
+  await KakaoSignInService.configure(
+    const String.fromEnvironment('KAKAO_NATIVE_KEY').isNotEmpty
+        ? const String.fromEnvironment('KAKAO_NATIVE_KEY')
+        : localConfig['KAKAO_NATIVE_KEY'] ?? '',
+  );
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await Supabase.initialize(
     url: supabaseUrl,

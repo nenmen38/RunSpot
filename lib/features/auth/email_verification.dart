@@ -10,12 +10,14 @@ class EmailVerificationScreen extends StatefulWidget {
     required this.service,
     required this.onVerified,
     this.now = DateTime.now,
+    this.onSignOut,
     super.key,
   });
 
   final EmailVerificationService service;
   final Future<void> Function() onVerified;
   final DateTime Function() now;
+  final Future<void> Function()? onSignOut;
 
   @override
   State<EmailVerificationScreen> createState() =>
@@ -134,7 +136,16 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('이메일 인증')),
+    appBar: AppBar(
+      title: const Text('이메일 인증'),
+      actions: [
+        if (widget.onSignOut != null)
+          TextButton(
+            onPressed: _busy ? null : widget.onSignOut,
+            child: const Text('로그아웃'),
+          ),
+      ],
+    ),
     body: SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

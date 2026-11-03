@@ -85,6 +85,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   StatisticsService? _statistics;
   RankingService? _ranking;
   BlockService? _blocks;
+  FriendService? _friends;
   AchievementService? _achievements;
   ReviewService? _reviews;
   GroupController? _groups;
@@ -106,6 +107,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     } else {
       final client = Supabase.instance.client;
       _blocks = SupabaseBlockService(client);
+      _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
       _reviews = SupabaseReviewService(client);
       _conditions =
@@ -304,6 +306,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
                 conditionsController: _conditions,
                 progressService: _progress,
                 blockService: _blocks,
+                friendService: widget.friendService ?? _friends,
                 notificationController: _notifications,
                 onOpenPost: _openPost,
                 isActive: _tab == 0,

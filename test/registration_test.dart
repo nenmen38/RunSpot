@@ -20,7 +20,7 @@ void main() {
     );
     await tester.enterText(
       find.widgetWithText(TextField, '비밀번호'),
-      'password123',
+      'Password123!',
     );
     await tester.enterText(
       find.widgetWithText(TextField, '비밀번호 확인'),

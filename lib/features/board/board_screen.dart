@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'board_compose_screen.dart';
 import 'board_controller.dart';
 import 'board_post_screen.dart';
+import 'widgets/board_user_interaction.dart';
 import 'data/board_photo_service.dart';
 import 'data/board_service.dart';
 import 'models/board_post.dart';
@@ -352,6 +353,14 @@ class _BoardScreenState extends State<BoardScreen> {
         itemBuilder: (context, index) {
           if (index < posts.length) {
             return BoardPostTile(
+              onAuthorTap: () async {
+                final blocked = await showBoardUserInteraction(
+                  context,
+                  service: _controller.service,
+                  postId: posts[index].id,
+                );
+                if (blocked && mounted) await _controller.refresh();
+              },
               post: posts[index],
               onTap: () => _open(posts[index]),
             );

@@ -10,6 +10,7 @@ const configPath = path.join(root, 'config', 'dev.json');
 
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 const requiredValues = {
+  KAKAO_NATIVE_KEY: stringValue(config.KAKAO_NATIVE_KEY),
   SUPABASE_URL: stringValue(config.SUPABASE_URL),
   SUPABASE_PUBLISHABLE_KEY: stringValue(config.SUPABASE_PUBLISHABLE_KEY),
 };
@@ -23,6 +24,7 @@ for (const [key, value] of Object.entries(requiredValues)) {
 const existingDefines = readExistingDefines();
 const mergedDefines = existingDefines.filter(
   (define) =>
+    !define.startsWith('KAKAO_NATIVE_KEY=') &&
     !define.startsWith('SUPABASE_URL=') &&
     !define.startsWith('SUPABASE_PUBLISHABLE_KEY='),
 );

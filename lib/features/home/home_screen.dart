@@ -18,6 +18,8 @@ import '../run_conditions/widgets/conditions_panel.dart';
 import '../run_share/run_share_screen.dart';
 import '../social/data/block_service.dart';
 import '../social/widgets/block_button.dart';
+import '../social/widgets/user_interaction_sheet.dart';
+import '../social/data/friend_service.dart';
 import '../group_running/group_controller.dart';
 import '../notifications/notification_controller.dart';
 import '../notifications/widgets/notification_bell.dart';
@@ -34,6 +36,7 @@ class HomeScreen extends StatefulWidget {
     this.conditionsController,
     this.progressService,
     this.blockService,
+    this.friendService,
     this.groupController,
     this.notificationController,
     this.onOpenPost,
@@ -45,6 +48,7 @@ class HomeScreen extends StatefulWidget {
   final ConditionsController? conditionsController;
   final ProgressService? progressService;
   final BlockService? blockService;
+  final FriendService? friendService;
   final GroupController? groupController;
 
   /// 있으면 오른쪽 위에 확성기 알림 버튼을 보여줍니다.
@@ -71,6 +75,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   double get _recommendedZoom =>
       widget.controller.runSession == null ? _overviewZoom : _runningZoom;
+
+  Future<bool> _openRunner(LiveRunner runner) async {
+    final blocks = widget.blockService;
+    if (blocks == null ||
+        runner.id == widget.controller.runHistory.service.ownerId) {
+      return false;
+    }
+    final blocked = await showUserInteraction(
+      context,
+      userId: runner.id,
+      nickname: runner.nickname,
+      blocks: blocks,
+      friends: widget.friendService,
+    );
+    if (mounted && blocked) {
+      setState(() => _selectedId = null);
+      widget.controller.hideBlockedRunner(runner.id);
+      unawaited(widget.controller.refresh());
+    }
+    return blocked;
+  }
 
   @override
   void initState() {
@@ -389,6 +414,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   if (cluster == null) return;
                   if (cluster.members.length == 1) {
                     setState(() => _selectedId = id);
+                    await _openRunner(cluster.members.single);
                     return;
                   }
                   final member = await showModalBottomSheet<LiveRunner>(
@@ -428,6 +454,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _selectedId = current?.id;
                     _following = member.id == ownerId;
                   });
+                  if (await _openRunner(member) || !mounted) return;
                   _map.move(
                     current == null
                         ? LatLng(target!.latitude, target.longitude)

@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:runquest/features/auth/auth_screen.dart';
 import 'package:runquest/features/auth/registration.dart';
+
+import 'kakao_email_gate.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatefulWidget {
@@ -48,9 +51,9 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     return _signedIn
-        ? RegistrationGate(
+        ? KakaoEmailGate(
             key: ValueKey(Supabase.instance.client.auth.currentUser?.id),
-            child: widget.child,
+            child: RegistrationGate(child: widget.child),
           )
         : const AuthScreen();
   }

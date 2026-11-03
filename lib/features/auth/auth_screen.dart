@@ -6,6 +6,7 @@ import 'package:runquest/shared/widgets/panel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_redirect.dart';
+import 'data/kakao_sign_in_service.dart';
 import 'password_policy.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -42,11 +43,15 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        provider,
-        redirectTo: authRedirectUrl,
-        authScreenLaunchMode: LaunchMode.externalApplication,
-      );
+      if (provider == OAuthProvider.kakao) {
+        await KakaoSignInService(Supabase.instance.client).signIn();
+      } else {
+        await Supabase.instance.client.auth.signInWithOAuth(
+          provider,
+          redirectTo: authRedirectUrl,
+          authScreenLaunchMode: LaunchMode.externalApplication,
+        );
+      }
     } on AuthException catch (error) {
       if (mounted) setState(() => _message = error.message);
     } catch (_) {

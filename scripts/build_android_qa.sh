@@ -25,7 +25,7 @@ from pathlib import Path
 source = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 allowed = (
     'SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY',
-    'KAKAO_JAVASCRIPT_KEY', 'KAKAO_MAP_ORIGIN',
+    'KAKAO_JAVASCRIPT_KEY', 'KAKAO_MAP_ORIGIN', 'KAKAO_NATIVE_KEY',
     'PRIVACY_POLICY_URL', 'TERMS_URL', 'LOCATION_TERMS_URL', 'SUPPORT_EMAIL',
 )
 for key in ('SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'KAKAO_JAVASCRIPT_KEY'):

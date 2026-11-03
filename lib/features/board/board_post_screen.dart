@@ -5,6 +5,7 @@ import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'board_comments_controller.dart';
+import 'widgets/board_user_interaction.dart';
 import 'board_compose_screen.dart';
 import 'board_controller.dart';
 import 'data/board_photo_service.dart';
@@ -65,6 +66,23 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     _input.dispose();
     _inputFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _openUser({String? commentId}) async {
+    final blocked = await showBoardUserInteraction(
+      context,
+      service: widget.controller.service,
+      postId: widget.post.id,
+      commentId: commentId,
+    );
+    if (!mounted || !blocked) return;
+    await widget.controller.refresh();
+    if (!mounted) return;
+    if (commentId == null) {
+      Navigator.of(context).pop();
+    } else {
+      await _comments.refresh();
+    }
   }
 
   void _show(String? message) {
@@ -279,14 +297,17 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
       ],
       SelectableText(post.title, style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 6),
-      Text(
-        [
-          post.nickname,
-          if (post.region != null) post.region!,
-          formatBoardDateTime(post.createdAt),
-          if (post.isEdited) '수정됨',
-        ].join(' · '),
-        style: BoardStyle.meta,
+      InkWell(
+        onTap: post.isMine ? null : () => _openUser(),
+        child: Text(
+          [
+            post.nickname,
+            if (post.region != null) post.region!,
+            formatBoardDateTime(post.createdAt),
+            if (post.isEdited) '수정됨',
+          ].join(' · '),
+          style: BoardStyle.meta,
+        ),
       ),
       if (raceDate != null) ...[
         const SizedBox(height: 14),
@@ -367,13 +388,18 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${comment.nickname} · ${formatBoardDateTime(comment.createdAt)}',
-                      style: const TextStyle(
-                        color: BoardStyle.secondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
+                    InkWell(
+                      onTap: comment.isMine
+                          ? null
+                          : () => _openUser(commentId: comment.id),
+                      child: Text(
+                        '${comment.nickname} · ${formatBoardDateTime(comment.createdAt)}',
+                        style: const TextStyle(
+                          color: BoardStyle.secondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.5,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),

@@ -47,10 +47,16 @@ const _metaStyle = TextStyle(
 );
 
 class BoardPostTile extends StatelessWidget {
-  const BoardPostTile({required this.post, required this.onTap, super.key});
+  const BoardPostTile({
+    required this.post,
+    required this.onTap,
+    this.onAuthorTap,
+    super.key,
+  });
 
   final BoardPost post;
   final VoidCallback onTap;
+  final VoidCallback? onAuthorTap;
 
   @override
   Widget build(BuildContext context) {
@@ -123,11 +129,14 @@ class BoardPostTile extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            '${post.nickname} · ${formatBoardDateTime(post.createdAt)}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _metaStyle,
+                          child: InkWell(
+                            onTap: post.isMine ? null : onAuthorTap,
+                            child: Text(
+                              '${post.nickname} · ${formatBoardDateTime(post.createdAt)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _metaStyle,
+                            ),
                           ),
                         ),
                         if (post.likeCount > 0) ...[

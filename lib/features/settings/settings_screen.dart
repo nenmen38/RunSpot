@@ -11,6 +11,8 @@ import '../profile/privacy_controls.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data/account_service.dart';
+import 'data/password_service.dart';
+import 'password_change_screen.dart';
 import 'legal_links.dart';
 import 'widgets/delete_account_dialog.dart';
 
@@ -192,6 +194,21 @@ class SettingsScreen extends StatelessWidget {
           title: const Text('오픈소스 라이선스'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => showLicensePage(context: context),
+        ),
+        ListTile(
+          leading: const Icon(Icons.lock_outline),
+          title: const Text('비밀번호 변경'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            if (!isCurrentOwner()) return;
+            Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => PasswordChangeScreen(
+                  service: PasswordService(Supabase.instance.client),
+                ),
+              ),
+            );
+          },
         ),
         const Divider(),
         ListTile(
