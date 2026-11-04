@@ -16,7 +16,7 @@ class FriendRanking extends StatefulWidget {
 
 class _FriendRankingState extends State<FriendRanking> {
   RankingCategory _category = RankingCategory.distance;
-  RankingAudience _audience = RankingAudience.friends;
+  RankingAudience _audience = RankingAudience.all;
   @override
   Widget build(BuildContext context) => ListView(
     children: [
@@ -38,7 +38,10 @@ class _FriendRankingState extends State<FriendRanking> {
             initialValue: _audience,
             onSelected: (value) => setState(() => _audience = value),
             itemBuilder: (_) => [
-              for (final audience in RankingAudience.values)
+              for (final audience in [
+                RankingAudience.all,
+                RankingAudience.friends,
+              ])
                 PopupMenuItem(
                   value: audience,
                   child: Text(
