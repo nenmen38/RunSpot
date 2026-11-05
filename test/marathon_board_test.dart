@@ -6,30 +6,39 @@ import 'package:runquest/features/board/races/marathon_status_badge.dart';
 import 'package:runquest/features/board/races/marathon_event.dart';
 import 'package:runquest/features/board/races/marathon_service.dart';
 
-MarathonEvent event(String status, String name) => MarathonEvent.fromJson({
-  'id': status,
-  'status': status,
-  'data': {
-    'name': name,
-    'event': {'startDate': '2027-03-21'},
-    'location': {'region': '서울', 'venue': '광화문'},
-    'registration': {
-      'price': {'10KM': 50000},
-      'site': 'https://example.com',
-    },
-  },
-});
+MarathonEvent event(String status, String name, {DateTime? promotedUntil}) =>
+    MarathonEvent.fromJson({
+      'id': status,
+      'status': status,
+      'promoted_until': promotedUntil?.toIso8601String(),
+      'data': {
+        'name': name,
+        'event': {'startDate': '2027-03-21'},
+        'location': {'region': '서울', 'venue': '광화문'},
+        'registration': {
+          'price': {'10KM': 50000},
+          'site': 'https://example.com',
+        },
+      },
+    });
 
 class FakeMarathons implements MarathonService {
   int calls = 0;
   bool fail = false;
+  bool promoteOpenEvent = false;
   @override
   Future<MarathonFeed> load() async {
     calls++;
     if (fail) throw Exception('오류');
     return MarathonFeed([
       event('upcoming', '봄 대회'),
-      event('open', '서울 대회'),
+      event(
+        'open',
+        '서울 대회',
+        promotedUntil: promoteOpenEvent
+            ? DateTime.now().add(const Duration(hours: 1))
+            : null,
+      ),
       event('closed', '마감 대회'),
       event('unknown', '미정 대회'),
     ], DateTime.now().toUtc());
@@ -81,6 +90,30 @@ void main() {
     expect(find.text('접수'), findsOneWidget);
     expect(find.text('미정'), findsOneWidget);
     expect(service.calls, 1);
+  });
+
+  testWidgets('홍보 대회를 광고로 표시하고 목록 상단에 한 번만 배치합니다', (tester) async {
+    final service = FakeMarathons()..promoteOpenEvent = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MarathonBoard(
+            service: service,
+            notices: const [],
+            onOpenNotice: (_) {},
+            refreshNotices: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('광고'), findsOneWidget);
+    expect(find.text('서울 대회'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('서울 대회')).dy,
+      lessThan(tester.getTopLeft(find.text('봄 대회')).dy),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('실패 후 재시도와 검색 결과를 표시합니다', (tester) async {

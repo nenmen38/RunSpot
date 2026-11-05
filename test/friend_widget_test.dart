@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/social/models/friend_entry.dart';
+import 'package:runquest/features/social/models/friend_profile.dart';
 import 'package:runquest/features/social/social_screen.dart';
 
 import 'support/friend_fakes.dart';
@@ -56,7 +57,31 @@ void main() {
 
   testWidgets('받은 요청 수락과 친구 삭제 확인 및 취소를 처리합니다', (tester) async {
     final service = FakeFriendService()
-      ..entries = [friendEntry('1', FriendRelation.received)];
+      ..entries = [friendEntry('1', FriendRelation.received)]
+      ..profile = FriendProfile.fromJson({
+        'nickname': '러너1',
+        'progress': {
+          'total_xp': 82,
+          'level': 1,
+          'level_xp': 82,
+          'next_level_xp': 100,
+        },
+        'statistics': {
+          'week_started_at': '2026-11-02T00:00:00+09:00',
+          'weekly_distance_m': 3000,
+          'completed_runs': 1,
+          'pace_distance_m': 3000,
+          'pace_duration_sec': 1200,
+        },
+        'achievements': [
+          {
+            'title': '첫 러닝 완료',
+            'metric': 'run_count',
+            'target': 1,
+            'progress': 1,
+          },
+        ],
+      });
     await showSocial(tester, service);
     await tester.tap(find.text('요청'));
     await tester.pumpAndSettle();
@@ -65,6 +90,17 @@ void main() {
     await tester.tap(find.text('친구'));
     await tester.pumpAndSettle();
     expect(find.text('내 친구 1'), findsOneWidget);
+    await tester.tap(find.text('러너1'));
+    await tester.pumpAndSettle();
+    expect(find.text('친구 프로필'), findsOneWidget);
+    expect(find.text('새내기 러너 · 누적 82 XP'), findsOneWidget);
+    expect(find.text('이번 주 거리'), findsOneWidget);
+    expect(find.text('누적 페이스'), findsOneWidget);
+    expect(find.text('완료 러닝'), findsOneWidget);
+    expect(find.text('첫 러닝 완료'), findsOneWidget);
+    expect(find.text('러너1'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('친구 관리'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('친구 삭제'));

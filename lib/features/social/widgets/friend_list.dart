@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../friend_controller.dart';
+import '../friend_profile_screen.dart';
 import '../data/block_service.dart';
 import 'block_button.dart';
 import '../models/friend_entry.dart';
 
-class FriendList extends StatelessWidget {
+class FriendList extends StatefulWidget {
   const FriendList({
     required this.controller,
     required this.requests,
@@ -17,7 +18,27 @@ class FriendList extends StatelessWidget {
   final BlockService? blockService;
 
   @override
+  State<FriendList> createState() => _FriendListState();
+}
+
+class _FriendListState extends State<FriendList> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final query = _search.text.trim().toLowerCase();
+    final friends = query.isEmpty
+        ? controller.friends
+        : controller.friends
+              .where((entry) => entry.nickname.toLowerCase().contains(query))
+              .toList();
     final received = controller.received;
     final sent = controller.sent;
     return RefreshIndicator(
@@ -25,14 +46,14 @@ class FriendList extends StatelessWidget {
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          if (requests) ...[
+          if (widget.requests) ...[
             _Heading('받은 요청', received.length),
             if (received.isEmpty) const _Empty('받은 요청이 없습니다.'),
             for (final entry in received)
               FriendRow(
                 entry: entry,
                 controller: controller,
-                blockService: blockService,
+                blockService: widget.blockService,
               ),
             const Divider(height: 24),
             _Heading('보낸 요청', sent.length),
@@ -41,17 +62,50 @@ class FriendList extends StatelessWidget {
               FriendRow(
                 entry: entry,
                 controller: controller,
-                blockService: blockService,
+                blockService: widget.blockService,
               ),
           ] else ...[
-            _Heading('내 친구', controller.friends.length),
-            if (controller.friends.isEmpty && controller.loaded)
-              const _Empty('아직 친구가 없습니다.'),
-            for (final entry in controller.friends)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: TextField(
+                controller: _search,
+                autocorrect: false,
+                textInputAction: TextInputAction.search,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: '친구 목록 검색',
+                  hintText: '닉네임 입력',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _search.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '친구 목록 검색어 지우기',
+                          onPressed: () => setState(_search.clear),
+                          icon: const Icon(Icons.close),
+                        ),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+            _Heading(query.isEmpty ? '내 친구' : '검색 결과', friends.length),
+            if (friends.isEmpty && controller.loaded)
+              _Empty(query.isEmpty ? '아직 친구가 없습니다.' : '일치하는 친구가 없습니다.'),
+            for (final entry in friends)
               FriendRow(
                 entry: entry,
                 controller: controller,
-                blockService: blockService,
+                blockService: widget.blockService,
+                onProfileTap: () {
+                  FocusScope.of(context).unfocus();
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => FriendProfileScreen(
+                        friend: entry,
+                        service: controller.service,
+                      ),
+                    ),
+                  );
+                },
               ),
           ],
         ],
@@ -86,11 +140,13 @@ class FriendRow extends StatelessWidget {
     required this.entry,
     required this.controller,
     this.blockService,
+    this.onProfileTap,
     super.key,
   });
   final FriendEntry entry;
   final FriendController controller;
   final BlockService? blockService;
+  final VoidCallback? onProfileTap;
 
   Future<void> _confirmRemoval(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -124,16 +180,31 @@ class FriendRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 18,
-            child: Icon(Icons.person_outline, size: 20),
-          ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              entry.nickname,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            child: InkWell(
+              onTap: onProfileTap,
+              borderRadius: BorderRadius.circular(12),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 18,
+                      child: Icon(Icons.person_outline, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        entry.nickname,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (onProfileTap != null)
+                      const Icon(Icons.chevron_right, size: 20),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 6),

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/social/data/block_service.dart';
 import 'package:runquest/features/social/data/friend_service.dart';
 import 'package:runquest/features/social/models/friend_entry.dart';
+import 'package:runquest/features/social/models/friend_profile.dart';
 import 'package:runquest/features/social/widgets/user_interaction_sheet.dart';
 
 class _Blocks implements BlockService {
@@ -18,6 +19,9 @@ class _Blocks implements BlockService {
 }
 
 class _Friends implements FriendService {
+  @override
+  Future<FriendProfile?> loadProfile(String userId) async => null;
+
   FriendRelation relation = FriendRelation.none;
   FriendAction? action;
   @override

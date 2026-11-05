@@ -47,6 +47,7 @@ from generate_series(102,109) n cross join week w;
 
 set local role anon;
 select pg_temp.assert_true(pg_temp.fails('select public.my_run_statistics()','42501'),'비로그인 통계 차단');
+select pg_temp.assert_true(pg_temp.fails('select public.friend_profile(null)','42501'),'비로그인 친구 프로필 차단');
 select pg_temp.assert_true(pg_temp.fails('select public.friend_weekly_ranking()','42501'),'비로그인 랭킹 차단');
 reset role;
 set local role authenticated;
@@ -64,6 +65,19 @@ select pg_temp.assert_true((select count(*)=2 from jsonb_array_elements(public.f
 select pg_temp.assert_true(public.friend_weekly_ranking()->'entries'->3 @>
  '{"rank":4,"nickname":"통계110","distance_m":0}'::jsonb,'공동 순위 뒤 순번과 기록 없는 친구');
 select pg_temp.assert_true((select count(*)=6 from public.runs),'친구 원본 기록 접근 차단 유지');
+select pg_temp.assert_true(public.friend_profile('00000000-0000-0000-0000-000000000102') @>
+ '{"nickname":"통계102","statistics":{"weekly_distance_m":3000,"completed_runs":1,"pace_distance_m":3000,"pace_duration_sec":1200}}'::jsonb,
+ '친구 프로필은 대상 계정의 집계를 반환');
+select pg_temp.assert_true(jsonb_array_length(public.friend_profile('00000000-0000-0000-0000-000000000102')->'achievements')=3
+ and (public.friend_profile('00000000-0000-0000-0000-000000000102')#>>'{progress,level}')::int>=1,'친구 업적과 레벨 제공');
+select pg_temp.assert_true((select bool_and(public.friend_profile(target) is null) from unnest(array[
+ '00000000-0000-0000-0000-000000000104'::uuid,
+ '00000000-0000-0000-0000-000000000105'::uuid,
+ '00000000-0000-0000-0000-000000000106'::uuid,
+ '00000000-0000-0000-0000-000000000107'::uuid,
+ '00000000-0000-0000-0000-000000000109'::uuid,
+ '00000000-0000-0000-0000-000000000111'::uuid
+]) as ids(target)), '비공개·양방향 차단·정지·요청 중·친구 아님 프로필 차단');
 select pg_temp.assert_true(not jsonb_path_exists(public.friend_weekly_ranking(),'$.entries[*].user_id')
  and not jsonb_path_exists(public.friend_weekly_ranking(),'$.entries[*].started_at'),'집계 외 식별자와 시각 미노출');
 reset role;

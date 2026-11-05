@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../monetization/partner_offers.dart';
+import '../monetization/profile_cosmetics.dart';
 
 import '../home/live_map_controller.dart';
 
@@ -25,6 +29,7 @@ class ProfileScreen extends StatelessWidget {
     this.statisticsService,
     this.mapController,
     this.achievementService,
+    this.commerceClient,
     super.key,
   });
   final VoidCallback onHistoryTap;
@@ -33,9 +38,22 @@ class ProfileScreen extends StatelessWidget {
   final StatisticsService? statisticsService;
   final LiveMapController? mapController;
   final AchievementService? achievementService;
+  final SupabaseClient? commerceClient;
 
   @override
   Widget build(BuildContext context) {
+    final identity = Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PrivacyControls(sharingController: mapController, identityOnly: true),
+          if (progressService != null) ...[
+            const SizedBox(height: 12),
+            ProfileLevelCard(service: progressService!),
+          ],
+        ],
+      ),
+    );
     return PageFrame(
       child: SingleChildScrollView(
         child: Column(
@@ -58,21 +76,12 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PrivacyControls(
-                    sharingController: mapController,
-                    identityOnly: true,
-                  ),
-                  if (progressService != null) ...[
-                    const SizedBox(height: 12),
-                    ProfileLevelCard(service: progressService!),
-                  ],
-                ],
-              ),
-            ),
+            if (commerceClient case final client?)
+              ProfileCosmetics(client: client, child: identity)
+            else
+              identity,
+            if (commerceClient case final client?)
+              PartnerOffers(client: client),
             const SizedBox(height: 10),
             if (statisticsService != null)
               QuickStats(service: statisticsService!),

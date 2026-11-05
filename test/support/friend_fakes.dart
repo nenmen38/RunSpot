@@ -1,5 +1,6 @@
 import 'package:runquest/features/social/data/friend_service.dart';
 import 'package:runquest/features/social/models/friend_entry.dart';
+import 'package:runquest/features/social/models/friend_profile.dart';
 
 FriendEntry friendEntry(
   String id,
@@ -16,6 +17,11 @@ FriendEntry friendEntry(
 );
 
 class FakeFriendService implements FriendService {
+  FriendProfile? profile;
+
+  @override
+  Future<FriendProfile?> loadProfile(String userId) async => profile;
+
   @override
   bool isCurrentOwner = true;
   bool canInteract = true;

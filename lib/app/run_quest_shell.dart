@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../features/notifications/data/push_service.dart';
+import '../features/monetization/profile_cosmetics.dart';
 import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
@@ -289,8 +290,14 @@ class _RunQuestShellState extends State<RunQuestShell> {
         statisticsService: _statistics,
         mapController: _map,
         achievementService: _achievements,
+        commerceClient: widget.mapController == null
+            ? Supabase.instance.client
+            : null,
       ),
       BoardScreen(service: _board),
+      ProfileCosmetics.store(
+        client: widget.mapController == null ? Supabase.instance.client : null,
+      ),
     ];
 
     return Scaffold(
@@ -350,6 +357,11 @@ class _RunQuestShellState extends State<RunQuestShell> {
             icon: Icon(Icons.forum_outlined),
             selectedIcon: Icon(Icons.forum),
             label: '게시판',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.storefront_outlined),
+            selectedIcon: Icon(Icons.storefront),
+            label: '상점',
           ),
         ],
       ),

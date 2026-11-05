@@ -17,6 +17,9 @@ enum MarathonStatus {
 class MarathonEvent {
   MarathonEvent.fromJson(Map<String, dynamic> json)
     : id = json['id'] as String,
+      promotedUntil = DateTime.tryParse(
+        json['promoted_until'] as String? ?? '',
+      ),
       status = MarathonStatus.values.firstWhere(
         (s) => s.code == json['status'],
       ),
@@ -24,6 +27,9 @@ class MarathonEvent {
 
   final String id;
   final MarathonStatus status;
+  final DateTime? promotedUntil;
+
+  bool isPromotedAt(DateTime now) => promotedUntil?.isAfter(now) ?? false;
   final Map<String, dynamic> data;
   String get name => data['name'] as String;
   String? get description => _text(data['description']);

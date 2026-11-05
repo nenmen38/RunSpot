@@ -32,7 +32,7 @@ for test in test_registration registration security live_runner_map run_history 
   running_conditions environment_shared_budget email_verification optional_phone_verification run_feedback \
   run_temperature run_analysis run_rewards run_statistics ranking_categories run_location_preferences blocks achievements_and_review \
   group_running run_splits segment_integrity review_pending_rewards sustained_speed_review app_usability \
-  board board_engagement board_notifications board_replies_search board_comment_likes board_news_feed board_safety board_user_interactions marathon_catalog group_invite_notifications account_deletion push_delivery_and_photo_cleanup; do
+  board board_engagement board_notifications board_replies_search board_comment_likes board_news_feed board_safety board_user_interactions marathon_catalog monetization group_invite_notifications account_deletion push_delivery_and_photo_cleanup; do
   args+=(-f "supabase/tests/$test.sql")
 done
 

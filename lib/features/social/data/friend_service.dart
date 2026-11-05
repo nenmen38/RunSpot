@@ -1,10 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/friend_entry.dart';
+import '../models/friend_profile.dart';
 
 abstract interface class FriendService {
   bool get isCurrentOwner;
   Future<FriendDashboard> load();
+  Future<FriendProfile?> loadProfile(String userId);
   Future<List<FriendEntry>> search(String nickname);
   Future<void> change(FriendEntry entry, FriendAction action);
 }
@@ -43,6 +45,14 @@ class SupabaseFriendService implements FriendService {
   Future<FriendDashboard> load() async => FriendDashboard.fromJson(
     Map<String, dynamic>.from(await _rpc('friend_dashboard') as Map),
   );
+
+  @override
+  Future<FriendProfile?> loadProfile(String userId) async {
+    final result = await _rpc('friend_profile', params: {'target_id': userId});
+    return result == null
+        ? null
+        : FriendProfile.fromJson(Map<String, dynamic>.from(result as Map));
+  }
 
   @override
   Future<List<FriendEntry>> search(String nickname) async {

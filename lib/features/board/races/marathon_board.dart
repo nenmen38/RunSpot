@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -39,11 +41,35 @@ class _MarathonBoardState extends State<MarathonBoard> {
   bool _loading = true;
   String? _error;
   int _revision = 0;
+  Timer? _promotionExpiry;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _promotionExpiry?.cancel();
+    super.dispose();
+  }
+
+  void _schedulePromotionExpiry() {
+    _promotionExpiry?.cancel();
+    final now = DateTime.now();
+    final expiries = _feed?.events
+        .map((event) => event.promotedUntil)
+        .whereType<DateTime>()
+        .where((expiry) => expiry.isAfter(now))
+        .toList();
+    if (expiries == null || expiries.isEmpty) return;
+    expiries.sort();
+    _promotionExpiry = Timer(expiries.first.difference(now), () {
+      if (!mounted) return;
+      setState(() {});
+      _schedulePromotionExpiry();
+    });
   }
 
   Future<void> _load() async {
@@ -56,7 +82,10 @@ class _MarathonBoardState extends State<MarathonBoard> {
       final feed = await widget.service.load().timeout(
         const Duration(seconds: 15),
       );
-      if (mounted && revision == _revision) setState(() => _feed = feed);
+      if (mounted && revision == _revision) {
+        setState(() => _feed = feed);
+        _schedulePromotionExpiry();
+      }
     } catch (_) {
       if (mounted && revision == _revision) {
         setState(() => _error = '대회 정보를 불러오지 못했어요.');
@@ -70,7 +99,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
   Widget build(BuildContext context) {
     final query = widget.query?.trim() ?? '';
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
-    final events =
+    final matching =
         _feed?.events
             .where(
               (event) =>
@@ -79,6 +108,11 @@ class _MarathonBoardState extends State<MarathonBoard> {
             )
             .toList() ??
         [];
+    final now = DateTime.now();
+    final promoted = matching
+        .where((event) => event.isPromotedAt(now))
+        .toList();
+    final events = matching.where((event) => !event.isPromotedAt(now)).toList();
     final notices = _status == null || _status == MarathonStatus.unknown
         ? widget.notices
         : const <BoardPost>[];
@@ -96,7 +130,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
             if (!largeText)
               Expanded(
                 child: Text(
-                  '${events.length}개 대회',
+                  '${matching.length}개 대회',
                   style: const TextStyle(
                     color: MarathonStyle.secondary,
                     fontSize: 13,
@@ -121,7 +155,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              '${events.length}개 대회',
+              '${matching.length}개 대회',
               style: const TextStyle(
                 color: MarathonStyle.secondary,
                 fontSize: 13,
@@ -154,7 +188,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
                         if (!_loading &&
                             _feed?.syncedAt != null &&
                             _error == null &&
-                            events.isEmpty &&
+                            matching.isEmpty &&
                             notices.isEmpty)
                           SizedBox(
                             height: constraints.maxHeight * .65,
@@ -164,6 +198,8 @@ class _MarathonBoardState extends State<MarathonBoard> {
                               ),
                             ),
                           ),
+                        for (final event in promoted)
+                          _eventTile(event, promoted: true),
                         for (var index = 0; index < events.length; index++) ...[
                           if (index == 0 ||
                               events[index].date.year !=
@@ -188,15 +224,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
                                 ),
                               ),
                             ),
-                          _EventTile(
-                            event: events[index],
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    MarathonDetailScreen(event: events[index]),
-                              ),
-                            ),
-                          ),
+                          _eventTile(events[index]),
                           if (index + 1 < events.length &&
                               events[index].date.month ==
                                   events[index + 1].date.month &&
@@ -231,6 +259,16 @@ class _MarathonBoardState extends State<MarathonBoard> {
     );
   }
 
+  Widget _eventTile(MarathonEvent event, {bool promoted = false}) => _EventTile(
+    event: event,
+    promoted: promoted,
+    onTap: () => Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MarathonDetailScreen(event: event),
+      ),
+    ),
+  );
+
   Widget _message(String text, {bool retry = false}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 12),
     child: Column(
@@ -247,7 +285,12 @@ class _MarathonBoardState extends State<MarathonBoard> {
 }
 
 class _EventTile extends StatelessWidget {
-  const _EventTile({required this.event, required this.onTap});
+  const _EventTile({
+    required this.event,
+    required this.onTap,
+    required this.promoted,
+  });
+  final bool promoted;
   final MarathonEvent event;
   final VoidCallback onTap;
 
@@ -294,6 +337,14 @@ class _EventTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (promoted)
+                    const Text(
+                      '광고',
+                      style: TextStyle(
+                        color: AppColors.blueDark,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   Text(
                     event.name,
                     style: const TextStyle(

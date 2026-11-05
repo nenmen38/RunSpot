@@ -20,34 +20,7 @@ class QuickStats extends StatelessWidget {
     builder: (context, stats) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: StatCard(
-                label: '이번 주 거리',
-                value:
-                    '${(stats.weeklyDistanceMeters / 1000).toStringAsFixed(1)}km',
-                icon: Icons.calendar_month,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: StatCard(
-                label: '누적 페이스',
-                value: formatPaceDuration(stats.averagePace),
-                icon: Icons.speed,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: StatCard(
-                label: '완료 러닝',
-                value: '${stats.completedRuns}회',
-                icon: Icons.flag_outlined,
-              ),
-            ),
-          ],
-        ),
+        RunStatCards(stats: stats),
         const SizedBox(height: 20),
         if (stats.growth case final growth?)
           RunGrowthPanel(growth: growth)
@@ -55,5 +28,40 @@ class QuickStats extends StatelessWidget {
           const Text('성장 추이를 보려면 서버 업데이트가 필요합니다.'),
       ],
     ),
+  );
+}
+
+class RunStatCards extends StatelessWidget {
+  const RunStatCards({required this.stats, super.key});
+
+  final RunStatistics stats;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: StatCard(
+          label: '이번 주 거리',
+          value: '${(stats.weeklyDistanceMeters / 1000).toStringAsFixed(1)}km',
+          icon: Icons.calendar_month,
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: StatCard(
+          label: '누적 페이스',
+          value: formatPaceDuration(stats.averagePace),
+          icon: Icons.speed,
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: StatCard(
+          label: '완료 러닝',
+          value: '${stats.completedRuns}회',
+          icon: Icons.flag_outlined,
+        ),
+      ),
+    ],
   );
 }
