@@ -376,7 +376,7 @@ void main() {
     expect(find.text('내 친구 0'), findsOneWidget);
     await tester.tap(find.text('랭킹'));
     await tester.pumpAndSettle();
-    expect(find.text('친구 랭킹'), findsOneWidget);
+    expect(find.byTooltip('랭킹 대상 선택'), findsOneWidget);
     await tester.tap(find.text('홈'));
     await tester.pumpAndSettle();
     expect(controller.sharing, isTrue);

@@ -65,17 +65,24 @@ void main() {
     service.pending!.complete(result(RankingCategory.distance, '이전 순위', 99999));
     await tester.pumpAndSettle();
     expect(find.text('이전 순위'), findsNothing);
-    await tester.tap(find.byTooltip('랭킹 대상 선택'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('전체'));
-    await tester.pumpAndSettle();
     expect(service.requests.last, (
       RankingCategory.longest,
       RankingAudience.all,
     ));
+    await tester.tap(find.byTooltip('랭킹 대상 선택'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(PopupMenuItem<RankingAudience>, '친구'));
+    await tester.pumpAndSettle();
+    expect(service.requests.last, (
+      RankingCategory.longest,
+      RankingAudience.friends,
+    ));
     await tester.tap(find.text('5km 기록'));
     await tester.pumpAndSettle();
-    expect(service.requests.last, (RankingCategory.fiveK, RankingAudience.all));
+    expect(service.requests.last, (
+      RankingCategory.fiveK,
+      RankingAudience.friends,
+    ));
     expect(find.text('25:00'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
