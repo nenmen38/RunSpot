@@ -40,22 +40,19 @@ Widget decorateProfile(Widget child, Set<Cosmetic> items) {
   );
 }
 
+/// 아이템 페이지의 상점 목록입니다. 제목과 구매 복원은 페이지 머리에 있습니다.
 class StoreCatalog extends StatelessWidget {
   const StoreCatalog({
-    required this.previewOnly,
     required this.items,
     required this.onOpen,
-    this.onRestore,
     this.onRetry,
     this.message,
     this.loading = false,
     super.key,
   });
 
-  final bool previewOnly;
   final Map<Cosmetic, String> items;
   final ValueChanged<Cosmetic> onOpen;
-  final VoidCallback? onRestore;
   final VoidCallback? onRetry;
   final String? message;
   final bool loading;
@@ -66,16 +63,6 @@ class StoreCatalog extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
       children: [
-        Row(
-          children: [
-            Expanded(child: Text('상점', style: text.titleLarge)),
-            if (previewOnly)
-              const _Tag('미리보기')
-            else if (onRestore != null)
-              TextButton(onPressed: onRestore, child: const Text('구매 복원')),
-          ],
-        ),
-        const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
@@ -186,7 +173,7 @@ class _ItemTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Tag(item.category),
+                  StoreTag(item.category),
                   const SizedBox(height: 8),
                   Text(
                     item.label,
@@ -277,8 +264,8 @@ class CosmeticArtwork extends StatelessWidget {
   }
 }
 
-class _Tag extends StatelessWidget {
-  const _Tag(this.label);
+class StoreTag extends StatelessWidget {
+  const StoreTag(this.label, {super.key});
   final String label;
 
   @override

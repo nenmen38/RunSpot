@@ -359,9 +359,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
             label: '게시판',
           ),
           NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
-            label: '상점',
+            icon: Icon(Icons.inventory_2_outlined),
+            selectedIcon: Icon(Icons.inventory_2),
+            label: '아이템',
           ),
         ],
       ),
