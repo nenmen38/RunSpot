@@ -40,6 +40,7 @@
 23. `migrations/20261029000200_board_comment_likes.sql`: 댓글·답글 좋아요(`set_board_comment_like()`). `board_comments()`에 좋아요 수와 내 좋아요 여부를 더하며, 차단 상대의 좋아요는 집계에서 빠지고 댓글을 지우면 좋아요도 함께 지워집니다.
 24. `migrations/20261029120000_board_news_feed.sql`: 앱의 '러닝 소식'용으로 `board_feed()`에 `news`를 더합니다. 전국 글과 내 동네 글을 함께 최신순으로 보여주고, 동네 말머리는 기존 `local`로 고른 동네 글만 보여줍니다. 글은 계속 `national`·`local`로 저장하므로 이전 앱도 그대로 동작합니다.
 25. `migrations/20261102000100_group_invite_notifications.sql`: 함께 달리기 초대 알림. 초대가 저장되면 트리거가 초대받은 사람에게 `group_invite` 알림을 남기고, `my_notifications()`가 응답 상태(`invite_status`)와 응답 가능 여부(`can_respond`)를 함께 돌려줍니다. 수락·거절은 기존 `group_action(accept/reject)`을 그대로 씁니다.
+26. `migrations/20261110000100_coins_and_frames.sql`: 코인과 코인 테두리. 잔액은 레벨 보상(레벨마다 10코인, 5의 배수 레벨 +50) + 스토어 결제(`coin_purchases`, 환불 제외) + 운영자 지급(`coin_grants`) - 테두리 구매로 서버에서 계산합니다. 앱은 `my_wallet()`·`buy_frame()`·`set_frame()`만 호출하고, 결제 기록은 `coin-webhook` 함수가 서버 키로 `record_coin_purchase()`·`refund_coin_purchase()`를 호출해 남깁니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

@@ -6,7 +6,7 @@ const vm = require('node:vm');
 // 실제 SDK 호출 없이 문서의 카메라·오버레이 연결 계약만 검사합니다.
 function documentFixture() {
   const events = [], maps = [], overlays = [], lines = [];
-  const element = () => ({listeners:{}, attributes:{}, addEventListener(name,handler){this.listeners[name]=handler;},setAttribute(name,value){this.attributes[name]=value;}});
+  const element = () => ({listeners:{}, attributes:{}, style:{values:{},setProperty(name,value){this.values[name]=value;}}, addEventListener(name,handler){this.listeners[name]=handler;},setAttribute(name,value){this.attributes[name]=value;}});
   const container=element();
   class LatLng {constructor(lat,lng){this.lat=lat;this.lng=lng;} getLat(){return this.lat;} getLng(){return this.lng;}}
   class Bounds {constructor(){this.points=[];} extend(p){this.points.push(p);}}
@@ -83,12 +83,16 @@ test('그룹은 인원수를 표시하고 분리되면 그룹 아이콘을 제�
   assert.equal(group.map,null);
   assert.equal(f.overlays.filter(o=>o.map&&o.content.className==='runner').length,2);
 });
-test('착용한 레벨 테두리를 내 위치 원에 표시하고 해제하면 기본 원으로 돌아갑니다',()=>{
+test('착용한 테두리를 고른 색으로 내 위치 원에 표시하고 해제하면 기본 원으로 돌아갑니다',()=>{
   const f=documentFixture(),d=data();f.update(d);
   const own=f.overlays.find(o=>o.content.attributes['aria-label']==='내 현재 위치').content;
   assert.equal(own.className,'point');
-  f.update({...d,frame:50});
-  assert.equal(own.className,'point frame lv50');assert.match(own.innerHTML,/<svg /);
-  f.update({...d,frame:15});assert.equal(own.className,'point frame lv15');
+  f.update({...d,frame:{style:'aura',color:'#EF4444'}});
+  assert.equal(own.className,'point frame aura');assert.match(own.innerHTML,/<svg /);
+  assert.equal(own.style.values['--c'],'#EF4444');assert.equal(own.style.values['--g'],'#EF444499');
+  f.update({...d,frame:{style:'basic',color:'#22C55E'}});
+  assert.equal(own.className,'point frame basic');assert.equal(own.style.values['--c'],'#22C55E');
+  // 형식이 잘못된 색은 그리지 않습니다.
+  f.update({...d,frame:{style:'basic',color:'red;x'}});assert.equal(own.className,'point');
   f.update({...d,frame:null});assert.equal(own.className,'point');assert.equal(own.innerHTML,'');
 });

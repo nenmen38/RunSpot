@@ -25,7 +25,7 @@ import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/data/run_checkpoint_store.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
-import 'package:runquest/features/monetization/level_frames.dart';
+import 'package:runquest/features/monetization/coin_frames.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
 import 'package:runquest/features/profile/data/statistics_service.dart';
 import 'package:runquest/features/profile/data/run_sharing_preference_service.dart';
@@ -93,7 +93,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   GroupController? _groups;
   BoardService? _board;
   NotificationController? _notifications;
-  LevelFrameController? _frames;
+  WalletController? _wallet;
 
   @override
   void initState() {
@@ -147,16 +147,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
             SupabaseNotificationService(client),
             onGroupChanged: () => unawaited(_groups?.refresh()),
           );
-      if (_progress case final progress?) {
-        _frames = LevelFrameController(
-          progress,
-          PreferencesFrameStorage(
-            'level-frame:${client.rest.url}:${records.ownerId}',
-          ),
-          levelOverride: devLevelOverride(),
-        );
-        unawaited(_frames!.refresh());
-      }
+      _wallet = WalletController(SupabaseWalletService(client));
+      unawaited(_wallet!.refresh());
     }
     _pushSubscription = PushService.instance.destinations.stream.listen(
       _openPush,
@@ -214,7 +206,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     _groups?.removeListener(_groupStateChanged);
     if (widget.groupController == null) _groups?.dispose();
     if (widget.notificationController == null) _notifications?.dispose();
-    _frames?.dispose();
+    _wallet?.dispose();
     if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
@@ -309,7 +301,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       ),
       BoardScreen(service: _board),
       ProfileCosmetics.store(
-        levelFrames: _frames,
+        wallet: _wallet,
         client: widget.mapController == null ? Supabase.instance.client : null,
       ),
     ];
@@ -329,7 +321,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
                 blockService: _blocks,
                 friendService: widget.friendService ?? _friends,
                 notificationController: _notifications,
-                levelFrames: _frames,
+                wallet: _wallet,
                 onOpenPost: _openPost,
                 isActive: _tab == 0,
                 mapBridgeFactory: widget.mapBridgeFactory,
@@ -352,8 +344,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
         selectedIndex: _tab,
         indicatorColor: AppColors.blueSoft,
         onDestinationSelected: (index) {
-          // 홈과 아이템 탭을 열 때 레벨을 다시 확인해 새 보상 테두리를 보여줍니다.
-          if (index == 0 || index == 4) unawaited(_frames?.refresh());
+          // 홈과 아이템 탭을 열 때 코인과 착용 테두리를 다시 확인합니다.
+          if (index == 0 || index == 4) unawaited(_wallet?.refresh());
           setState(() => _tab = index);
         },
         destinations: const [

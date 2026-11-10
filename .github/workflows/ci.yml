@@ -50,7 +50,7 @@ jobs:
       - run: scripts/run_sql_tests.sh
 
   operations:
-    name: 알림·사진 정리 서버 함수 검증
+    name: 알림·사진 정리·코인 결제 서버 함수 검증
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -61,3 +61,6 @@ jobs:
       - run: deno fmt --check supabase/functions/operations-worker
       - run: deno check supabase/functions/operations-worker/index.ts
       - run: deno test supabase/functions/operations-worker
+      - run: deno fmt --check supabase/functions/coin-webhook
+      - run: deno check supabase/functions/coin-webhook/index.ts
+      - run: deno test supabase/functions/coin-webhook

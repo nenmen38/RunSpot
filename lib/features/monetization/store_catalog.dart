@@ -45,6 +45,8 @@ class StoreCatalog extends StatelessWidget {
   const StoreCatalog({
     required this.items,
     required this.onOpen,
+    this.header,
+    this.onRestore,
     this.onRetry,
     this.message,
     this.loading = false,
@@ -53,6 +55,10 @@ class StoreCatalog extends StatelessWidget {
 
   final Map<Cosmetic, String> items;
   final ValueChanged<Cosmetic> onOpen;
+
+  /// 꾸미기 상품 위에 보여줄 영역입니다. 코인 테두리를 넣습니다.
+  final Widget? header;
+  final VoidCallback? onRestore;
   final VoidCallback? onRetry;
   final String? message;
   final bool loading;
@@ -63,6 +69,7 @@ class StoreCatalog extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
       children: [
+        ?header,
         Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
@@ -136,6 +143,11 @@ class StoreCatalog extends StatelessWidget {
             );
           },
         ),
+        if (onRestore != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: onRestore, child: const Text('구매 복원')),
+          ),
       ],
     );
   }

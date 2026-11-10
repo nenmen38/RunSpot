@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 import '../../shared/theme/app_colors.dart';
 import 'store_catalog.dart';
 
-/// 보관함의 아이템 한 개입니다. [sample]은 결제 없이 써 볼 수 있는 예시 아이템입니다.
+/// 보관함의 아이템 한 개입니다.
 class InventoryItem {
-  const InventoryItem(this.item, {required this.equipped, this.sample = false});
+  const InventoryItem(this.item, {required this.equipped});
 
   final Cosmetic item;
   final bool equipped;
-  final bool sample;
 }
 
 /// 가진 꾸미기 아이템을 착용하거나 해제합니다. 해제는 착용 중일 때만 누를 수 있습니다.
@@ -28,7 +27,7 @@ class ItemInventory extends StatelessWidget {
   final bool busy;
   final String? message;
 
-  /// 꾸미기 아이템 위에 보여줄 영역입니다. 레벨 보상 테두리를 넣습니다.
+  /// 꾸미기 아이템 위에 보여줄 영역입니다. 코인으로 산 테두리를 넣습니다.
   final Widget? header;
 
   @override
@@ -42,7 +41,7 @@ class ItemInventory extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(feedback),
         ),
-      if (items.isEmpty)
+      if (items.isEmpty && header == null)
         const Padding(
           padding: EdgeInsets.only(top: 40),
           child: Text('보관함이 비어 있어요.', textAlign: TextAlign.center),
@@ -99,7 +98,6 @@ class _InventoryTile extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     _Badge(item.category),
-                    if (entry.sample) const _Badge('예시'),
                     if (entry.equipped) const _Badge('착용 중', highlighted: true),
                   ],
                 ),

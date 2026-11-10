@@ -8,21 +8,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'item_inventory.dart';
-import 'level_frames.dart';
+import 'coin_frames.dart';
 import 'store_catalog.dart';
 
 class ProfileCosmetics extends StatefulWidget {
   const ProfileCosmetics({required this.client, required this.child, super.key})
-    : levelFrames = null;
+    : wallet = null;
 
-  const ProfileCosmetics.store({this.client, this.levelFrames, super.key})
+  const ProfileCosmetics.store({this.client, this.wallet, super.key})
     : child = null;
 
   final SupabaseClient? client;
   final Widget? child;
 
-  /// 보관함 맨 위에 보여줄 레벨 보상 테두리입니다.
-  final LevelFrameController? levelFrames;
+  /// 코인 잔액과 코인 테두리입니다. 아이템 페이지 머리·보관함·상점에 씁니다.
+  final WalletController? wallet;
 
   @override
   State<ProfileCosmetics> createState() => _ProfileCosmeticsState();
@@ -35,13 +35,13 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
   // 스토어 SDK는 전역 계정을 사용하므로 구매와 계정 전환을 직렬화합니다.
   static Future<void> _queue = Future.value();
 
-  /// 결제 없이 보관함에 넣어 두는 예시 아이템입니다. 착용 상태만 기기에 저장합니다.
-  static const _samples = {Cosmetic.border};
-
   late final String? _owner = widget.client?.auth.currentUser?.id;
   // 저장소는 로그인 계정이 있을 때만 씁니다. 미리보기에서는 착용 상태를 화면에만 둡니다.
   late final _prefs = SharedPreferencesAsync();
   Map<Cosmetic, Package> _packages = {};
+
+  /// 스토어에 등록된 코인 묶음입니다. 상품 ID로 찾습니다.
+  Map<String, Package> _coinPackages = {};
   Set<Cosmetic> _owned = {};
   Set<Cosmetic> _selected = {};
   String? _customerId;
@@ -74,44 +74,11 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
   @override
   void initState() {
     super.initState();
-    if (widget.client != null && _owner != null) unawaited(_loadSamples());
     if (!_previewOnly) _run(_load);
   }
 
-  /// 예시 아이템의 착용 상태는 결제 정보 없이 기기 저장값만 읽습니다.
-  Future<void> _loadSamples() async {
-    final worn = <Cosmetic>{
-      for (final item in _samples)
-        if (await _prefs.getBool(_preference(item)) == true) item,
-    };
-    if (!_isOwner) return;
-    setState(() => _selected = {..._selected, ...worn});
-  }
-
-  Future<void> _equipSample(Cosmetic item, bool selected) async {
-    if (widget.client != null) {
-      if (!_isOwner) return;
-      await _prefs.setBool(_preference(item), selected);
-      if (!_isOwner) return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _selected = {..._selected};
-      if (selected) {
-        _selected.add(item);
-      } else {
-        _selected.remove(item);
-      }
-    });
-  }
-
   void _equip(Cosmetic item, bool selected) {
-    if (_busy) return;
-    if (_samples.contains(item) && !_owned.contains(item)) {
-      unawaited(_equipSample(item, selected));
-    } else {
-      unawaited(_run(() => _toggle(item, selected)));
-    }
+    if (!_busy) unawaited(_run(() => _toggle(item, selected)));
   }
 
   void _requireOwner() {
@@ -176,7 +143,16 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     _requireOwner();
     final packages =
         offerings.all['profile_cosmetics']?.availablePackages ?? [];
+    final coins = offerings.all['coin_packs']?.availablePackages ?? [];
     setState(() {
+      _coinPackages = {
+        for (final pack in CoinPack.all)
+          for (final package in coins)
+            if (pack.id == package.identifier &&
+                package.storeProduct.productCategory ==
+                    ProductCategory.nonSubscription)
+              pack.id: package,
+      };
       _packages = {
         for (final item in Cosmetic.values)
           for (final package in packages)
@@ -204,10 +180,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       owned.add(item);
       if (await _prefs.getBool(_preference(item)) == true) selected.add(item);
     }
-    // 결제하지 않은 예시 아이템의 착용 상태는 그대로 유지합니다.
-    for (final item in _samples.difference(owned)) {
-      if (await _prefs.getBool(_preference(item)) == true) selected.add(item);
-    }
     _requireOwner();
     setState(() {
       _owned = owned;
@@ -222,6 +194,61 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     if (!_owned.contains(item)) {
       setState(() => _message = '구매 권한이 아직 확인되지 않았습니다. 구매 복원을 눌러 주세요.');
     }
+  }
+
+  /// 코인은 서버가 결제 알림(웹훅)을 받아 기록하므로 반영될 때까지 잠시 다시 확인합니다.
+  Future<void> _buyCoins(CoinPack pack) async {
+    final package = _coinPackages[pack.id];
+    final wallet = widget.wallet;
+    if (package == null || wallet == null) return;
+    final before = wallet.wallet?.coins ?? 0;
+    await Purchases.purchase(PurchaseParams.package(package));
+    _requireOwner();
+    setState(() => _message = '결제를 확인하고 있어요.');
+    final added = await wallet.waitForCoins(before);
+    _requireOwner();
+    setState(
+      () => _message = added
+          ? '${formatNumber(pack.coins)}코인을 충전했어요.'
+          : '결제는 완료됐어요. 코인이 반영되기까지 조금 걸릴 수 있어요.',
+    );
+  }
+
+  Future<void> _openCoins() async {
+    final wallet = widget.wallet;
+    if (wallet == null) return;
+    unawaited(wallet.refresh());
+    final pack = await showModalBottomSheet<CoinPack>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => ListenableBuilder(
+        listenable: wallet,
+        builder: (context, _) => CoinShopSheet(
+          controller: wallet,
+          prices: {
+            if (!_previewOnly && !_busy)
+              for (final entry in _coinPackages.entries)
+                entry.key: entry.value.storeProduct.priceString,
+          },
+          note: _previewOnly
+              ? '결제 설정이 없는 미리보기에서는 가격만 볼 수 있어요.'
+              : _coinPackages.isEmpty
+              ? '스토어에서 코인 상품을 불러오지 못했어요.'
+              : null,
+          onBuy: (pack) => Navigator.pop(context, pack),
+        ),
+      ),
+    );
+    if (pack != null && _isOwner) await _run(() => _buyCoins(pack));
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _toggle(Cosmetic item, bool selected) async {
@@ -320,6 +347,15 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
             item: package.storeProduct.priceString,
       },
       onOpen: _openItem,
+      header: switch (widget.wallet) {
+        final wallet? => FrameShop(
+          controller: wallet,
+          onCharge: _openCoins,
+          onMessage: _showMessage,
+        ),
+        null => null,
+      },
+      onRestore: _previewOnly || _busy ? null : () => _run(_restore),
       onRetry: !_previewOnly && !_busy && !_loaded && _message != null
           ? () => _run(_load)
           : null,
@@ -329,18 +365,18 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     final inventory = ItemInventory(
       items: [
         for (final item in Cosmetic.values)
-          if (_owned.contains(item) || _samples.contains(item))
-            InventoryItem(
-              item,
-              equipped: _selected.contains(item),
-              sample: !_owned.contains(item),
-            ),
+          if (_owned.contains(item))
+            InventoryItem(item, equipped: _selected.contains(item)),
       ],
       onChanged: _equip,
       busy: _busy,
       message: _message,
-      header: switch (widget.levelFrames) {
-        final frames? => LevelFrameSection(controller: frames),
+      header: switch (widget.wallet) {
+        final wallet? => FrameInventory(
+          controller: wallet,
+          onShop: () => setState(() => _section = 1),
+          onMessage: _showMessage,
+        ),
         null => null,
       },
     );
@@ -349,14 +385,15 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       children: [
         Row(
           children: [
-            Expanded(child: Text('아이템', style: text.titleLarge)),
-            if (_previewOnly)
-              const StoreTag('미리보기')
-            else if (!_busy)
-              TextButton(
-                onPressed: () => _run(_restore),
-                child: const Text('구매 복원'),
-              ),
+            Text('아이템', style: text.titleLarge),
+            if (_previewOnly) ...[
+              const SizedBox(width: 8),
+              const StoreTag('미리보기'),
+            ],
+            const Spacer(),
+            // 오른쪽 위에 보유 코인과 충전 버튼을 둡니다.
+            if (widget.wallet case final wallet?)
+              CoinBalance(controller: wallet, onAdd: _openCoins),
           ],
         ),
         const SizedBox(height: 12),
