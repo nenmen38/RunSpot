@@ -19,6 +19,7 @@ class ItemInventory extends StatelessWidget {
     required this.onChanged,
     this.busy = false,
     this.message,
+    this.header,
     super.key,
   });
 
@@ -27,10 +28,14 @@ class ItemInventory extends StatelessWidget {
   final bool busy;
   final String? message;
 
+  /// 꾸미기 아이템 위에 보여줄 영역입니다. 레벨 보상 테두리를 넣습니다.
+  final Widget? header;
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.only(bottom: 16),
     children: [
+      ?header,
       if (busy) const LinearProgressIndicator(),
       if (message case final feedback?)
         Padding(

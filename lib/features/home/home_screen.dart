@@ -21,6 +21,7 @@ import '../social/widgets/block_button.dart';
 import '../social/widgets/user_interaction_sheet.dart';
 import '../social/data/friend_service.dart';
 import '../group_running/group_controller.dart';
+import '../monetization/level_frames.dart';
 import '../notifications/notification_controller.dart';
 import '../notifications/widgets/notification_bell.dart';
 import 'models/live_runner.dart';
@@ -40,6 +41,7 @@ class HomeScreen extends StatefulWidget {
     this.groupController,
     this.notificationController,
     this.onOpenPost,
+    this.levelFrames,
     this.isActive = true,
     super.key,
   });
@@ -54,6 +56,9 @@ class HomeScreen extends StatefulWidget {
   /// 있으면 오른쪽 위에 확성기 알림 버튼을 보여줍니다.
   final NotificationController? notificationController;
   final void Function(String postId)? onOpenPost;
+
+  /// 착용한 레벨 보상 테두리를 내 위치 원에 표시합니다.
+  final LevelFrameController? levelFrames;
   final bool isActive;
 
   @override
@@ -143,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_changed);
     widget.groupController?.addListener(_groupChanged);
+    widget.levelFrames?.addListener(_groupChanged);
     widget.conditionsController?.setActive(widget.isActive);
     widget.conditionsController?.setLocation(widget.controller.position);
     widget.notificationController?.setActive(widget.isActive);
@@ -221,6 +227,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               .firstOrNull ??
           RunRecord.pending(summary);
       final record = currentRecord();
+      // 러닝 보상으로 레벨이 오르면 새 테두리가 보관함에 들어오도록 다시 불러옵니다.
+      if (widget.levelFrames case final frames?) unawaited(frames.refresh());
       final action = await showDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -335,6 +343,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       oldWidget.groupController?.removeListener(_groupChanged);
       widget.groupController?.addListener(_groupChanged);
     }
+    if (oldWidget.levelFrames != widget.levelFrames) {
+      oldWidget.levelFrames?.removeListener(_groupChanged);
+      widget.levelFrames?.addListener(_groupChanged);
+    }
     if (oldWidget.conditionsController != widget.conditionsController) {
       oldWidget.conditionsController?.setActive(false);
       widget.conditionsController?.setLocation(widget.controller.position);
@@ -360,6 +372,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.controller.removeListener(_changed);
     widget.controller.setMapVisible(false);
     widget.groupController?.removeListener(_groupChanged);
+    widget.levelFrames?.removeListener(_groupChanged);
     _map.dispose();
     super.dispose();
   }
@@ -425,6 +438,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   position: position == null || ownClustered
                       ? null
                       : LatLng(position.latitude, position.longitude),
+                  positionFrame: widget.levelFrames?.equipped?.level,
                   segments:
                       state.runSession?.routeSegments
                           .map(

@@ -83,3 +83,12 @@ test('그룹은 인원수를 표시하고 분리되면 그룹 아이콘을 제�
   assert.equal(group.map,null);
   assert.equal(f.overlays.filter(o=>o.map&&o.content.className==='runner').length,2);
 });
+test('착용한 레벨 테두리를 내 위치 원에 표시하고 해제하면 기본 원으로 돌아갑니다',()=>{
+  const f=documentFixture(),d=data();f.update(d);
+  const own=f.overlays.find(o=>o.content.attributes['aria-label']==='내 현재 위치').content;
+  assert.equal(own.className,'point');
+  f.update({...d,frame:50});
+  assert.equal(own.className,'point frame lv50');assert.match(own.innerHTML,/<svg /);
+  f.update({...d,frame:15});assert.equal(own.className,'point frame lv15');
+  f.update({...d,frame:null});assert.equal(own.className,'point');assert.equal(own.innerHTML,'');
+});

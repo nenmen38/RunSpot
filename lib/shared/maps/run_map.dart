@@ -36,6 +36,7 @@ class RunMap extends StatefulWidget {
   const RunMap({
     required this.controller,
     this.position,
+    this.positionFrame,
     this.markers = const [],
     this.segments = const [],
     this.endpoints = false,
@@ -48,6 +49,9 @@ class RunMap extends StatefulWidget {
   });
   final RunMapController controller;
   final LatLng? position;
+
+  /// 내 위치 원에 두를 레벨 보상 테두리의 레벨입니다. 없으면 기본 원입니다.
+  final int? positionFrame;
   final List<RunMapMarker> markers;
   final List<List<LatLng>> segments;
   final bool endpoints;
@@ -168,6 +172,7 @@ class _RunMapState extends State<RunMap> {
     'position': widget.position == null
         ? null
         : [widget.position!.latitude, widget.position!.longitude],
+    'frame': widget.positionFrame,
     'markers': widget.markers.map((m) => m.toJson()).toList(),
     'segments': widget.segments
         .map((s) => s.map((p) => [p.latitude, p.longitude]).toList())

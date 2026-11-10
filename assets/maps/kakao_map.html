@@ -12,6 +12,26 @@
     .endpoint { box-sizing:border-box; display:flex; align-items:center; justify-content:center; width:32px; height:32px; background:white; color:#16836f; border:2px solid currentColor; border-radius:50%; box-shadow:0 1px 6px #0004; }
     .endpoint svg { width:20px; height:20px; }
     .endpoint.end { color:#c13647; }
+    /* 레벨 보상 테두리: 10단위 레벨은 앞 5단위 색에 오라만 더합니다. */
+    .point.frame { position:relative; display:flex; align-items:center; justify-content:center; width:34px; height:34px; background:white; color:#334155; border:var(--w) solid var(--c); }
+    .point.frame svg { width:18px; height:18px; }
+    .lv5,.lv10 { --c:#94A3B8; --w:2px; }
+    .lv15,.lv20 { --c:#38BDF8; --w:2.5px; }
+    .lv25,.lv30 { --c:#22C55E; --w:3px; }
+    .lv35,.lv40 { --c:#F97316; --w:3.5px; }
+    .lv45,.lv50 { --c:#EF4444; --w:4px; }
+    .point.lv10 { box-shadow:0 0 6px 1px #94A3B899; }
+    .point.lv20 { box-shadow:0 0 10px 3px #38BDF8AA; }
+    .point.lv30 { box-shadow:0 0 14px 5px #22C55EBB; }
+    .point.lv40 { animation:pulse 1.6s ease-in-out infinite alternate; }
+    /* MAX는 회전하는 빨강·골드 링 위에 흰 원을 겹칩니다. 레이어를 원 안에 가둬 지도 배경에 가려지지 않게 합니다. */
+    .point.lv50 { isolation:isolate; background:transparent; border-color:transparent; box-shadow:none; }
+    .point.lv50::before { content:''; position:absolute; inset:-9px; border-radius:50%; background:conic-gradient(#EF4444,#FACC15,#EF4444); box-shadow:0 0 14px 4px #EF4444AA; animation:spin 3s linear infinite; }
+    .point.lv50::after { content:''; position:absolute; inset:-4px; z-index:1; border-radius:50%; background:white; border:4px solid #EF4444; }
+    .point.lv50 svg { position:relative; z-index:2; }
+    @keyframes pulse { from { box-shadow:0 0 8px 2px #F9731699; } to { box-shadow:0 0 18px 8px #F97316DD; } }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @media (prefers-reduced-motion:reduce) { .point.lv40 { animation:none; box-shadow:0 0 14px 5px #F97316BB; } .point.lv50::before { animation:none; } }
   </style>
 </head>
 <body><div id="map"></div>
@@ -25,7 +45,8 @@ window.createRunspotMap = () => {
     const container = document.getElementById('map');
     const map = new kakao.maps.Map(container, {center:new kakao.maps.LatLng(37.5665,126.978),level:5});
     map.setMinLevel(1); map.setMaxLevel(14);
-    let revision = -1, geometry = '', own = null;
+    let revision = -1, geometry = '', own = null, ownElement = null;
+    const runnerIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 19.4l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/></svg>';
     const runners = new Map();
     let lines = [], ends = [];
     const point = xy => new kakao.maps.LatLng(xy[0],xy[1]);
@@ -47,9 +68,12 @@ window.createRunspotMap = () => {
     observer.observe(container);
     window.runspotMap = {update(data) {
       if (data.position) {
-        if (!own) {const element=document.createElement('div'); element.className='point'; element.setAttribute('aria-label','내 현재 위치'); own=overlay(data.position,element,5);}
+        if (!own) {ownElement=document.createElement('div'); ownElement.className='point'; ownElement.setAttribute('aria-label','내 현재 위치'); own=overlay(data.position,ownElement,5);}
         else own.setPosition(point(data.position));
-      } else if (own) {own.setMap(null); own=null;}
+        // 착용한 레벨 테두리를 내 위치 원에 표시합니다.
+        const ownClass=data.frame?'point frame lv'+data.frame:'point';
+        if(ownElement.className!==ownClass){ownElement.className=ownClass; ownElement.innerHTML=data.frame?runnerIcon:'';}
+      } else if (own) {own.setMap(null); own=null; ownElement=null;}
       const ids = new Set(data.markers.map(m=>m.id));
       for (const [id,entry] of runners) {if(!ids.has(id)){entry.overlay.setMap(null);runners.delete(id);}}
       for (const marker of data.markers) {

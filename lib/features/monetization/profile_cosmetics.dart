@@ -8,19 +8,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'item_inventory.dart';
+import 'level_frames.dart';
 import 'store_catalog.dart';
 
 class ProfileCosmetics extends StatefulWidget {
-  const ProfileCosmetics({
-    required this.client,
-    required this.child,
-    super.key,
-  });
+  const ProfileCosmetics({required this.client, required this.child, super.key})
+    : levelFrames = null;
 
-  const ProfileCosmetics.store({this.client, super.key}) : child = null;
+  const ProfileCosmetics.store({this.client, this.levelFrames, super.key})
+    : child = null;
 
   final SupabaseClient? client;
   final Widget? child;
+
+  /// 보관함 맨 위에 보여줄 레벨 보상 테두리입니다.
+  final LevelFrameController? levelFrames;
 
   @override
   State<ProfileCosmetics> createState() => _ProfileCosmeticsState();
@@ -337,6 +339,10 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       onChanged: _equip,
       busy: _busy,
       message: _message,
+      header: switch (widget.levelFrames) {
+        final frames? => LevelFrameSection(controller: frames),
+        null => null,
+      },
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
