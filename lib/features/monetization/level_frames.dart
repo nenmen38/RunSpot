@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,6 +71,14 @@ class LevelFrame {
       all.where((frame) => frame.level > playerLevel).firstOrNull;
 }
 
+/// 개발 실행에서만 쓰는 테두리 시험 레벨입니다. `--dart-define=DEV_LEVEL=50`처럼 줍니다.
+/// 출시(릴리스) 빌드에서는 값이 있어도 무시합니다.
+int? devLevelOverride() {
+  if (!kDebugMode) return null;
+  final level = int.tryParse(const String.fromEnvironment('DEV_LEVEL'));
+  return level != null && level >= 1 && level <= 99 ? level : null;
+}
+
 /// 착용한 테두리를 계정별로 저장합니다.
 abstract interface class FrameStorage {
   Future<int?> read();
@@ -102,10 +111,13 @@ class MemoryFrameStorage implements FrameStorage {
 /// 서버 레벨로 받은 테두리를 계산하고 착용 상태를 관리합니다.
 /// 레벨이 오르면 다시 불러올 때 새 테두리가 보관함에 자동으로 들어옵니다.
 class LevelFrameController extends ChangeNotifier {
-  LevelFrameController(this.progress, this.storage);
+  LevelFrameController(this.progress, this.storage, {this.levelOverride});
 
   final ProgressService progress;
   final FrameStorage storage;
+
+  /// 개발 실행에서 테두리를 시험하려고 쓰는 레벨입니다. 서버 경험치는 바꾸지 않습니다.
+  final int? levelOverride;
   static const _timeout = Duration(seconds: 15);
   bool _disposed = false;
   bool _storageLoaded = false;
@@ -141,7 +153,7 @@ class LevelFrameController extends ChangeNotifier {
       final result = await progress.load().timeout(_timeout);
       if (_disposed || generation != _generation) return;
       if (!progress.isCurrentOwner) throw StateError('계정이 변경되었습니다.');
-      level = result.level;
+      level = levelOverride ?? result.level;
     } catch (_) {
       if (_disposed || generation != _generation) return;
       error = '레벨 정보를 불러오지 못했습니다.';

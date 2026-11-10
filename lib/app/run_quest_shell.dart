@@ -153,6 +153,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
           PreferencesFrameStorage(
             'level-frame:${client.rest.url}:${records.ownerId}',
           ),
+          levelOverride: devLevelOverride(),
         );
         unawaited(_frames!.refresh());
       }

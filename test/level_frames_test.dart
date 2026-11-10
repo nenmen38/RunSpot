@@ -224,4 +224,23 @@ void main() {
     map.dispose();
     history.dispose();
   });
+
+  test('개발용 시험 레벨은 테두리 계산에만 쓰고 서버 레벨은 그대로 둡니다', () async {
+    final progress = FakeProgressService(progress: progressAt(1));
+    final controller = LevelFrameController(
+      progress,
+      MemoryFrameStorage(),
+      levelOverride: 50,
+    );
+    addTearDown(controller.dispose);
+    await controller.refresh();
+    expect(controller.level, 50);
+    expect(controller.unlocked, hasLength(10));
+    expect(controller.next, isNull);
+    await controller.wear(LevelFrame.of(50));
+    expect(controller.equipped!.level, 50);
+    expect(progress.progress.level, 1);
+    // 테스트 실행은 디버그 모드라도 DEV_LEVEL을 주지 않으면 덮어쓰지 않습니다.
+    expect(devLevelOverride(), isNull);
+  });
 }
