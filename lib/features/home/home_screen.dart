@@ -723,8 +723,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       style: const TextStyle(color: Colors.red),
                     ),
                   if (state.recoveredRun)
-                    const Text(
-                      '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
+                    Text(
+                      state.runSession?.isFinished == true
+                          ? '종료한 러닝을 복구했습니다. 저장을 다시 시도해 주세요.'
+                          : '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
                     ),
                   RunControls(
                     controller: state,

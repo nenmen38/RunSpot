@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/home/data/location_service.dart';
+import 'package:runquest/features/home/data/run_checkpoint_store.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/models/live_runner.dart';
 import 'package:runquest/features/home/models/run_session.dart';
@@ -11,6 +12,30 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'support/live_map_fakes.dart';
 import 'support/run_history_fakes.dart';
 
+class _CheckpointStore implements RunCheckpointStore {
+  RunCheckpoint? checkpoint;
+  Completer<void>? pendingSave;
+  bool failClear = false;
+
+  @override
+  Future<RunCheckpoint?> load() async => checkpoint;
+
+  @override
+  Future<void> save(RunCheckpoint value) async {
+    await pendingSave?.future;
+    checkpoint = value;
+  }
+
+  @override
+  Future<void> clear() async {
+    if (failClear) throw StateError('복구본 삭제 실패');
+    checkpoint = null;
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
 void main() {
   late FakeLocationService location;
   late FakeRunnerService service;
@@ -18,17 +43,20 @@ void main() {
   late FakeRunRecordService historyService;
   late RunHistoryController history;
   late FakeRunOutbox outbox;
+  late _CheckpointStore checkpointStore;
 
   setUp(() {
     location = FakeLocationService();
     service = FakeRunnerService();
     historyService = FakeRunRecordService();
     outbox = FakeRunOutbox();
+    checkpointStore = _CheckpointStore();
     history = RunHistoryController(historyService, outbox: outbox);
     controller = LiveMapController(
       locationService: location,
       runnerService: service,
       runHistory: history,
+      checkpointStore: checkpointStore,
     );
   });
   tearDown(() async {
@@ -253,6 +281,54 @@ void main() {
     expect(controller.runSession, isNull);
     expect(service.actions, ['publish', 'stop']);
     expect(historyService.records, isEmpty);
+  });
+
+  test('종료 복구본 저장이 지연돼도 위치 공유와 백그라운드 측정은 먼저 중단합니다', () async {
+    await controller.startRun();
+    await controller.setSharing(true);
+    checkpointStore.pendingSave = Completer<void>();
+    final ending = controller.finishRun();
+    try {
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.savingRun, isTrue);
+      expect(controller.sharing, isFalse);
+      expect(service.actions, ['publish', 'stop']);
+      expect(location.watchModes.last, isFalse);
+    } finally {
+      checkpointStore.pendingSave!.complete();
+      await ending;
+    }
+    expect(checkpointStore.checkpoint, isNull);
+  });
+
+  test('위치 삭제 재시도가 성공하면 첫 시도의 오류를 표시하지 않습니다', () async {
+    await controller.startRun();
+    await controller.setSharing(true);
+    final firstStop = service.pendingStop = Completer<void>();
+    final ending = controller.finishRun();
+    await Future<void>.delayed(Duration.zero);
+    service.pendingStop = null;
+    firstStop.completeError(StateError('일시 연결 실패'));
+    await ending;
+    await Future<void>.delayed(Duration.zero);
+    expect(service.actions, ['publish', 'stop', 'stop']);
+    expect(controller.sharingError, isNull);
+    expect(controller.runError, isNull);
+  });
+
+  test('복구본 정리만 실패했다면 재시도할 때 기록을 다시 전송하지 않습니다', () async {
+    restoreDistance(300);
+    checkpointStore.failClear = true;
+    expect(await controller.finishRun(), isNull);
+    expect(historyService.records, hasLength(1));
+    expect(controller.runError, contains('복구본을 정리하지 못했습니다'));
+    expect(checkpointStore.checkpoint?.finished, isTrue);
+
+    checkpointStore.failClear = false;
+    expect(await controller.finishRun(), isNotNull);
+    expect(historyService.attempts, hasLength(1));
+    expect(checkpointStore.checkpoint, isNull);
+    expect(controller.runSession, isNull);
   });
 
   test('서버 저장 실패 시 기기에 보관하고 다음 러닝을 시작할 수 있습니다', () async {
