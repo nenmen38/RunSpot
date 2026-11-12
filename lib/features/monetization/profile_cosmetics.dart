@@ -8,14 +8,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'item_inventory.dart';
+import '../crew/crew_controller.dart';
+import '../crew/widgets/crew_widgets.dart';
 import 'coin_frames.dart';
 import 'store_catalog.dart';
 
 class ProfileCosmetics extends StatefulWidget {
   const ProfileCosmetics({required this.client, required this.child, super.key})
-    : wallet = null;
+    : wallet = null,
+      crew = null;
 
-  const ProfileCosmetics.store({this.client, this.wallet, super.key})
+  const ProfileCosmetics.store({this.client, this.wallet, this.crew, super.key})
     : child = null;
 
   final SupabaseClient? client;
@@ -23,6 +26,9 @@ class ProfileCosmetics extends StatefulWidget {
 
   /// 코인 잔액과 코인 테두리입니다. 아이템 페이지 머리·보관함·상점에 씁니다.
   final WalletController? wallet;
+
+  /// 크루 생성권을 사용해 크루를 만들 때 씁니다.
+  final CrewController? crew;
 
   @override
   State<ProfileCosmetics> createState() => _ProfileCosmeticsState();
@@ -244,6 +250,22 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     if (pack != null && _isOwner) await _run(() => _buyCoins(pack));
   }
 
+  /// 보관함의 크루 생성권 "사용하기": 크루 이름·설명·아이콘을 고르는 창을 엽니다.
+  Future<void> _useCrewTicket() async {
+    final crew = widget.crew;
+    if (crew == null) return;
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => CreateCrewSheet(controller: crew),
+    );
+    if (created != true || !mounted) return;
+    unawaited(widget.wallet?.refresh());
+    _showMessage('${crew.crew?.name ?? '크루'}를 만들었어요. 소셜 탭의 크루에서 볼 수 있어요.');
+  }
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -376,6 +398,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
           controller: wallet,
           onShop: () => setState(() => _section = 1),
           onMessage: _showMessage,
+          onUseCrewTicket: widget.crew == null ? null : _useCrewTicket,
         ),
         null => null,
       },

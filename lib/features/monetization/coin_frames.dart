@@ -91,7 +91,15 @@ class Wallet {
           ?FrameKind.fromCode(code),
       },
       equipped = FrameKind.fromCode(json['equipped']),
-      color = json['color'] as String? ?? '#3182F6';
+      color = json['color'] as String? ?? '#3182F6',
+      crewTicketPrice =
+          (json['prices'] as Map?)?['crew_ticket'] as int? ??
+          crewTicketDefaultPrice,
+      crewTickets = json['crew_tickets'] as int? ?? 0,
+      inCrew = json['in_crew'] as bool? ?? false;
+
+  /// 크루 생성권 가격입니다. 1,100원 = 100코인 기준으로 약 7,040원입니다.
+  static const crewTicketDefaultPrice = 640;
 
   final int coins;
   final int level;
@@ -102,12 +110,20 @@ class Wallet {
   final Set<FrameKind> owned;
   final FrameKind? equipped;
   final String color;
+
+  /// 크루 생성권 가격과 아직 쓰지 않은 생성권 수입니다.
+  final int crewTicketPrice;
+  final int crewTickets;
+
+  /// 이미 크루에 속해 있으면 생성권을 사거나 쓸 수 없습니다.
+  final bool inCrew;
 }
 
 abstract interface class WalletService {
   bool get isCurrentOwner;
   Future<Wallet> load();
   Future<Wallet> buyFrame(FrameKind kind);
+  Future<Wallet> buyCrewTicket();
 
   /// [kind]가 null이면 테두리를 해제합니다. 색은 그대로 저장합니다.
   Future<Wallet> setFrame(FrameKind? kind, String color);
@@ -138,6 +154,9 @@ class SupabaseWalletService implements WalletService {
   @override
   Future<Wallet> buyFrame(FrameKind kind) =>
       _rpc('buy_frame', {'requested_frame': kind.code});
+
+  @override
+  Future<Wallet> buyCrewTicket() => _rpc('buy_crew_ticket');
 
   @override
   Future<Wallet> setFrame(FrameKind? kind, String color) => _rpc('set_frame', {
@@ -216,6 +235,9 @@ class WalletController extends ChangeNotifier {
 
   Future<String?> buy(FrameKind kind) =>
       _change(() => service.buyFrame(kind), '테두리를 사지 못했습니다.');
+
+  Future<String?> buyCrewTicket() =>
+      _change(service.buyCrewTicket, '크루 생성권을 사지 못했습니다.');
 
   Future<String?> wear(FrameKind? kind) => _change(
     () => service.setFrame(kind, wallet?.color ?? '#3182F6'),
@@ -472,12 +494,16 @@ class FrameInventory extends StatelessWidget {
     required this.controller,
     required this.onShop,
     required this.onMessage,
+    this.onUseCrewTicket,
     super.key,
   });
 
   final WalletController controller;
   final VoidCallback onShop;
   final ValueChanged<String> onMessage;
+
+  /// 크루 생성권 "사용하기"를 눌렀을 때 크루 만들기 창을 엽니다.
+  final VoidCallback? onUseCrewTicket;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -492,6 +518,27 @@ class FrameInventory extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (wallet != null && wallet.crewTickets > 0) ...[
+            Text(
+              '크루',
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            _CrewTicketCard(
+              key: const ValueKey('inventory-crew-ticket'),
+              subtitle: wallet.inCrew
+                  ? '이미 크루에 속해 있어 지금은 쓸 수 없어요.'
+                  : '사용하면 크루 이름·설명·아이콘을 정해 크루를 만들어요.',
+              count: wallet.crewTickets,
+              action: FilledButton(
+                onPressed: wallet.inCrew || controller.busy
+                    ? null
+                    : onUseCrewTicket,
+                child: const Text('사용하기'),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           Text(
             '내 테두리',
             style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -668,6 +715,61 @@ class _OwnedFrame extends StatelessWidget {
   }
 }
 
+class _CrewTicketCard extends StatelessWidget {
+  const _CrewTicketCard({
+    required this.subtitle,
+    required this.action,
+    this.count,
+    super.key,
+  });
+
+  final String subtitle;
+  final Widget action;
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.blueSoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.groups, color: AppColors.blueDark),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count == null ? '크루 생성권' : '크루 생성권 ×$count',
+                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                Text(subtitle, style: text.bodySmall),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          action,
+        ],
+      ),
+    );
+  }
+}
+
 class _Swatch extends StatelessWidget {
   const _Swatch({required this.color, required this.selected, this.onTap});
 
@@ -816,9 +918,69 @@ class FrameShop extends StatelessWidget {
                 );
               },
             ),
+          const SizedBox(height: 10),
+          Text(
+            '크루',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          Builder(
+            builder: (context) {
+              final price =
+                  wallet?.crewTicketPrice ?? Wallet.crewTicketDefaultPrice;
+              final blocked =
+                  wallet != null && (wallet.inCrew || wallet.crewTickets > 0);
+              final short = wallet != null && wallet.coins < price;
+              return _CrewTicketCard(
+                key: const ValueKey('shop-crew-ticket'),
+                subtitle:
+                    '나만의 크루를 만들고 친구를 크루원으로 초대해요.\n${formatNumber(price)}코인',
+                action: blocked
+                    ? FilledButton(
+                        onPressed: null,
+                        child: Text(wallet.inCrew ? '크루 있음' : '보유 중'),
+                      )
+                    : short
+                    ? OutlinedButton(
+                        onPressed: onCharge,
+                        child: const Text('코인 충전'),
+                      )
+                    : FilledButton(
+                        onPressed: wallet == null || controller.busy
+                            ? null
+                            : () => _buyTicket(context, price),
+                        child: const Text('구매'),
+                      ),
+              );
+            },
+          ),
           const SizedBox(height: 16),
         ],
       );
     },
   );
+
+  Future<void> _buyTicket(BuildContext context, int price) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('크루 생성권을 살까요?'),
+        content: Text(
+          '${formatNumber(price)}코인을 사용합니다. 보관함에서 "사용하기"를 눌러 크루를 만들 수 있어요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('구매'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    onMessage(await controller.buyCrewTicket() ?? '크루 생성권을 보관함에 넣었어요.');
+  }
 }

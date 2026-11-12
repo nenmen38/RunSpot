@@ -22,6 +22,8 @@ class FakeWalletService implements WalletService {
     'owned': [for (final kind in owned) kind.code],
     'equipped': equipped?.code,
     'color': color,
+    'crew_tickets': crewTickets,
+    'in_crew': inCrew,
   });
 
   @override
@@ -40,6 +42,26 @@ class FakeWalletService implements WalletService {
       coins -= prices[kind]!;
       owned.add(kind);
     }
+    return _wallet;
+  }
+
+  int crewTickets = 0;
+  bool inCrew = false;
+
+  @override
+  Future<Wallet> buyCrewTicket() async {
+    calls.add('buy:crew_ticket');
+    if (crewTickets > 0) {
+      throw const PostgrestException(
+        message: '사용하지 않은 크루 생성권이 이미 있어요.',
+        code: 'P0001',
+      );
+    }
+    if (coins < 640) {
+      throw const PostgrestException(message: '코인이 부족합니다.', code: 'P0001');
+    }
+    coins -= 640;
+    crewTickets++;
     return _wallet;
   }
 

@@ -13,6 +13,7 @@ class NotificationController extends ChangeNotifier {
     this.service, {
     this.pollInterval = const Duration(seconds: 10),
     this.onGroupChanged,
+    this.onCrewChanged,
   });
 
   final NotificationService service;
@@ -20,6 +21,9 @@ class NotificationController extends ChangeNotifier {
 
   /// 초대에 응답한 뒤 함께 달리기 화면을 새로 고칩니다.
   final VoidCallback? onGroupChanged;
+
+  /// 크루 초대에 응답한 뒤 크루 화면을 새로 고칩니다.
+  final VoidCallback? onCrewChanged;
   static const _timeout = Duration(seconds: 15);
   bool _disposed = false;
   bool _active = false;
@@ -145,8 +149,11 @@ class NotificationController extends ChangeNotifier {
 
   /// 초대를 수락·거절합니다. 성공하면 null, 실패하면 안내 문구를 반환합니다.
   Future<String?> respond(AppNotification item, {required bool accept}) async {
-    final groupId = item.groupId;
-    if (_disposed || loading || responding != null || groupId == null) {
+    final groupId = item.groupId, crewId = item.crewId;
+    if (_disposed ||
+        loading ||
+        responding != null ||
+        (groupId == null && crewId == null)) {
       return null;
     }
     ++_generation;
@@ -155,8 +162,17 @@ class NotificationController extends ChangeNotifier {
     notifyListeners();
     String? failure;
     try {
-      await service.respondToInvite(groupId, accept: accept).timeout(_timeout);
-      onGroupChanged?.call();
+      if (crewId != null) {
+        await service
+            .respondToCrewInvite(crewId, accept: accept)
+            .timeout(_timeout);
+        onCrewChanged?.call();
+      } else {
+        await service
+            .respondToInvite(groupId!, accept: accept)
+            .timeout(_timeout);
+        onGroupChanged?.call();
+      }
     } catch (exception) {
       failure = switch (exception) {
         AuthException() => '다시 로그인해 주세요.',

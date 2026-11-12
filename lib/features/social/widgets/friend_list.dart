@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../crew/crew_controller.dart';
 import '../friend_controller.dart';
 import '../friend_profile_screen.dart';
 import '../data/block_service.dart';
@@ -11,11 +12,15 @@ class FriendList extends StatefulWidget {
     required this.controller,
     required this.requests,
     this.blockService,
+    this.crew,
     super.key,
   });
   final FriendController controller;
   final bool requests;
   final BlockService? blockService;
+
+  /// 크루장에게만 친구 옆에 "크루원 초대하기" 버튼을 보여줍니다.
+  final CrewController? crew;
 
   @override
   State<FriendList> createState() => _FriendListState();
@@ -32,7 +37,17 @@ class _FriendListState extends State<FriendList> {
 
   @override
   Widget build(BuildContext context) {
+    final crew = widget.crew;
+    if (crew == null) return _list(context);
+    return ListenableBuilder(
+      listenable: crew,
+      builder: (context, _) => _list(context),
+    );
+  }
+
+  Widget _list(BuildContext context) {
     final controller = widget.controller;
+    final crew = widget.crew;
     final query = _search.text.trim().toLowerCase();
     final friends = query.isEmpty
         ? controller.friends
@@ -95,6 +110,9 @@ class _FriendListState extends State<FriendList> {
                 entry: entry,
                 controller: controller,
                 blockService: widget.blockService,
+                crewAction: crew != null && crew.canInvite(entry.userId)
+                    ? _CrewInviteButton(crew: crew, entry: entry)
+                    : null,
                 onProfileTap: () {
                   FocusScope.of(context).unfocus();
                   Navigator.of(context).push<void>(
@@ -135,18 +153,60 @@ class _Empty extends StatelessWidget {
   );
 }
 
+/// 크루장이 친구를 크루원으로 초대하는 버튼입니다. 이미 초대했으면 "초대함"으로 바뀝니다.
+class _CrewInviteButton extends StatelessWidget {
+  const _CrewInviteButton({required this.crew, required this.entry});
+
+  final CrewController crew;
+  final FriendEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (crew.invited(entry.userId)) {
+      return const OutlinedButton(onPressed: null, child: Text('초대함'));
+    }
+    final busy = crew.busy == entry.userId;
+    return FilledButton.tonal(
+      key: ValueKey('crew-invite-${entry.userId}'),
+      onPressed: crew.busy != null
+          ? null
+          : () async {
+              final error = await crew.invite(entry.userId);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(error ?? '${entry.nickname}님에게 크루 초대를 보냈어요.'),
+                  ),
+                );
+            },
+      child: busy
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Text('크루원 초대하기'),
+    );
+  }
+}
+
 class FriendRow extends StatelessWidget {
   const FriendRow({
     required this.entry,
     required this.controller,
     this.blockService,
     this.onProfileTap,
+    this.crewAction,
     super.key,
   });
   final FriendEntry entry;
   final FriendController controller;
   final BlockService? blockService;
   final VoidCallback? onProfileTap;
+
+  /// 친구 이름 오른쪽에 두는 크루 초대 버튼입니다.
+  final Widget? crewAction;
 
   Future<void> _confirmRemoval(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -208,6 +268,7 @@ class FriendRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
+          ?crewAction,
           if (busy)
             const SizedBox(
               width: 24,

@@ -25,6 +25,8 @@ import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/data/run_checkpoint_store.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
+import 'package:runquest/features/crew/crew_controller.dart';
+import 'package:runquest/features/crew/data/crew_service.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
 import 'package:runquest/features/profile/profile_screen.dart';
 import 'package:runquest/features/profile/data/statistics_service.dart';
@@ -94,6 +96,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   BoardService? _board;
   NotificationController? _notifications;
   WalletController? _wallet;
+  CrewController? _crew;
 
   @override
   void initState() {
@@ -146,9 +149,15 @@ class _RunQuestShellState extends State<RunQuestShell> {
           NotificationController(
             SupabaseNotificationService(client),
             onGroupChanged: () => unawaited(_groups?.refresh()),
+            onCrewChanged: () {
+              unawaited(_crew?.refresh());
+              unawaited(_wallet?.refresh());
+            },
           );
       _wallet = WalletController(SupabaseWalletService(client));
       unawaited(_wallet!.refresh());
+      _crew = CrewController(SupabaseCrewService(client));
+      unawaited(_crew!.refresh());
     }
     _pushSubscription = PushService.instance.destinations.stream.listen(
       _openPush,
@@ -207,6 +216,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     if (widget.groupController == null) _groups?.dispose();
     if (widget.notificationController == null) _notifications?.dispose();
     _wallet?.dispose();
+    _crew?.dispose();
     if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
@@ -274,6 +284,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         friendService: widget.friendService,
         blockService: _blocks,
         groupController: _groups,
+        crewController: _crew,
         onProfileTap: () => setState(() => _tab = 2),
       ),
       ProfileScreen(
@@ -302,6 +313,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       BoardScreen(service: _board),
       ProfileCosmetics.store(
         wallet: _wallet,
+        crew: _crew,
         client: widget.mapController == null ? Supabase.instance.client : null,
       ),
     ];
@@ -346,6 +358,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
         onDestinationSelected: (index) {
           // 홈과 아이템 탭을 열 때 코인과 착용 테두리를 다시 확인합니다.
           if (index == 0 || index == 4) unawaited(_wallet?.refresh());
+          // 소셜·아이템 탭을 열 때 크루와 받은 초대를 다시 확인합니다.
+          if (index == 1 || index == 4) unawaited(_crew?.refresh());
           setState(() => _tab = index);
         },
         destinations: const [

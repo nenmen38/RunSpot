@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../crew/crew_controller.dart';
+import '../crew/widgets/crew_widgets.dart';
 import 'data/friend_service.dart';
 import 'data/block_service.dart';
 import 'data/ranking_service.dart';
@@ -17,6 +19,7 @@ class SocialScreen extends StatefulWidget {
     this.friendService,
     this.blockService,
     this.groupController,
+    this.crewController,
     this.onProfileTap,
     this.initialTab = 0,
     this.openGroupOnStart = false,
@@ -28,6 +31,9 @@ class SocialScreen extends StatefulWidget {
   final FriendService? friendService;
   final BlockService? blockService;
   final GroupController? groupController;
+
+  /// 있으면 친구 옆에 크루 탭을 두고, 크루장에게 크루원 초대 버튼을 보여줍니다.
+  final CrewController? crewController;
   final VoidCallback? onProfileTap;
   final int initialTab;
   final bool openGroupOnStart;
@@ -83,10 +89,13 @@ class _SocialScreenState extends State<SocialScreen>
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 4,
-    initialIndex: widget.initialTab,
+    length: widget.crewController == null ? 4 : 5,
+    // initialTab은 크루 탭이 없을 때의 번호입니다. 크루 탭이 친구 다음에 끼므로 뒤 탭은 한 칸 밀립니다.
+    initialIndex: widget.crewController != null && widget.initialTab >= 1
+        ? widget.initialTab + 1
+        : widget.initialTab,
     child: AnimatedBuilder(
-      animation: _friends,
+      animation: Listenable.merge([_friends, ?widget.crewController]),
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -124,6 +133,23 @@ class _SocialScreenState extends State<SocialScreen>
             labelPadding: const EdgeInsets.symmetric(horizontal: 4),
             tabs: [
               const Tab(text: '친구'),
+              if (widget.crewController != null)
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('크루'),
+                      if (widget.crewController!.invites.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Badge(
+                          label: Text(
+                            '${widget.crewController!.invites.length}',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               Tab(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -166,7 +192,10 @@ class _SocialScreenState extends State<SocialScreen>
                   controller: _friends,
                   requests: false,
                   blockService: widget.blockService,
+                  crew: widget.crewController,
                 ),
+                if (widget.crewController case final crew?)
+                  CrewTab(controller: crew),
                 FriendList(
                   controller: _friends,
                   requests: true,

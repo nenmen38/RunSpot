@@ -42,6 +42,7 @@
 25. `migrations/20261102000100_group_invite_notifications.sql`: 함께 달리기 초대 알림. 초대가 저장되면 트리거가 초대받은 사람에게 `group_invite` 알림을 남기고, `my_notifications()`가 응답 상태(`invite_status`)와 응답 가능 여부(`can_respond`)를 함께 돌려줍니다. 수락·거절은 기존 `group_action(accept/reject)`을 그대로 씁니다.
 26. `migrations/20261110000100_coins_and_frames.sql`: 코인과 코인 테두리. 잔액은 레벨 보상(레벨마다 10코인, 5의 배수 레벨 +50) + 스토어 결제(`coin_purchases`, 환불 제외) + 운영자 지급(`coin_grants`) - 테두리 구매로 서버에서 계산합니다. 앱은 `my_wallet()`·`buy_frame()`·`set_frame()`만 호출하고, 결제 기록은 `coin-webhook` 함수가 서버 키로 `record_coin_purchase()`·`refund_coin_purchase()`를 호출해 남깁니다.
 27. `migrations/20261112000100_crew_aura.sql`: 친구와 오라가 합쳐지는 효과용. `update_my_live_location()`에 선택 항목 `pace_sec_per_km`(120~1800초/km)를 더하고, `map_nearby_runners_at()`이 착용 테두리(`frame`, `frame_color`)와 친구 여부(`is_friend`), 친구의 페이스(`pace_sec`)를 함께 돌려줍니다. 위치 공개 규칙은 그대로이며 페이스는 친구에게만 줍니다. 이전 앱은 늘어난 항목을 무시합니다.
+28. `migrations/20261112000200_crews.sql`: 크루. 크루 생성권(640코인, 약 7,040원)을 `buy_crew_ticket()`으로 사고, `create_crew()`로 크루 이름(2~20자, 대소문자 무시 중복 금지)·설명(60자)·아이콘(5종)을 정해 만듭니다. 한 사람은 한 크루에만 속하고 크루는 최대 30명입니다. 크루장만 친구를 `invite_to_crew()`로 초대하며, 초대는 확성기 알림(`crew_invite`)과 `my_crew()`로 보여주고 `respond_crew_invite()`로 수락·거절합니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

@@ -188,7 +188,7 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invite = item.kind == NotificationKind.groupInvite;
+    final invite = item.isInvite;
     final busy = controller.loading || controller.responding != null;
     return ListTile(
       tileColor: item.read ? null : AppColors.blueSoft,
@@ -196,6 +196,7 @@ class _NotificationTile extends StatelessWidget {
         switch (item.kind) {
           NotificationKind.like => Icons.favorite,
           NotificationKind.groupInvite => Icons.directions_run,
+          NotificationKind.crewInvite => Icons.groups,
           _ => Icons.chat_bubble_outline,
         },
         color: item.kind == NotificationKind.like

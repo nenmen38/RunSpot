@@ -12,6 +12,9 @@ abstract interface class NotificationService {
 
   /// 함께 달리기 초대를 수락하거나 거절합니다.
   Future<void> respondToInvite(String groupId, {required bool accept});
+
+  /// 크루 초대를 수락하거나 거절합니다.
+  Future<void> respondToCrewInvite(String crewId, {required bool accept});
 }
 
 class SupabaseNotificationService implements NotificationService {
@@ -49,6 +52,17 @@ class SupabaseNotificationService implements NotificationService {
     await _rpc('group_action', {
       'requested_group': groupId,
       'operation': accept ? 'accept' : 'reject',
+    });
+  }
+
+  @override
+  Future<void> respondToCrewInvite(
+    String crewId, {
+    required bool accept,
+  }) async {
+    await _rpc('respond_crew_invite', {
+      'requested_crew': crewId,
+      'accept': accept,
     });
   }
 

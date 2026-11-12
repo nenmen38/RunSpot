@@ -72,6 +72,25 @@ class FakeNotificationService implements NotificationService {
     ];
   }
 
+  final crewResponses = <(String, bool)>[];
+  @override
+  Future<void> respondToCrewInvite(
+    String crewId, {
+    required bool accept,
+  }) async {
+    crewResponses.add((crewId, accept));
+    rows = [
+      for (final row in rows)
+        row['crew_id'] == crewId
+            ? {
+                ...row,
+                'invite_status': accept ? 'accepted' : 'declined',
+                'can_respond': false,
+              }
+            : row,
+    ];
+  }
+
   @override
   Future<void> markRead(DateTime seenUntil) async {
     marked.add(seenUntil);
@@ -394,6 +413,44 @@ void main() {
     expect(service.responses.last, ('g1', false));
     expect(find.textContaining('거절했어요'), findsOneWidget);
     expect(find.text('대기 중인 초대만 응답할 수 있습니다.'), findsNothing);
+  });
+
+  testWidgets('크루 초대 알림에서 수락하면 크루 화면을 새로 고칩니다', (tester) async {
+    final service = FakeNotificationService()
+      ..rows = [
+        {
+          ..._inviteJson('g0'),
+          'id': 'n-crew',
+          'kind': 'crew_invite',
+          'group_id': null,
+          'crew_id': 'crew-1',
+          'crew_name': '새벽런',
+          'nickname': '크루장',
+        },
+      ];
+    var crewRefreshes = 0;
+    final controller = NotificationController(
+      service,
+      onCrewChanged: () => crewRefreshes++,
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NotificationBell(controller: controller, onOpenPost: (_) {}),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.campaign_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text("크루장님이 '새벽런' 크루에 초대했어요."), findsOneWidget);
+    expect(find.byIcon(Icons.groups), findsOneWidget);
+    await tester.tap(find.text('수락'));
+    await tester.pumpAndSettle();
+    expect(service.crewResponses.single, ('crew-1', true));
+    expect(service.responses, isEmpty);
+    expect(crewRefreshes, 1);
+    expect(find.textContaining('크루에 들어갔어요'), findsOneWidget);
   });
 }
 
