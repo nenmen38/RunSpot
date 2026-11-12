@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/data/run_outbox.dart';
+import 'package:runquest/features/run_history/models/run_analysis_data.dart';
 import 'package:runquest/features/run_history/models/run_record.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/run_history/run_history_screen.dart';
@@ -268,5 +269,32 @@ void main() {
     expect(controller.visibleRecords.single, isA<RunRecord>());
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  test('7일이 넘게 지나 복구된 러닝도 종료할 수 있습니다', () {
+    final started = DateTime.now().toUtc().subtract(const Duration(days: 8));
+    final session = RunSession.restore(
+      RunSummary(
+        clientRunId: 'old',
+        startedAt: started,
+        endedAt: started.add(const Duration(minutes: 3)),
+        distanceMeters: 0,
+        duration: const Duration(minutes: 2, seconds: 10),
+        analysisData: RunAnalysisData.decode({
+          'version': 1,
+          'windows': [
+            [0, 130000, 0, 130000],
+          ],
+          'pauses': [],
+          'elevation': [],
+          'gps': [],
+        }),
+      ),
+    );
+    final finished = session.finish();
+    expect(finished.duration, const Duration(minutes: 2, seconds: 10));
+    // 중단 구간은 분석 자료의 최대 길이(7일)에서 끝납니다.
+    expect(finished.analysisData!.pauses.single[1], 604800000);
+    expect(session.isFinished, isTrue);
   });
 }

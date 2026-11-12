@@ -26,8 +26,15 @@ class RunAnalysisTracker {
   DateTime? _lastAltitudeFixTime;
   double _anchorDistance = 0;
   DateTime? _lastFix;
-  int _offset(DateTime time) =>
-      math.max(0, time.difference(startedAt).inMilliseconds);
+
+  /// 분석 자료가 허용하는 가장 긴 시간(7일)입니다. RunAnalysisData.decode와 같아야 합니다.
+  static const maxOffsetMs = 604800000;
+
+  // 오래전에 시작해 복구된 러닝도 종료할 수 있게 허용 범위 안으로 맞춥니다.
+  int _offset(DateTime time) => math.min(
+    maxOffsetMs,
+    math.max(0, time.difference(startedAt).inMilliseconds),
+  );
 
   void resume(DateTime time, Duration active) {
     final offset = _offset(time);
