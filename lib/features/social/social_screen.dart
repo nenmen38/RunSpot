@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../shared/theme/app_colors.dart';
 import '../chat/friend_chat.dart';
 import '../crew/crew_controller.dart';
 import '../crew/widgets/crew_widgets.dart';
@@ -103,12 +104,44 @@ class _SocialScreenState extends State<SocialScreen>
   @override
   Widget build(BuildContext context) {
     final chat = _chat;
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             SegmentedButton<bool>(
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? AppColors.blueSoft
+                      : theme.colorScheme.surfaceContainerLow,
+                ),
+                foregroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? AppColors.blueDark
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                textStyle: WidgetStateProperty.resolveWith(
+                  (states) => theme.textTheme.titleSmall?.copyWith(
+                    fontSize: 15,
+                    fontWeight: states.contains(WidgetState.selected)
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  ),
+                ),
+                side: WidgetStatePropertyAll(
+                  BorderSide(color: theme.colorScheme.outlineVariant),
+                ),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 18),
+                ),
+              ),
               segments: const [
                 ButtonSegment(value: false, label: Text('소셜')),
                 ButtonSegment(value: true, label: Text('대화')),
@@ -155,27 +188,6 @@ class _SocialScreenState extends State<SocialScreen>
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.groupController case final groups?)
-            ListenableBuilder(
-              listenable: groups,
-              builder: (context, _) =>
-                  groups.groups.any((group) => group.active)
-                  ? Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        child: const Text('함께 달리기 상태'),
-                        onPressed: () => Navigator.of(context).push<void>(
-                          MaterialPageRoute(
-                            builder: (_) => GroupRunningScreen(
-                              controller: groups,
-                              friends: _friends,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
           TabBar(
             labelPadding: const EdgeInsets.symmetric(horizontal: 4),
             tabs: [

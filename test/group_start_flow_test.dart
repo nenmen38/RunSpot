@@ -149,7 +149,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('소셜').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('함께 달리기 상태'));
+    expect(find.text('함께 달리기 상태'), findsNothing);
+    PushService.instance.destinations.add(
+      const PushDestination('group_invite', 'group', 'owner'),
+    );
     await tester.pumpAndSettle();
     // GPS 준비 버튼 없이, 출발 예약 전에는 위치를 따로 잡지 않습니다.
     expect(find.text('GPS 준비'), findsNothing);
