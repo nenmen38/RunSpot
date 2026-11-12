@@ -8,7 +8,9 @@ import 'data/group_service.dart';
 import 'models/running_group.dart';
 
 class GroupController extends ChangeNotifier with WidgetsBindingObserver {
-  GroupController(this.service, this.map) {
+  GroupController(this.service, this.map, {Stopwatch Function()? stopwatch})
+    : _stopwatch = stopwatch ?? Stopwatch.new {
+    _sinceSnapshot = _stopwatch();
     if (service.ownerId != map.runHistory.service.ownerId) {
       throw ArgumentError('그룹과 러닝의 계정이 다릅니다.');
     }
@@ -28,6 +30,7 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
   String? error;
   bool busy = false;
   bool loading = false;
+  bool _refreshRequested = false;
   bool _disposed = false;
   bool _foreground = true;
   Timer? _timer;
@@ -37,9 +40,11 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
   String? _claimGroup;
   String? _claimClient;
   DateTime? _serverNow;
-  final _sinceSnapshot = Stopwatch();
+  final Stopwatch Function() _stopwatch;
+  late final Stopwatch _sinceSnapshot;
   DateTime? _lastLoad;
   bool _claiming = false;
+  bool _countdownWasVisible = false;
   DateTime? get serverNow => _serverNow?.add(_sinceSnapshot.elapsed);
   int? secondsUntil(RunningGroup group) {
     final now = serverNow;
@@ -48,18 +53,14 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
         : (group.startsAt!.difference(now).inMilliseconds / 1000).ceil();
   }
 
-  /// 위치 준비와 서버 출발 예약이 모두 유효한 본인 그룹만 표시합니다.
+  /// 위치를 잡는 동안에도 서버 출발 시각을 표시합니다.
   RunningGroup? get countdownGroup {
-    if (_disposed ||
-        !_foreground ||
-        !service.isCurrentOwner ||
-        !map.groupPrepared) {
+    if (_disposed || !_foreground || !service.isCurrentOwner) {
       return null;
     }
     return groups
         .where(
           (group) =>
-              group.id == preparedGroupId &&
               group.myStatus == 'accepted' &&
               (group.state == 'scheduled' || group.state == 'running') &&
               (secondsUntil(group) ?? 0) > 0,
@@ -68,7 +69,11 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refresh({bool force = true}) async {
-    if (_disposed || !_foreground || loading || !service.isCurrentOwner) return;
+    if (_disposed || !_foreground || !service.isCurrentOwner) return;
+    if (loading) {
+      _refreshRequested |= force;
+      return;
+    }
     if (!force &&
         !groups.any((group) => group.active) &&
         _lastLoad != null &&
@@ -77,7 +82,7 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
     }
     _lastLoad = DateTime.now();
     loading = true;
-    final watch = Stopwatch()..start();
+    final watch = _stopwatch()..start();
     try {
       final dashboard = await service.load().timeout(
         const Duration(seconds: 10),
@@ -123,6 +128,11 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
       }
     }
+    if (_refreshRequested && !_disposed) {
+      _refreshRequested = false;
+      await refresh();
+      return;
+    }
     await _autoPrepare();
   }
 
@@ -132,15 +142,15 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
   bool _prepareFailed = false;
   String? _skipGroup;
 
-  /// 방장이 출발을 예약하면 따로 누르지 않아도 위치를 잡아 두고,
+  /// 서버가 출발 시각을 정하면 따로 누르지 않아도 위치를 잡아 두고,
   /// 출발 시각이 되면 바로 측정을 시작합니다. 위치는 그룹에 보내지 않습니다.
   Future<void> _autoPrepare() async {
     if (_disposed ||
         !_foreground ||
         _preparing ||
+        _startingGroup != null ||
         preparedGroupId != null ||
-        !service.isCurrentOwner ||
-        map.runSession != null) {
+        !service.isCurrentOwner) {
       return;
     }
     final group = groups
@@ -153,6 +163,13 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
         .firstOrNull;
     if (group == null) _prepareFailed = false;
     if (group == null || group.id == _skipGroup) return;
+    if (map.runSession != null) {
+      _skipGroup = group.id;
+      _prepareFailed = true;
+      error = _prepareMessage;
+      notifyListeners();
+      return;
+    }
     _preparing = true;
     try {
       if (!await map.prepareGroupRun()) throw StateError('위치 준비 실패');
@@ -174,6 +191,13 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
       _preparing = false;
       if (!_disposed) notifyListeners();
     }
+  }
+
+  Future<String?> inviteAndStart(String targetId) async {
+    if (busy || _disposed || !service.isCurrentOwner) return null;
+    if (map.runSession != null) return '진행 중인 러닝을 먼저 종료해 주세요.';
+    await change('invite_and_start', targetId: targetId);
+    return _disposed ? null : error ?? '함께 달리기 초대를 보냈어요.';
   }
 
   Future<void> change(
@@ -214,7 +238,13 @@ class GroupController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _tick() {
     if (_disposed || !_foreground || !service.isCurrentOwner) return;
-    if (preparedGroupId == null) return;
+    final visible = countdownGroup != null;
+    final updateCountdown = visible || _countdownWasVisible;
+    _countdownWasVisible = visible;
+    if (preparedGroupId == null) {
+      if (updateCountdown) notifyListeners();
+      return;
+    }
     final group = groups
         .where((group) => group.id == preparedGroupId)
         .firstOrNull;

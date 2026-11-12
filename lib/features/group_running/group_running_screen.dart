@@ -18,8 +18,9 @@ class GroupRunningScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('함께 달리기 참여'),
-        content: const Text(
-          '참여자에게 닉네임과 완료 거리·시간이 공유됩니다. 경로와 현재 위치는 공유하지 않습니다. 방장이 출발하면 앱이 열린 상태에서 자동으로 러닝을 시작합니다.',
+        content: Text(
+          '참여자에게 닉네임과 완료 거리·시간을 공유합니다. 경로와 현재 위치는 공유하지 않습니다. '
+          '${group.autoStartOnAccept ? '수락하면 10초 카운트다운이 시작됩니다.' : '방장이 출발하면 앱이 열린 상태에서 자동으로 러닝을 시작합니다.'}',
         ),
         actions: [
           TextButton(
@@ -154,7 +155,9 @@ class GroupRunningScreen extends StatelessWidget {
               ),
             if (group.myStatus == 'accepted' && group.state == 'lobby') ...[
               Text(
-                host
+                group.autoStartOnAccept
+                    ? '친구가 수락하면 10초 카운트다운이 시작됩니다.'
+                    : host
                     ? joined < 2
                           ? '친구가 초대를 수락하면 바로 출발할 수 있어요.'
                           : '출발하면 10초 뒤 모두 함께 러닝을 시작합니다.'
@@ -163,14 +166,14 @@ class GroupRunningScreen extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 children: [
-                  if (host)
+                  if (host && !group.autoStartOnAccept)
                     OutlinedButton(
                       onPressed: controller.busy
                           ? null
                           : () => _invite(context, group),
                       child: const Text('친구 초대'),
                     ),
-                  if (host)
+                  if (host && !group.autoStartOnAccept)
                     FilledButton(
                       onPressed: controller.busy || joined < 2
                           ? null
@@ -185,7 +188,7 @@ class GroupRunningScreen extends StatelessWidget {
               Text(
                 controller.map.runSession?.isRunning == true
                     ? '개인 측정 중입니다. 홈에서 일시 정지하거나 종료하세요.'
-                    : prepared
+                    : prepared || (seconds ?? 0) > 0
                     ? '공동 출발을 기다리고 있습니다.'
                     : '공동 출발을 놓쳤습니다. 개인 러닝을 시작하거나 새 그룹에 참여하세요.',
               ),

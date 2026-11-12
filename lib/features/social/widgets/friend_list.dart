@@ -7,6 +7,7 @@ import '../friend_controller.dart';
 import '../friend_profile_screen.dart';
 import '../data/block_service.dart';
 import 'block_button.dart';
+import 'user_interaction_sheet.dart';
 import '../models/friend_entry.dart';
 
 class FriendList extends StatefulWidget {
@@ -15,10 +16,12 @@ class FriendList extends StatefulWidget {
     required this.requests,
     this.blockService,
     this.crew,
+    this.onRunInvite,
     super.key,
   });
   final FriendController controller;
   final bool requests;
+  final ValueChanged<FriendEntry>? onRunInvite;
   final BlockService? blockService;
 
   /// 크루장에게만 친구 옆에 "크루원 초대하기" 버튼을 보여줍니다.
@@ -113,9 +116,9 @@ class _FriendListState extends State<FriendList> {
                 controller: controller,
                 blockService: widget.blockService,
                 crew: crew,
-                onProfileTap: () {
+                onProfileTap: () async {
                   FocusScope.of(context).unfocus();
-                  Navigator.of(context).push<void>(
+                  void openProfile() => Navigator.of(context).push<void>(
                     MaterialPageRoute(
                       builder: (_) => FriendProfileScreen(
                         friend: entry,
@@ -123,6 +126,24 @@ class _FriendListState extends State<FriendList> {
                       ),
                     ),
                   );
+                  final blocks = widget.blockService;
+                  if (blocks == null) {
+                    openProfile();
+                    return;
+                  }
+                  final blocked = await showUserInteraction(
+                    context,
+                    userId: entry.userId,
+                    nickname: entry.nickname,
+                    blocks: blocks,
+                    friends: controller.service,
+                    knownFriend: entry,
+                    onProfile: openProfile,
+                    onRunInvite: widget.onRunInvite == null
+                        ? null
+                        : () => widget.onRunInvite!(entry),
+                  );
+                  if (blocked && mounted) await controller.refresh();
                 },
               ),
           ],

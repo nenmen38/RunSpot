@@ -128,6 +128,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _scheduleMapReturn();
   }
 
+  Future<void> _inviteRunner(LiveRunner runner) async {
+    final groups = widget.groupController;
+    if (groups == null) return;
+    final message = await groups.inviteAndStart(runner.id);
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<bool> _openRunner(LiveRunner runner) async {
     final blocks = widget.blockService;
     if (blocks == null ||
@@ -140,6 +149,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       nickname: runner.nickname,
       blocks: blocks,
       friends: widget.friendService,
+      onRunInvite: widget.groupController == null
+          ? null
+          : () => _inviteRunner(runner),
     );
     if (mounted && blocked) {
       setState(() => _selectedId = null);
@@ -820,6 +832,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       state.sharingError!,
                       style: const TextStyle(color: Colors.red),
                     ),
+                  if (groups?.error case final error?)
+                    Text(error, style: const TextStyle(color: Colors.red)),
                   if (state.recoveredRun)
                     Text(
                       state.runSession?.isFinished == true

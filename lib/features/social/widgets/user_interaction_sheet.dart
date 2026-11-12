@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../chat/friend_chat.dart';
 import '../data/block_service.dart';
 import '../data/friend_service.dart';
 import '../models/friend_entry.dart';
@@ -11,6 +12,9 @@ Future<bool> showUserInteraction(
   required String nickname,
   required BlockService blocks,
   FriendService? friends,
+  FriendEntry? knownFriend,
+  VoidCallback? onRunInvite,
+  VoidCallback? onProfile,
 }) async =>
     await showModalBottomSheet<bool>(
       context: context,
@@ -20,6 +24,9 @@ Future<bool> showUserInteraction(
         nickname: nickname,
         blocks: blocks,
         friends: friends,
+        knownFriend: knownFriend,
+        onRunInvite: onRunInvite,
+        onProfile: onProfile,
       ),
     ) ??
     false;
@@ -30,11 +37,17 @@ class _UserMenu extends StatefulWidget {
     required this.nickname,
     required this.blocks,
     this.friends,
+    this.knownFriend,
+    this.onRunInvite,
+    this.onProfile,
   });
   final String userId;
   final String nickname;
   final BlockService blocks;
   final FriendService? friends;
+  final FriendEntry? knownFriend;
+  final VoidCallback? onRunInvite;
+  final VoidCallback? onProfile;
   @override
   State<_UserMenu> createState() => _UserMenuState();
 }
@@ -46,6 +59,7 @@ class _UserMenuState extends State<_UserMenu> {
   @override
   void initState() {
     super.initState();
+    _friend = widget.knownFriend;
     _load();
   }
 
@@ -87,62 +101,103 @@ class _UserMenuState extends State<_UserMenu> {
   Widget build(BuildContext context) {
     final friend = _friend;
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: Text(widget.nickname),
-          ),
-          if (_error != null)
-            Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
-          if (friend != null) ...[
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             ListTile(
-              leading: const Icon(Icons.person_add_alt),
-              title: Text(switch (friend.relation) {
-                FriendRelation.none => '친구 요청',
-                FriendRelation.sent => '친구 요청 취소',
-                FriendRelation.received => '친구 요청 수락',
-                FriendRelation.friend => '친구 삭제',
-              }),
+              leading: const Icon(Icons.person_outline),
+              title: Text(widget.nickname),
+            ),
+            if (_error != null)
+              Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
+            if (widget.onProfile case final open?)
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('프로필'),
+                onTap: () {
+                  Navigator.pop(context);
+                  open();
+                },
+              ),
+            if (friend?.relation == FriendRelation.friend) ...[
+              if (widget.friends case final SupabaseFriendService service)
+                ListTile(
+                  leading: const Icon(Icons.chat_bubble_outline),
+                  title: const Text('대화'),
+                  onTap: _busy
+                      ? null
+                      : () {
+                          final navigator = Navigator.of(context);
+                          navigator.pop();
+                          openFriendChat(
+                            navigator.context,
+                            service.client,
+                            widget.userId,
+                            widget.nickname,
+                          );
+                        },
+                ),
+              if (widget.onRunInvite case final invite?)
+                ListTile(
+                  leading: const Icon(Icons.directions_run),
+                  title: const Text('함께 달리기'),
+                  onTap: _busy
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          invite();
+                        },
+                ),
+            ],
+            if (friend != null) ...[
+              ListTile(
+                leading: const Icon(Icons.person_add_alt),
+                title: Text(switch (friend.relation) {
+                  FriendRelation.none => '친구 요청',
+                  FriendRelation.sent => '친구 요청 취소',
+                  FriendRelation.received => '친구 요청 수락',
+                  FriendRelation.friend => '친구 삭제',
+                }),
+                onTap: _busy
+                    ? null
+                    : () => _change(switch (friend.relation) {
+                        FriendRelation.none => FriendAction.request,
+                        FriendRelation.sent => FriendAction.cancel,
+                        FriendRelation.received => FriendAction.accept,
+                        FriendRelation.friend => FriendAction.remove,
+                      }),
+              ),
+              if (friend.relation == FriendRelation.received)
+                ListTile(
+                  title: const Text('친구 요청 거절'),
+                  onTap: _busy ? null : () => _change(FriendAction.reject),
+                ),
+            ],
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: const Text('사용자 차단'),
               onTap: _busy
                   ? null
-                  : () => _change(switch (friend.relation) {
-                      FriendRelation.none => FriendAction.request,
-                      FriendRelation.sent => FriendAction.cancel,
-                      FriendRelation.received => FriendAction.accept,
-                      FriendRelation.friend => FriendAction.remove,
-                    }),
+                  : () async {
+                      setState(() => _busy = true);
+                      final changed = await confirmUserBlock(
+                        context,
+                        service: widget.blocks,
+                        userId: widget.userId,
+                        nickname: widget.nickname,
+                      );
+                      if (!context.mounted) return;
+                      if (changed) {
+                        Navigator.pop(context, true);
+                      } else {
+                        setState(() => _busy = false);
+                      }
+                    },
             ),
-            if (friend.relation == FriendRelation.received)
-              ListTile(
-                title: const Text('친구 요청 거절'),
-                onTap: _busy ? null : () => _change(FriendAction.reject),
-              ),
+            const SizedBox(height: 12),
           ],
-          ListTile(
-            leading: const Icon(Icons.block_outlined),
-            title: const Text('사용자 차단'),
-            onTap: _busy
-                ? null
-                : () async {
-                    setState(() => _busy = true);
-                    final changed = await confirmUserBlock(
-                      context,
-                      service: widget.blocks,
-                      userId: widget.userId,
-                      nickname: widget.nickname,
-                    );
-                    if (!context.mounted) return;
-                    if (changed) {
-                      Navigator.pop(context, true);
-                    } else {
-                      setState(() => _busy = false);
-                    }
-                  },
-          ),
-          const SizedBox(height: 12),
-        ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../chat/friend_chat.dart';
 import '../crew/crew_controller.dart';
 import '../crew/widgets/crew_widgets.dart';
 import 'data/friend_service.dart';
@@ -47,6 +48,15 @@ class _SocialScreenState extends State<SocialScreen>
     with WidgetsBindingObserver {
   late final FriendController _friends;
   late final RankingService _ranking;
+  bool _showChat = false;
+  FriendChatService? _chat;
+
+  Future<void> _invite(String userId) async {
+    final message = await widget.groupController?.inviteAndStart(userId);
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -58,6 +68,9 @@ class _SocialScreenState extends State<SocialScreen>
     _friends = FriendController(
       widget.friendService ?? SupabaseFriendService(Supabase.instance.client),
     );
+    if (_friends.service case final SupabaseFriendService service) {
+      _chat = FriendChatService(service.client);
+    }
     _friends.setActive(true);
     if (widget.openGroupOnStart && widget.groupController != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -88,7 +101,50 @@ class _SocialScreenState extends State<SocialScreen>
   }
 
   @override
-  Widget build(BuildContext context) => DefaultTabController(
+  Widget build(BuildContext context) {
+    final chat = _chat;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('소셜')),
+                ButtonSegment(value: true, label: Text('대화')),
+              ],
+              selected: {_showChat},
+              onSelectionChanged: (values) =>
+                  setState(() => _showChat = values.single),
+              showSelectedIcon: false,
+            ),
+            const Spacer(),
+            if (!_showChat)
+              ListenableBuilder(
+                listenable: _friends,
+                builder: (context, _) => IconButton(
+                  tooltip: '친구 목록 새로고침',
+                  onPressed: _friends.loading || _friends.busyUserId != null
+                      ? null
+                      : _friends.refresh,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: _showChat
+              ? chat != null
+                    ? FriendChatView(service: chat)
+                    : const Center(child: Text('대화를 사용할 수 없습니다.'))
+              : _social(),
+        ),
+      ],
+    );
+  }
+
+  Widget _social() => DefaultTabController(
     length: widget.crewController == null ? 4 : 5,
     // initialTab은 크루 탭이 없을 때의 번호입니다. 크루 탭이 친구 다음에 끼므로 뒤 탭은 한 칸 밀립니다.
     initialIndex: widget.crewController != null && widget.initialTab >= 1
@@ -99,36 +155,27 @@ class _SocialScreenState extends State<SocialScreen>
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '소셜',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              IconButton(
-                tooltip: '친구 목록 새로고침',
-                onPressed: _friends.loading || _friends.busyUserId != null
-                    ? null
-                    : _friends.refresh,
-                icon: const Icon(Icons.refresh),
-              ),
-              if (widget.groupController case final controller?)
-                FilledButton.icon(
-                  label: const Text('함께 달리기'),
-                  icon: const Icon(Icons.directions_run),
-                  onPressed: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => GroupRunningScreen(
-                        controller: controller,
-                        friends: _friends,
+          if (widget.groupController case final groups?)
+            ListenableBuilder(
+              listenable: groups,
+              builder: (context, _) =>
+                  groups.groups.any((group) => group.active)
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        child: const Text('함께 달리기 상태'),
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => GroupRunningScreen(
+                              controller: groups,
+                              friends: _friends,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           TabBar(
             labelPadding: const EdgeInsets.symmetric(horizontal: 4),
             tabs: [
@@ -193,6 +240,9 @@ class _SocialScreenState extends State<SocialScreen>
                   requests: false,
                   blockService: widget.blockService,
                   crew: widget.crewController,
+                  onRunInvite: widget.groupController == null
+                      ? null
+                      : (entry) => _invite(entry.userId),
                 ),
                 if (widget.crewController case final crew?)
                   CrewTab(controller: crew),

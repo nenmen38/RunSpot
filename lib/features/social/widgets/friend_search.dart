@@ -23,7 +23,7 @@ class _FriendSearchState extends State<FriendSearch> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    return Column(
+    return ListView(
       children: [
         const SizedBox(height: 12),
         TextField(
@@ -73,23 +73,17 @@ class _FriendSearchState extends State<FriendSearch> {
             ),
           ),
         if (controller.searching) const LinearProgressIndicator(),
-        Expanded(
-          child: ListView(
-            children: [
-              if (controller.searched && controller.results.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Text('검색 결과가 없습니다.', textAlign: TextAlign.center),
-                ),
-              for (final entry in controller.results)
-                FriendRow(
-                  entry: entry,
-                  controller: controller,
-                  blockService: widget.blockService,
-                ),
-            ],
+        if (controller.searched && controller.results.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Text('검색 결과가 없습니다.', textAlign: TextAlign.center),
           ),
-        ),
+        for (final entry in controller.results)
+          FriendRow(
+            entry: entry,
+            controller: controller,
+            blockService: widget.blockService,
+          ),
       ],
     );
   }

@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/app/run_quest_shell.dart';
@@ -36,6 +37,8 @@ class _Service implements GroupService {
   bool isCurrentOwner = true;
   bool host = true;
   bool failStart = false;
+  bool quickInvite = false;
+  String myStatus = 'accepted';
   String state = 'lobby';
   String friendStatus = 'accepted';
   DateTime? startsAt;
@@ -43,13 +46,14 @@ class _Service implements GroupService {
 
   @override
   Future<GroupDashboard> load() async => GroupDashboard.fromJson({
-    'server_now': DateTime.now().toUtc().toIso8601String(),
+    'server_now': clock.now().toUtc().toIso8601String(),
     'groups': [
       {
         'id': 'group',
         'host_id': host ? 'owner' : 'friend',
         'state': state,
-        'my_status': 'accepted',
+        'my_status': myStatus,
+        'auto_start_on_accept': quickInvite,
         'starts_at': startsAt?.toIso8601String(),
         'members': [
           {
@@ -82,7 +86,8 @@ class _Service implements GroupService {
     String? targetId,
     String? clientId,
   }) async {
-    if (operation == 'start') {
+    if (operation == 'accept' && quickInvite) myStatus = 'accepted';
+    if (operation == 'start' || (operation == 'accept' && quickInvite)) {
       if (failStart) {
         throw const PostgrestException(
           message: '초대한 친구가 수락하면 출발할 수 있어요.',
@@ -90,7 +95,7 @@ class _Service implements GroupService {
         );
       }
       state = 'scheduled';
-      startsAt = DateTime.now().toUtc().add(const Duration(seconds: 10));
+      startsAt = clock.now().toUtc().add(const Duration(seconds: 10));
     }
     if (operation == 'join_run') starts++;
     return 'group';
@@ -126,7 +131,7 @@ void main() {
         outbox: FakeRunOutbox(),
       ),
     );
-    final groups = GroupController(service, map);
+    final groups = GroupController(service, map, stopwatch: clock.stopwatch);
 
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -144,7 +149,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('소셜').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('함께 달리기'));
+    await tester.tap(find.text('함께 달리기 상태'));
     await tester.pumpAndSettle();
     // GPS 준비 버튼 없이, 출발 예약 전에는 위치를 따로 잡지 않습니다.
     expect(find.text('GPS 준비'), findsNothing);
@@ -162,7 +167,7 @@ void main() {
           await tester.tap(find.text('10초 뒤 출발'));
         } else {
           service.state = 'scheduled';
-          service.startsAt = DateTime.now().toUtc().add(
+          service.startsAt = clock.now().toUtc().add(
             const Duration(seconds: 10),
           );
           await groups.refresh();
@@ -182,14 +187,12 @@ void main() {
         expect(
           find.descendant(
             of: find.byType(GroupStartCountdown),
-            matching: find.text('10'),
+            matching: find.text('9'),
           ),
           findsOneWidget,
         );
         expect(map.runSession, isNull);
-        service.startsAt = DateTime.now().toUtc().add(
-          const Duration(seconds: 3),
-        );
+        service.startsAt = clock.now().toUtc().add(const Duration(seconds: 3));
         await groups.refresh();
         await tester.pump();
         expect(
@@ -200,7 +203,7 @@ void main() {
           findsOneWidget,
         );
         service.state = 'running';
-        service.startsAt = DateTime.now().toUtc().subtract(
+        service.startsAt = clock.now().toUtc().subtract(
           const Duration(milliseconds: 100),
         );
         await groups.refresh();
@@ -215,6 +218,28 @@ void main() {
       },
     );
   }
+
+  testWidgets('사용자 메뉴 초대는 수락만으로 홈 카운트다운을 표시합니다', (tester) async {
+    final service = _Service()
+      ..host = false
+      ..quickInvite = true
+      ..myStatus = 'invited';
+    final (groups, map) = await show(tester, service);
+    await tester.tap(find.text('초대 수락'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('동의하고 참여'));
+    await tester.pump();
+    for (var frame = 0; frame < 4; frame++) {
+      await tester.pump(const Duration(milliseconds: 350));
+    }
+    expect(service.myStatus, 'accepted');
+    expect(groups.countdownGroup?.id, 'group');
+    expect(find.byType(GroupRunningScreen), findsNothing);
+    expect(find.text('잠시 후 출발'), findsOneWidget);
+    expect(map.runSession, isNull);
+    groups.dispose();
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('병합으로 빠졌던 전경 푸시 안내와 초대 화면 이동을 유지합니다', (tester) async {
     final service = _Service();

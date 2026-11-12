@@ -22,6 +22,7 @@ class RunningGroup {
       hostId = json['host_id'] as String,
       state = json['state'] as String,
       myStatus = json['my_status'] as String,
+      autoStartOnAccept = json['auto_start_on_accept'] == true,
       startsAt = json['starts_at'] == null
           ? null
           : DateTime.parse(json['starts_at'] as String),
@@ -35,6 +36,7 @@ class RunningGroup {
   final String hostId;
   final String state;
   final String myStatus;
+  final bool autoStartOnAccept;
   final DateTime? startsAt;
   final List<GroupMember> members;
   bool get active =>
