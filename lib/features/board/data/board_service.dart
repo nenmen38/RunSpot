@@ -146,6 +146,7 @@ class SupabaseBoardService implements BoardService {
         'client_id': draft.clientId,
         'requested_board': draft.kind.code,
         ..._fields(draft),
+        'requested_crew': ?draft.crewId,
       }) as String;
 
   @override

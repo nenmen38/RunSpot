@@ -299,13 +299,25 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
       const SizedBox(height: 6),
       InkWell(
         onTap: post.isMine ? null : () => _openUser(),
-        child: Text(
-          [
-            post.nickname,
-            if (post.region != null) post.region!,
-            formatBoardDateTime(post.createdAt),
-            if (post.isEdited) '수정됨',
-          ].join(' · '),
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: post.nickname),
+              if (post.crew case final crew?)
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: BoardCrewBadge(crew: crew),
+                ),
+              TextSpan(
+                text: [
+                  '',
+                  if (post.region != null) post.region!,
+                  formatBoardDateTime(post.createdAt),
+                  if (post.isEdited) '수정됨',
+                ].join(' · '),
+              ),
+            ],
+          ),
           style: BoardStyle.meta,
         ),
       ),

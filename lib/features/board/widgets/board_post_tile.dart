@@ -46,6 +46,33 @@ const _metaStyle = TextStyle(
   height: 1.5,
 );
 
+/// 작성자 이름 옆에 붙이는 크루 아이콘과 크루 이름입니다.
+class BoardCrewBadge extends StatelessWidget {
+  const BoardCrewBadge({required this.crew, super.key});
+
+  final BoardCrew crew;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 6),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(crew.icon.icon, size: 14, color: crew.icon.color),
+        const SizedBox(width: 2),
+        Text(
+          crew.name,
+          style: const TextStyle(
+            color: BoardStyle.ink,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class BoardPostTile extends StatelessWidget {
   const BoardPostTile({
     required this.post,
@@ -131,8 +158,21 @@ class BoardPostTile extends StatelessWidget {
                         Expanded(
                           child: InkWell(
                             onTap: post.isMine ? null : onAuthorTap,
-                            child: Text(
-                              '${post.nickname} · ${formatBoardDateTime(post.createdAt)}',
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(text: post.nickname),
+                                  if (post.crew case final crew?)
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: BoardCrewBadge(crew: crew),
+                                    ),
+                                  TextSpan(
+                                    text:
+                                        ' · ${formatBoardDateTime(post.createdAt)}',
+                                  ),
+                                ],
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: _metaStyle,

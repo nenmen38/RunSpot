@@ -28,6 +28,9 @@ class BoardController extends ChangeNotifier {
   bool canWrite = false;
   bool canPostRace = false;
   bool canModerate = false;
+
+  /// 내가 크루장인 크루입니다. 크루 홍보글은 이 크루로만 씁니다.
+  List<BoardCrew> ownCrews = const [];
   bool loading = false;
   bool loadingMore = false;
   bool loaded = false;
@@ -39,8 +42,11 @@ class BoardController extends ChangeNotifier {
 
   /// 동네를 정하지 않으면 동네 게시판은 비어 있으므로 설정을 먼저 안내합니다.
   bool get needsRegion => kind == BoardKind.local && loaded && region == null;
-  bool get canCreate =>
-      kind == BoardKind.race ? canPostRace : canWrite && !needsRegion;
+  bool get canCreate => switch (kind) {
+    BoardKind.race => canPostRace,
+    BoardKind.crew => canWrite && ownCrews.isNotEmpty,
+    _ => canWrite && !needsRegion,
+  };
 
   /// 새 글을 저장할 게시판입니다. 러닝 소식에서 쓰면 전국 글, 동네에서 쓰면 동네 글이 됩니다.
   BoardKind get composeKind =>
@@ -51,6 +57,7 @@ class BoardController extends ChangeNotifier {
     _posts = const [];
     _next = null;
     canWrite = canPostRace = canModerate = false;
+    ownCrews = const [];
     error = '다시 로그인해 주세요.';
     return false;
   }
@@ -84,7 +91,7 @@ class BoardController extends ChangeNotifier {
 
   /// 러닝 소식의 말머리를 고릅니다. 동네 글을 보던 중이면 러닝 소식으로 돌아갑니다.
   void selectTopic(BoardTopic? value) {
-    if (_disposed || kind == BoardKind.race) return;
+    if (_disposed || kind == BoardKind.race || kind == BoardKind.crew) return;
     if (topic == value && kind == BoardKind.news) return;
     kind = BoardKind.news;
     topic = value;
@@ -166,6 +173,7 @@ class BoardController extends ChangeNotifier {
     canWrite = feed.canWrite;
     canPostRace = feed.canPostRace;
     canModerate = feed.canModerate;
+    ownCrews = feed.ownCrews;
     loaded = true;
   }
 

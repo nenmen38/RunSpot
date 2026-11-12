@@ -169,13 +169,18 @@ class _BoardScreenState extends State<BoardScreen> {
             SegmentedButton<BoardKind>(
               showSelectedIcon: false,
               segments: [
-                for (final kind in const [BoardKind.news, BoardKind.race])
+                for (final kind in const [
+                  BoardKind.news,
+                  BoardKind.race,
+                  BoardKind.crew,
+                ])
                   ButtonSegment(value: kind, label: Text(kind.label)),
               ],
               // 동네 글을 보는 중에도 러닝 소식 탭이 선택된 상태입니다.
               selected: {
-                controller.kind == BoardKind.race
-                    ? BoardKind.race
+                controller.kind == BoardKind.race ||
+                        controller.kind == BoardKind.crew
+                    ? controller.kind
                     : BoardKind.news,
               },
               onSelectionChanged: (value) {
@@ -214,7 +219,8 @@ class _BoardScreenState extends State<BoardScreen> {
             if (controller.kind != BoardKind.race || _marathons == null)
               Row(
                 children: [
-                  if (controller.kind != BoardKind.race)
+                  if (controller.kind != BoardKind.race &&
+                      controller.kind != BoardKind.crew)
                     BoardFilterMenu<_NewsFilter>(
                       values: _NewsFilter.values,
                       selected: controller.kind == BoardKind.local
@@ -260,7 +266,17 @@ class _BoardScreenState extends State<BoardScreen> {
                 ),
               ),
             ],
-            if (!controller.canWrite &&
+            if (controller.kind == BoardKind.crew &&
+                controller.loaded &&
+                !controller.canCreate)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '크루를 만든 크루장만 홍보글을 쓸 수 있어요.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              )
+            else if (!controller.canWrite &&
                 controller.loaded &&
                 controller.kind != BoardKind.race)
               Padding(
@@ -279,9 +295,10 @@ class _BoardScreenState extends State<BoardScreen> {
   );
 
   String _subtitle(BoardKind kind) => switch (kind) {
-    BoardKind.local => '우리 동네의 러닝 코스와 팁, 맛집·카페',
-    BoardKind.national || BoardKind.news => '전국과 우리 동네의 러닝 코스와 팁, 맛집·카페',
+    BoardKind.local => '우리 동네의 러닝 이야기와 질문, 코스·맛집',
+    BoardKind.national || BoardKind.news => '전국과 우리 동네의 러닝 이야기와 질문, 코스·맛집',
     BoardKind.race => '전국 러닝 대회 일정',
+    BoardKind.crew => '크루장이 올리는 크루 소개와 크루원 모집',
   };
 
   Widget _body(BuildContext context, BoardController controller) {
@@ -333,6 +350,8 @@ class _BoardScreenState extends State<BoardScreen> {
                       ? "'${controller.query}'이(가) 들어간 글이 없어요."
                       : controller.kind == BoardKind.race
                       ? '예정된 러닝 대회 공지가 없어요.'
+                      : controller.kind == BoardKind.crew
+                      ? '아직 크루 홍보글이 없어요.'
                       : '아직 글이 없어요.\n첫 글을 남겨 보세요.',
                 ),
               ),
@@ -405,6 +424,8 @@ class _BoardScreenState extends State<BoardScreen> {
 
 /// 러닝 소식의 말머리입니다. 전국 게시판 말머리에 동네를 더했습니다.
 enum _NewsFilter {
+  free(BoardTopic.free),
+  question(BoardTopic.question),
   course(BoardTopic.course),
   tip(BoardTopic.tip),
   food(BoardTopic.food),

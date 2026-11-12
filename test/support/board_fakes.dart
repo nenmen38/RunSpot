@@ -17,6 +17,7 @@ Map<String, dynamic> postJson(
   int likeCount = 0,
   bool liked = false,
   int commentCount = 0,
+  Map<String, dynamic>? crew,
 }) => {
   'id': id,
   'board': board,
@@ -35,6 +36,7 @@ Map<String, dynamic> postJson(
   'like_count': likeCount,
   'liked': liked,
   'comment_count': commentCount,
+  'crew': crew,
 };
 
 Map<String, dynamic> commentJson(
@@ -56,6 +58,7 @@ BoardFeed feed(
   bool canWrite = true,
   bool canPostRace = false,
   Map<String, dynamic>? next,
+  List<Map<String, dynamic>> ownCrews = const [],
 }) => BoardFeed.fromJson({
   'region': region,
   'can_write': canWrite,
@@ -63,6 +66,7 @@ BoardFeed feed(
   'can_moderate': canPostRace,
   'posts': posts,
   'next': next,
+  'own_crews': ownCrews,
 });
 
 class LoadCall {

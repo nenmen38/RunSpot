@@ -55,6 +55,9 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
       widget.post?.kind ?? widget.controller.composeKind;
   late BoardTopic? _topic = widget.post?.topic ?? widget.controller.topic;
   late DateTime? _raceDate = widget.post?.raceDate;
+  // 크루 홍보글은 내가 크루장인 크루 중 하나로 씁니다. 수정할 때는 바꾸지 않습니다.
+  late String? _crewId =
+      widget.post?.crew?.id ?? widget.controller.ownCrews.firstOrNull?.id;
   late final List<_Photo> _photos = [
     for (final path in widget.post?.images ?? const <String>[])
       _Photo(path: path, url: widget.post!.imageUrls[path]),
@@ -68,6 +71,7 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
   String? _error;
 
   bool get _isRace => _kind == BoardKind.race;
+  bool get _isCrew => _kind == BoardKind.crew;
   bool get _isEditing => widget.post != null;
   bool get _busy => _picking || _uploading || widget.controller.busy;
 
@@ -160,18 +164,24 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
       _error = null;
     });
     final valid = _form.currentState!.validate();
-    if (!valid || (_isRace ? _raceDate == null : _topic == null)) return;
+    final missing = _isRace
+        ? _raceDate == null
+        : _isCrew
+        ? _crewId == null
+        : _topic == null;
+    if (!valid || missing) return;
     if (!await _uploadPhotos() || !mounted) return;
     final draft = BoardDraft(
       clientId: _clientId,
       kind: _kind,
-      topic: _isRace ? null : _topic,
+      topic: _isRace || _isCrew ? null : _topic,
       title: _title.text.trim(),
       body: _body.text.trim(),
       raceDate: _isRace ? _raceDate : null,
       racePlace: _isRace ? _place.text.trim() : null,
       raceUrl: _isRace && _url.text.trim().isNotEmpty ? _url.text.trim() : null,
       images: [for (final photo in _photos) photo.path!],
+      crewId: _isCrew && !_isEditing ? _crewId : null,
     );
     final editing = widget.post;
     final error = editing == null
@@ -239,7 +249,49 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (!_isRace) ...[
+                  if (_isCrew) ...[
+                    Text(
+                      '홍보할 크루',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final crew in [
+                          if (widget.post?.crew case final crew?)
+                            crew
+                          else
+                            ...widget.controller.ownCrews,
+                        ])
+                          ChoiceChip(
+                            avatar: Icon(
+                              crew.icon.icon,
+                              size: 18,
+                              color: crew.icon.color,
+                            ),
+                            label: Text(crew.name),
+                            selected: _crewId == crew.id,
+                            onSelected: _isEditing
+                                ? null
+                                : (_) => setState(() => _crewId = crew.id),
+                          ),
+                      ],
+                    ),
+                    if (_submitted && _crewId == null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          '크루를 만든 크루장만 홍보글을 쓸 수 있어요.',
+                          style: TextStyle(
+                            color: BoardStyle.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                  ] else if (!_isRace) ...[
                     Text('말머리', style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 6),
                     Wrap(

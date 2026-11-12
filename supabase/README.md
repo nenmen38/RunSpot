@@ -45,6 +45,7 @@
 28. `migrations/20261112000200_crews.sql`: 크루. 크루 생성권(640코인, 약 7,040원)을 `buy_crew_ticket()`으로 사고, `create_crew()`로 크루 이름(2~20자, 대소문자 무시 중복 금지)·설명(60자)·아이콘(5종)을 정해 만듭니다. 한 사람은 한 크루에만 속하고 크루는 최대 30명입니다. 크루장만 친구를 `invite_to_crew()`로 초대하며, 초대는 확성기 알림(`crew_invite`)과 `my_crew()`로 보여주고 `respond_crew_invite()`로 수락·거절합니다.
 29. `migrations/20261112000300_multi_crews.sql`: 한 사람이 여러 크루에 가입하고 여러 크루를 만들 수 있게 합니다(한 사람당 최대 10개). `my_crew()`가 `crews` 목록을 돌려주고(이전 앱용 `crew`에는 첫 크루), `invite_to_crew(target, requested_crew)`로 초대할 크루를 고릅니다. 다른 크루에 속해 있어도 초대를 수락할 수 있습니다.
 30. `migrations/20261112000400_group_quick_start.sql`: 함께 달리기에서 GPS 준비 단계를 없앱니다. 방장은 친구가 한 명 이상 수락하면 바로 `start`할 수 있고, 그룹을 취소하면 그룹·초대 알림이 지워져 목록과 기록에 남지 않습니다(기존 취소 그룹도 삭제). `clear_my_notifications()`로 내 알림을 모두 지웁니다.
+31. `migrations/20261113000100_board_crew_promo.sql`: 게시판에 크루 홍보(`board='crew'`)를 더합니다. 크루장만 자기 크루를 골라(`create_board_post`의 `requested_crew`) 홍보글을 쓰고, 글에 크루 이름·아이콘(`crew`)이 붙습니다. `board_feed`는 내가 크루장인 크루(`own_crews`)를 함께 돌려줍니다. 러닝 소식 말머리에 자유(`free`)·질문(`question`)을 더합니다. 크루가 없어지면 그 홍보글도 지워집니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

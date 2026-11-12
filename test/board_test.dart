@@ -286,4 +286,79 @@ void main() {
     expect(find.text('삭제'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('크루 홍보는 크루장만 크루를 골라 쓰고 작성자 옆에 크루가 보입니다', (tester) async {
+    final service = FakeBoardService();
+    var owner = false;
+    service.onLoad = (call) => Future.value(
+      feed(
+        call.kind == BoardKind.crew
+            ? [
+                postJson(
+                  'c',
+                  board: 'crew',
+                  topic: null,
+                  region: null,
+                  crew: {'id': 'crew1', 'name': '한강러너스', 'icon': 'wave'},
+                ),
+              ]
+            : const [],
+        ownCrews: owner
+            ? [
+                {'id': 'crew1', 'name': '한강러너스', 'icon': 'wave'},
+                {'id': 'crew2', 'name': '새벽런', 'icon': 'flame'},
+              ]
+            : const [],
+      ),
+    );
+    await tester.pumpWidget(boardApp(service));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('크루 홍보'));
+    await tester.pumpAndSettle();
+    expect(service.loads.last.kind, BoardKind.crew);
+    expect(find.text('한강러너스'), findsOneWidget);
+    expect(find.byIcon(Icons.waves), findsOneWidget);
+    expect(find.text('글쓰기'), findsNothing);
+    expect(find.text('크루를 만든 크루장만 홍보글을 쓸 수 있어요.'), findsOneWidget);
+    expect(find.byTooltip('말머리 선택'), findsNothing);
+
+    owner = true;
+    await tester.tap(find.text('러닝 소식'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('크루 홍보'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('글쓰기'));
+    await tester.pumpAndSettle();
+    expect(find.text('홍보할 크루'), findsOneWidget);
+    expect(find.text('말머리'), findsNothing);
+    await tester.tap(find.text('새벽런'));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '제목'),
+      '새벽런 크루원 모집',
+    );
+    await tester.enterText(find.widgetWithText(TextFormField, '내용'), '매일 6시');
+    await tester.tap(find.text('등록'));
+    await tester.pumpAndSettle();
+    final draft = service.created.single;
+    expect(draft.kind, BoardKind.crew);
+    expect(draft.crewId, 'crew2');
+    expect(draft.topic, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('러닝 소식 글쓰기에 자유·질문 말머리가 있습니다', (tester) async {
+    final service = FakeBoardService();
+    await tester.pumpWidget(boardApp(service));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('글쓰기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, '질문'));
+    await tester.enterText(find.widgetWithText(TextFormField, '제목'), '신발 추천');
+    await tester.enterText(find.widgetWithText(TextFormField, '내용'), '평발이에요');
+    await tester.tap(find.text('등록'));
+    await tester.pumpAndSettle();
+    expect(service.created.single.topic, BoardTopic.question);
+    expect(service.created.single.crewId, isNull);
+    expect(find.widgetWithText(ChoiceChip, '자유'), findsNothing);
+  });
 }
