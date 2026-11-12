@@ -32,6 +32,9 @@ import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
 
+/// 함께 달리기를 신청한 사람이 테두리를 착용하지 않았을 때 쓰는 무리 오라 색입니다.
+const defaultCrewColor = '#8B5CF6';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.controller,
@@ -193,13 +196,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       friends: [
         for (final runner in state.runners)
-          if (runner.isFriend && runner.hasAura)
+          // 나만 오라를 착용해도 친구와 합쳐집니다. 테두리가 없는 친구는 내 오라 색을 씁니다.
+          if (runner.isFriend)
             AuraRunner(
               id: runner.id,
               latitude: runner.latitude,
               longitude: runner.longitude,
               at: runner.updatedAt,
-              color: runner.frameColor!,
+              color: runner.frameColor ?? wallet.wallet!.color,
               paceSecPerKm: runner.paceSecPerKm,
             ),
       ],
@@ -456,20 +460,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
     }
     // 오라가 이어진 친구는 무리 표식으로 묶지 않고 각자 자리에 보여줍니다.
-    final aura = _aura == null || _aura!.isSolo ? null : _aura;
-    final auraNodes = {
-      for (final node in aura?.nodes ?? const []) node.id: node,
-    };
+    // 함께 달리는 참여자가 300m 안에 모이면 한 덩어리(숫자가 적힌 동그라미 하나)로 묶습니다.
     final clusters = clusterRunners(
       visible,
       groups?.service.isCurrentOwner == true ? groups!.groups : [],
-      solo: aura == null ? const {} : {ownerId, ...auraNodes.keys},
     );
     final ownClustered = clusters.any(
       (cluster) =>
           cluster.members.length > 1 &&
           cluster.members.any((member) => member.id == ownerId),
     );
+    // 덩어리로 묶인 참여자는 오라도 덩어리로 그리므로, 친구 오라 합체에서는 뺍니다.
+    final grouped = {
+      for (final cluster in clusters)
+        if (cluster.members.length > 1)
+          for (final member in cluster.members) member.id,
+    };
+    final aura = _aura == null || _aura!.isSolo || ownClustered
+        ? null
+        : _aura!.without(grouped);
+    final auraNodes = {
+      for (final node in aura?.nodes ?? const []) node.id: node,
+    };
+    // 무리 오라 색은 함께 달리기를 신청한 사람(방장)의 테두리 색입니다.
+    RunMapFrame? hostFrame(RunnerCluster cluster) {
+      final host = cluster.hostId;
+      final color = host == ownerId
+          ? widget.wallet?.wallet?.color
+          : state.runners
+                .where((runner) => runner.id == host)
+                .firstOrNull
+                ?.frameColor;
+      return RunMapFrame(aura: true, color: color ?? defaultCrewColor);
+    }
+
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
@@ -535,7 +559,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 aura: frame == 'aura',
                                 color: frameColor,
                               ),
-                            _ => null,
+                            [_] => null,
+                            _ => hostFrame(cluster),
                           },
                           nickname: cluster.members.length > 1
                               ? '함께 달리기 ${cluster.members.length}명'

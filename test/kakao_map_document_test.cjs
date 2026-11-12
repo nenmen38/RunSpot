@@ -75,7 +75,7 @@ test('그룹은 인원수를 표시하고 분리되면 그룹 아이콘을 제�
   d.markers=[{id:'group:a:b',point:[37,127],nickname:'함께 달리기 2명',memberCount:2}];
   f.update(d);
   const group=f.overlays.find(o=>o.content.className==='runner group');
-  assert.equal(group.content.textContent,'2명');
+  assert.equal(group.content.textContent,'2');
   assert.equal(group.content.attributes['aria-label'],'함께 달리기 2명');
   group.content.listeners.click({stopPropagation(){}});
   assert.equal(f.events.at(-1).id,'group:a:b');
@@ -161,4 +161,16 @@ test('오라가 이어진 친구 아이콘은 새 위치로 부드럽게 옮깁�
   assert.ok(moved>37.0002&&moved<37.0004);
   for(let t=1200;t<9000;t+=100)f.frame(t);
   assert.ok(Math.abs(marker.position.getLat()-37.0004)<1e-6);
+});
+test('함께 달리기 덩어리는 신청한 사람의 오라 색 동그라미 하나에 인원수로 보여줍니다',()=>{
+  const f=documentFixture(),d=data();
+  d.markers=[{id:'group:a:b:c',point:[37,127],nickname:'함께 달리기 3명',memberCount:3,frame:{style:'aura',color:'#F97316'}}];
+  f.update(d);
+  const bubble=f.overlays.find(o=>o.content.attributes['aria-label']==='함께 달리기 3명').content;
+  assert.equal(bubble.textContent,'3');
+  assert.equal(bubble.className,'runner group framed aura');
+  assert.equal(bubble.style.values['--c'],'#F97316');assert.equal(bubble.style.values['--g'],'#F9731699');
+  assert.equal(bubble.style.values.width,'58px');
+  d.markers=[{...d.markers[0],memberCount:9,nickname:'함께 달리기 9명'}];f.update(d);
+  assert.equal(bubble.style.values.width,'78px');
 });

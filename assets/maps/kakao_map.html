@@ -20,6 +20,8 @@
     /* 다른 러너가 착용한 테두리도 같은 색과 오라로 보여줍니다. */
     .runner.framed { box-sizing:border-box; border:3px solid var(--c); }
     .runner.framed.aura { border-width:4px; animation:pulse 1.6s ease-in-out infinite alternate; }
+    /* 함께 달리기 덩어리: 신청한 사람의 오라 색 동그라미 하나에 인원수만 적습니다. */
+    .runner.group.framed { background:var(--c); border:3px solid white; font:800 18px sans-serif; }
     @media (prefers-reduced-motion:reduce) { .point.frame.aura, .runner.framed.aura { animation:none; box-shadow:0 0 14px 5px var(--g); } }
     /* 친구와 이어진 오라는 아래 캔버스가 대신 그리므로 개별 오라는 끕니다. */
     .fused { animation:none !important; box-shadow:none !important; }
@@ -405,12 +407,15 @@ window.createRunspotMap = () => {
           entry={element,overlay:overlay(marker.point,element,6)}; runners.set(marker.id,entry);
         }
         // 다른 러너가 착용한 테두리를 그 러너가 고른 색으로 보여줍니다.
-        const worn=marker.memberCount===1&&marker.frame&&/^#[0-9A-F]{6}$/i.test(marker.frame.color)?marker.frame:null;
+        const worn=marker.frame&&/^#[0-9A-F]{6}$/i.test(marker.frame.color)?marker.frame:null;
         entry.element.className='runner'+(marker.memberCount>1?' group':'')+(marker.selected?' selected':'')
           +(worn?' framed'+(worn.style==='aura'?' aura':''):'')+(aura.fused(marker.id)?' fused':'');
         entry.element.style.setProperty('--c',worn?worn.color:'');
         entry.element.style.setProperty('--g',worn?worn.color+'99':'');
-        entry.element.textContent=marker.memberCount>1?marker.memberCount+'명':marker.nickname.slice(0,2);
+        entry.element.textContent=marker.memberCount>1?String(marker.memberCount):marker.nickname.slice(0,2);
+        // 인원이 많을수록 동그라미를 조금씩 키웁니다.
+        const size=marker.memberCount>1?Math.min(78,46+4*marker.memberCount)+'px':'';
+        entry.element.style.setProperty('width',size);entry.element.style.setProperty('height',size);
         entry.element.title=marker.nickname;
         entry.element.setAttribute('aria-label',marker.nickname);
         // 오라가 이어진 친구는 그리기 루프가 위치를 부드럽게 옮깁니다.

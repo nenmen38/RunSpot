@@ -38,7 +38,8 @@ void main() {
       [2, 1],
     );
     expect(
-      clusterRunners([runner('a', 0), runner('b', .001)], groups).length,
+      // 300m 밖(약 440m)은 따로 보여줍니다.
+      clusterRunners([runner('a', 0), runner('b', .004)], groups).length,
       2,
     );
   });
@@ -58,7 +59,8 @@ void main() {
     );
   });
   test('긴 대열은 모두 합치지 않고 입력 순서와 무관하게 묶습니다', () {
-    final runners = [runner('a', 0), runner('b', .0002), runner('c', .0004)];
+    // a-b, b-c는 약 220m, a-c는 약 440m입니다.
+    final runners = [runner('a', 0), runner('b', .002), runner('c', .004)];
     final groups = [
       group(['a', 'b', 'c']),
     ];
@@ -81,5 +83,19 @@ void main() {
     );
     expect(clusters.single.members.length, 1);
     expect(clusters.single.point.latitude, 37);
+  });
+
+  test('300m 안에 모이면 한 덩어리가 되고 방장을 함께 기억합니다', () {
+    final clusters = clusterRunners(
+      [runner('b', 0), runner('a', .0025), runner('c', .0012)],
+      [
+        group(['a', 'b', 'c']),
+      ],
+    );
+    expect(clusters.single.members.length, 3);
+    expect(clusters.single.hostId, 'a');
+    expect(groupMergeMeters, 300);
+    // 그룹이 아닌 러너에는 방장이 없습니다.
+    expect(clusterRunners([runner('x', 0)], const []).single.hostId, isNull);
   });
 }

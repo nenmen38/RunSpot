@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:runquest/features/group_running/data/group_service.dart';
+import 'package:runquest/features/group_running/group_controller.dart';
+import 'package:runquest/features/group_running/models/running_group.dart';
 import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/models/live_runner.dart';
@@ -81,10 +84,12 @@ void main() {
     final service = FakeRunnerService()
       ..runners = [
         runner('a', 450),
-        // 친구가 아니거나 오라가 없는 러너는 합쳐지지 않고 테두리만 보입니다.
+        // 친구가 아니면 합쳐지지 않고 테두리만 보입니다.
         runner('b', 10, friend: false, color: '#22C55E'),
-        runner('c', 10, frame: 'basic', color: '#F97316'),
-        runner('d', 10, frame: null),
+        // 빛줄기 거리(600m) 밖의 친구는 아직 잇지 않습니다.
+        runner('c', 700, frame: 'basic', color: '#F97316'),
+        // 테두리가 없는 친구도 내가 오라를 착용했으면 합쳐집니다.
+        runner('d', 500, frame: null),
       ];
     final map = LiveMapController(
       locationService: location,
@@ -112,10 +117,20 @@ void main() {
     await tester.pumpAndSettle();
     RunMap view() => tester.widget<RunMap>(find.byType(RunMap));
 
-    // 450m: 빛줄기만 있고 아직 합쳐지지 않았습니다.
+    // 450m·500m: 빛줄기만 있고 아직 합쳐지지 않았습니다.
     var aura = view().aura!;
-    expect((aura['nodes'] as List).single['id'], 'a');
-    expect((aura['links'] as List).single['merged'], isFalse);
+    final nodes = {
+      for (final node in aura['nodes'] as List) node['id']: node['color'],
+    };
+    expect(nodes, {'a': '#3182F6', 'd': '#EF4444'});
+    // 나와는 아직 빛줄기이고, 서로 50m인 a와 d만 먼저 합쳐집니다.
+    expect(
+      (aura['links'] as List)
+          .where((link) => link['merged'] == true)
+          .map((link) => '${link['a']}-${link['b']}'),
+      ['a-d'],
+    );
+    expect((aura['self'] as Map)['crew'], isNull);
     expect(haptics, isEmpty);
     final frames = {
       for (final marker in view().markers) marker.id: marker.frame?.toJson(),
@@ -145,4 +160,86 @@ void main() {
     map.dispose();
     history.dispose();
   });
+
+  testWidgets('함께 달리는 친구들이 300m 안이면 방장 오라 색 동그라미 하나에 인원수로 보여줍니다', (
+    tester,
+  ) async {
+    final location = FakeLocationService();
+    final history = RunHistoryController(
+      FakeRunRecordService(),
+      outbox: FakeRunOutbox(),
+    );
+    final service = FakeRunnerService()
+      ..runners = [
+        runner('a', 100, color: '#F97316'),
+        runner('b', 250, frame: null),
+        runner('c', 280, frame: 'basic', color: '#22C55E'),
+      ];
+    final map = LiveMapController(
+      locationService: location,
+      runnerService: service,
+      runHistory: history,
+    );
+    addTearDown(location.updates.close);
+    final groups = GroupController(_RunningGroup(), map);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomeScreen(
+            controller: map,
+            mapBridgeFactory: FakeMapBridge.new,
+            groupController: groups,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await groups.refresh();
+    await tester.pump();
+    final markers = tester.widget<RunMap>(find.byType(RunMap)).markers;
+    final bubble = markers.single;
+    expect(bubble.memberCount, 3);
+    expect(bubble.nickname, '함께 달리기 3명');
+    // 함께 달리기를 신청한 a의 오라 색입니다.
+    expect(bubble.frame!.toJson(), {'style': 'aura', 'color': '#F97316'});
+
+    await tester.pumpWidget(const SizedBox());
+    groups.dispose();
+    map.dispose();
+    history.dispose();
+  });
+}
+
+/// a가 신청해 a·b·c와 내가 함께 달리고 있는 그룹입니다.
+class _RunningGroup implements GroupService {
+  @override
+  final ownerId = 'owner';
+  @override
+  bool get isCurrentOwner => true;
+
+  @override
+  Future<GroupDashboard> load() async => GroupDashboard.fromJson({
+    'server_now': DateTime.now().toUtc().toIso8601String(),
+    'groups': [
+      {
+        'id': 'g',
+        'host_id': 'a',
+        'state': 'running',
+        'my_status': 'accepted',
+        'starts_at': DateTime.now().toUtc().toIso8601String(),
+        'members': [
+          for (final id in ['a', 'b', 'c', 'owner'])
+            {'user_id': id, 'nickname': id, 'status': 'accepted'},
+        ],
+      },
+    ],
+  });
+
+  @override
+  Future<String> change(
+    String operation, {
+    String? groupId,
+    String? targetId,
+    String? clientId,
+  }) async => 'g';
 }

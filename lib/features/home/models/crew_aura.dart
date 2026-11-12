@@ -82,6 +82,27 @@ class CrewAuraState {
   /// 지도에 그릴 것이 내 오라뿐이면 기존 테두리 표시만으로 충분합니다.
   bool get isSolo => nodes.isEmpty;
 
+  /// [ids] 러너를 뺀 상태입니다. 함께 달리기 덩어리로 묶인 참여자를 뺄 때 씁니다.
+  /// 남는 친구가 없으면 null입니다.
+  CrewAuraState? without(Set<String> ids) {
+    if (ids.isEmpty) return this;
+    final kept = [
+      for (final node in nodes)
+        if (!ids.contains(node.id)) node,
+    ];
+    if (kept.isEmpty) return null;
+    return CrewAuraState(
+      self: self,
+      nodes: kept,
+      links: [
+        for (final link in links)
+          if (!ids.contains(link.a) && !ids.contains(link.b)) link,
+      ],
+      joinedSelf: joinedSelf,
+      nearestMeters: nearestMeters,
+    );
+  }
+
   Map<String, Object?> toJson() => {
     // 지도는 이 거리 기준으로 빛줄기 굵기와 합쳐진 목의 굵기를 정합니다.
     'limits': {
