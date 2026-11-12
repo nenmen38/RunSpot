@@ -4,6 +4,11 @@ create function pg_temp.assert_true(ok boolean,message text) returns void langua
 begin if ok is distinct from true then raise exception '%',message; end if; end; $$;
 create function pg_temp.fails(statement text,expected_code text) returns boolean language plpgsql as $$
 begin execute statement; return false; exception when others then return sqlstate=expected_code; end; $$;
+-- 같은 트랜잭션에서는 가입 시각이 같아 순서가 정해지지 않으므로 이름으로 찾습니다.
+create function pg_temp.crew_named(dashboard jsonb,crew_name text) returns jsonb language sql as $$
+  select e from jsonb_array_elements(dashboard->'crews') e where e->>'name'=crew_name;
+$$;
+grant execute on function pg_temp.crew_named(jsonb,text) to authenticated;
 create function pg_temp.invite_note() returns jsonb language sql as $$
   select n from jsonb_array_elements(public.my_notifications()) n where n->>'kind'='crew_invite' limit 1;
 $$;
@@ -52,16 +57,16 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000221',true);
 
 -- 크루장만, 친구에게만 초대할 수 있습니다.
-select pg_temp.assert_true(pg_temp.fails('select public.invite_to_crew(''00000000-0000-0000-0000-000000000224'')','42501'),'친구 아닌 사용자 초대 거부');
-select pg_temp.assert_true(pg_temp.fails('select public.invite_to_crew(''00000000-0000-0000-0000-000000000221'')','42501'),'자기 자신 초대 거부');
-select pg_temp.assert_true((public.invite_to_crew('00000000-0000-0000-0000-000000000222')->'crew'->'pending')
+select pg_temp.assert_true(pg_temp.fails(format('select public.invite_to_crew(''00000000-0000-0000-0000-000000000224'',%L)',:'dawn'),'42501'),'친구 아닌 사용자 초대 거부');
+select pg_temp.assert_true(pg_temp.fails(format('select public.invite_to_crew(''00000000-0000-0000-0000-000000000221'',%L)',:'dawn'),'42501'),'자기 자신 초대 거부');
+select pg_temp.assert_true((public.invite_to_crew('00000000-0000-0000-0000-000000000222',:'dawn')->'crew'->'pending')
   ='["00000000-0000-0000-0000-000000000222"]'::jsonb,'친구 초대');
-select public.invite_to_crew('00000000-0000-0000-0000-000000000222');
-select public.invite_to_crew('00000000-0000-0000-0000-000000000223');
+select public.invite_to_crew('00000000-0000-0000-0000-000000000222',:'dawn');
+select public.invite_to_crew('00000000-0000-0000-0000-000000000223',:'dawn');
 
 -- 초대받은 친구는 알림과 크루 탭에서 초대를 보고 수락합니다.
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',true);
-select pg_temp.assert_true(pg_temp.fails('select public.invite_to_crew(''00000000-0000-0000-0000-000000000221'')','42501'),'크루장 아닌 사람 초대 거부');
+select pg_temp.assert_true(pg_temp.fails(format('select public.invite_to_crew(''00000000-0000-0000-0000-000000000221'',%L)',:'dawn'),'42501'),'크루장 아닌 사람 초대 거부');
 select pg_temp.assert_true((select n->>'crew_name'='새벽런' and n->>'nickname'='크루검증221'
   and n->>'invite_status'='invited' and (n->>'can_respond')::boolean
   from (select pg_temp.invite_note() n) x) and public.unread_notification_count()=1,'크루 초대 알림 한 번');
@@ -81,8 +86,8 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000223'
 select public.respond_crew_invite(:'dawn',false);
 select pg_temp.assert_true((public.my_crew()->'crew')='null'::jsonb,'거절');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000221',true);
-select pg_temp.assert_true(pg_temp.fails('select public.invite_to_crew(''00000000-0000-0000-0000-000000000222'')','P0001'),'이미 크루원인 친구 초대 거부');
-select public.invite_to_crew('00000000-0000-0000-0000-000000000223');
+select pg_temp.assert_true(pg_temp.fails(format('select public.invite_to_crew(''00000000-0000-0000-0000-000000000222'',%L)',:'dawn'),'P0001'),'이미 크루원인 친구 초대 거부');
+select public.invite_to_crew('00000000-0000-0000-0000-000000000223',:'dawn');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000223',true);
 select pg_temp.assert_true((select n->>'invite_status'='invited' and not (n->>'read')::boolean
   from (select pg_temp.invite_note() n) x),'다시 초대하면 새 알림');
@@ -93,15 +98,43 @@ insert into runspot_private.crew_invites(crew_id,user_id,invited_by)
 select id,'00000000-0000-0000-0000-000000000222','00000000-0000-0000-0000-000000000224' from runspot_private.crews where name='Night Run';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',true);
-select pg_temp.assert_true(pg_temp.fails(format('select public.respond_crew_invite(%L,true)',:'night'),'P0001'),'두 크루 가입 거부');
+select pg_temp.assert_true((select jsonb_array_length(c->'crews')=2 and pg_temp.crew_named(c,'새벽런') is not null
+  and pg_temp.crew_named(c,'Night Run') is not null and c->'crew' is not null
+  from (select public.respond_crew_invite(:'night',true) c) x),'여러 크루 가입');
 select pg_temp.assert_true(pg_temp.fails('select * from runspot_private.crews','42501'),'크루 원본 접근 거부');
 
 -- 생성권 구매는 코인 잔액에서 빠집니다.
 reset role;
 select pg_temp.assert_true(runspot_private.coin_balance('00000000-0000-0000-0000-000000000221')=360,'잔액 반영');
+
+-- 이미 크루가 있어도 생성권으로 크루를 더 만들고, 크루를 골라 초대합니다.
+insert into runspot_private.coin_grants(user_id,coins,reason) values('00000000-0000-0000-0000-000000000221',640,'테스트');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000221',true);
+select public.buy_crew_ticket();
+select pg_temp.assert_true((select jsonb_array_length(c->'crews')=2 and (pg_temp.crew_named(c,'저녁런')->>'is_owner')::boolean
+  and (pg_temp.crew_named(c,'새벽런')->>'is_owner')::boolean from (select public.create_crew('저녁런','','wave') c) x),'두 번째 크루 생성');
+reset role;
+select id as evening from runspot_private.crews where name='저녁런' \gset
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000221',true);
+select pg_temp.assert_true((select pg_temp.crew_named(c,'저녁런')->'pending'='["00000000-0000-0000-0000-000000000222"]'::jsonb
+  and pg_temp.crew_named(c,'새벽런')->'pending'='["00000000-0000-0000-0000-000000000223"]'::jsonb
+  from (select public.invite_to_crew('00000000-0000-0000-0000-000000000222',:'evening') c) x),'크루를 골라 초대');
+-- 다른 사람의 크루로는 초대할 수 없습니다.
+select pg_temp.assert_true(pg_temp.fails(format('select public.invite_to_crew(''00000000-0000-0000-0000-000000000222'',%L)',:'night'),'42501'),'남의 크루로 초대 거부');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',true);
+-- 이미 두 크루에 속해 있어도 알림에서 바로 응답할 수 있습니다.
+select pg_temp.assert_true((select (n->>'can_respond')::boolean and n->>'crew_name'='저녁런'
+  from jsonb_array_elements(public.my_notifications()) n where n->>'crew_id'=:'evening'),'여러 크루여도 초대 응답 가능');
+select pg_temp.assert_true(jsonb_array_length(public.respond_crew_invite(:'evening',true)->'crews')=3,'세 번째 크루 가입');
+reset role;
+
 -- 크루장이 탈퇴하면 크루와 크루원 연결, 초대 알림이 함께 지워집니다.
 delete from auth.users where id='00000000-0000-0000-0000-000000000221';
-select pg_temp.assert_true((select count(*)=0 from runspot_private.crew_members where user_id='00000000-0000-0000-0000-000000000222')
+-- 다른 사람의 크루(Night Run) 가입은 그대로 남습니다.
+select pg_temp.assert_true((select array_agg(crew_id) from runspot_private.crew_members
+    where user_id='00000000-0000-0000-0000-000000000222')=array[:'night'::uuid]
   and (select count(*)=0 from runspot_private.notifications where kind='crew_invite'
     and recipient_id in ('00000000-0000-0000-0000-000000000222','00000000-0000-0000-0000-000000000223')),'크루장 탈퇴 정리');
 rollback;

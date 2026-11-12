@@ -112,8 +112,11 @@ test('합쳐진 오라는 가운데에서 두 색이 반반 섞이고 가까운 
   const left=M.sample(shapes,-10,0,[0,0,0,0]);assert.ok(left[1]>left[3]*5);
   // 서로 닿지 않는 거리에서는 이어 주는 목이 없으면 가운데가 비어 있습니다.
   assert.equal(M.sample([{x:0,y:0,r:40,c:red},{x:100,y:0,r:40,c:blue}],50,0,[0,0,0,0])[0],0);
-  assert.equal(M.beam(100),0);assert.equal(M.beam(30),1);assert.ok(M.beam(65)>M.beam(90));
-  assert.equal(M.neck(25),1);assert.ok(M.neck(40)<M.neck(30));
+  // 기본 기준(합체 300m·분리 400m·빛줄기 600m)과 앱이 보낸 기준을 모두 따릅니다.
+  assert.equal(M.beam(600),0);assert.equal(M.beam(300),1);assert.ok(M.beam(400)>M.beam(550));
+  assert.equal(M.neck(300),1);assert.ok(M.neck(400)<M.neck(350));
+  const old={merge:25,split:40,beam:100};
+  assert.equal(M.beam(100,old),0);assert.equal(M.neck(25,old),1);assert.ok(M.neck(40,old)<M.neck(30,old));
 });
 test('다른 러너의 테두리를 그 색으로 보여주고 오라가 이어지면 개별 오라를 끕니다',()=>{
   const f=documentFixture();

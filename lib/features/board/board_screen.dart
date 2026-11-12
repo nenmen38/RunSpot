@@ -279,8 +279,8 @@ class _BoardScreenState extends State<BoardScreen> {
   );
 
   String _subtitle(BoardKind kind) => switch (kind) {
-    BoardKind.local => '우리 동네 러닝 코스·꿀 정보·맛집',
-    BoardKind.national || BoardKind.news => '전국과 우리 동네 추천 코스·꿀 정보·맛집',
+    BoardKind.local => '우리 동네의 러닝 코스와 팁, 맛집·카페',
+    BoardKind.national || BoardKind.news => '전국과 우리 동네의 러닝 코스와 팁, 맛집·카페',
     BoardKind.race => '전국 러닝 대회 일정',
   };
 
@@ -413,7 +413,7 @@ enum _NewsFilter {
   const _NewsFilter(this.topic);
   final BoardTopic? topic;
 
-  String get label => topic?.label ?? '동네';
+  String get label => topic?.label ?? '우리 동네';
 
   static _NewsFilter? of(BoardTopic? topic) => values
       .where((filter) => filter.topic != null && filter.topic == topic)

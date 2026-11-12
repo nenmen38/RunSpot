@@ -149,13 +149,18 @@ void main() {
     expect(crew.crew, isNull);
   });
 
-  testWidgets('친구 옆 크루 탭은 크루원만 보여주고, 크루장에게만 초대 버튼이 생깁니다', (tester) async {
+  Finder menuOf(String userId) => find.descendant(
+    of: find.byKey(ValueKey('friend-$userId')),
+    matching: find.byTooltip('친구 관리'),
+  );
+
+  testWidgets('크루 초대는 친구 이름 옆 … 메뉴 안에 있고 크루장에게만 보입니다', (tester) async {
     final friends = FakeFriendService()
       ..entries = [
         friendEntry('2', FriendRelation.friend),
         friendEntry('3', FriendRelation.friend),
       ];
-    final service = FakeCrewService()..crew = FakeCrewService.crewJson();
+    final service = FakeCrewService()..crews = [FakeCrewService.crewJson()];
     final crew = CrewController(service);
     addTearDown(crew.dispose);
     await crew.refresh();
@@ -165,25 +170,40 @@ void main() {
     final tabs = tester.widget<TabBar>(find.byType(TabBar)).tabs;
     expect((tabs[0] as Tab).text, '친구');
     expect(
-      find.descendant(of: find.byType(TabBar), matching: find.text('크루')),
-      findsOneWidget,
-    );
-    expect(
       tester.getCenter(find.text('크루')).dx,
       greaterThan(tester.getCenter(find.text('친구')).dx),
     );
-    // 러너2는 이미 크루원이라 초대 버튼이 없고, 러너3에게만 생깁니다.
-    expect(find.byKey(const ValueKey('crew-invite-2')), findsNothing);
-    final invite = find.byKey(const ValueKey('crew-invite-3'));
-    expect(invite, findsOneWidget);
-    final row = tester.getRect(find.byKey(const ValueKey('friend-3')));
-    expect(tester.getCenter(invite).dx, greaterThan(row.center.dx));
+    // 친구 줄에는 따로 버튼이 없습니다.
+    expect(find.widgetWithText(FilledButton, '크루원 초대하기'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '크루원 초대하기'), findsNothing);
 
-    await tester.tap(invite);
+    // 러너2는 이미 크루원이라 메뉴에 초대가 없습니다.
+    await tester.tap(menuOf('2'));
     await tester.pumpAndSettle();
-    expect(service.calls, ['invite:3']);
-    expect(find.text('초대함'), findsOneWidget);
-    expect(find.text('러너3님에게 크루 초대를 보냈어요.'), findsOneWidget);
+    expect(find.text('크루원 초대하기'), findsNothing);
+    expect(find.text('친구 삭제'), findsOneWidget);
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
+
+    await tester.tap(menuOf('3'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('크루원 초대하기'));
+    await tester.pumpAndSettle();
+    expect(service.calls, ['invite:3:crew-1']);
+    expect(find.text('러너3님에게 새벽런 크루 초대를 보냈어요.'), findsOneWidget);
+    // 이미 초대했으면 메뉴에 "크루 초대함"으로 보이고 누를 수 없습니다.
+    await tester.tap(menuOf('3'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<PopupMenuItem<String>>(
+            find.widgetWithText(PopupMenuItem<String>, '크루 초대함'),
+          )
+          .enabled,
+      isFalse,
+    );
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('크루'));
     await tester.pumpAndSettle();
@@ -197,29 +217,99 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('크루원이나 크루가 없는 사람에게는 초대 버튼이 없습니다', (tester) async {
+  testWidgets('내가 크루장인 크루가 여럿이면 초대할 크루를 고릅니다', (tester) async {
+    final friends = FakeFriendService()
+      ..entries = [friendEntry('3', FriendRelation.friend)];
+    final service = FakeCrewService()
+      ..crews = [
+        FakeCrewService.crewJson(),
+        FakeCrewService.crewJson(id: 'crew-2', name: '저녁런', icon: 'wave'),
+      ];
+    final crew = CrewController(service);
+    addTearDown(crew.dispose);
+    await crew.refresh();
+    await showSocial(tester, friends, crew);
+    await tester.tap(menuOf('3'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('크루원 초대하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('러너3님을 초대할 크루'), findsOneWidget);
+    await tester.tap(find.text('저녁런'));
+    await tester.pumpAndSettle();
+    expect(service.calls, ['invite:3:crew-2']);
+    // 남은 크루(새벽런)로는 아직 초대할 수 있습니다.
+    await tester.tap(menuOf('3'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('크루원 초대하기'));
+    await tester.pumpAndSettle();
+    expect(service.calls.last, 'invite:3:crew-1');
+  });
+
+  testWidgets('여러 크루에 속해 있으면 크루 탭에서 크루를 골라 봅니다', (tester) async {
+    final service = FakeCrewService()
+      ..crews = [
+        FakeCrewService.crewJson(),
+        {
+          ...FakeCrewService.crewJson(
+            owner: false,
+            id: 'crew-2',
+            name: '저녁런',
+            icon: 'wave',
+          ),
+          'members': [
+            {'user_id': 'me', 'nickname': '나', 'role': 'member'},
+            {'user_id': '7', 'nickname': '러너7', 'role': 'owner'},
+            {'user_id': '8', 'nickname': '러너8', 'role': 'member'},
+          ],
+        },
+      ];
+    final crew = CrewController(service);
+    addTearDown(crew.dispose);
+    await crew.refresh();
+    await showSocial(tester, FakeFriendService(), crew);
+    await tester.tap(find.text('크루'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('crew-chip-crew-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-chip-crew-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-member-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-member-8')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('crew-chip-crew-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('크루원 3/30명'), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-member-8')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-member-2')), findsNothing);
+    // 크루장이 아닌 크루에서는 초대 안내를 보여주지 않습니다.
+    expect(find.textContaining('크루원 초대하기'), findsNothing);
+  });
+
+  testWidgets('크루원이나 크루가 없는 사람에게는 초대 메뉴가 없습니다', (tester) async {
     final friends = FakeFriendService()
       ..entries = [friendEntry('3', FriendRelation.friend)];
     final member = CrewController(
-      FakeCrewService()..crew = FakeCrewService.crewJson(owner: false),
+      FakeCrewService()..crews = [FakeCrewService.crewJson(owner: false)],
     );
     addTearDown(member.dispose);
     await member.refresh();
     await showSocial(tester, friends, member);
+    await tester.tap(menuOf('3'));
+    await tester.pumpAndSettle();
     expect(find.text('크루원 초대하기'), findsNothing);
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
 
     final none = CrewController(FakeCrewService());
     addTearDown(none.dispose);
     await none.refresh();
     await showSocial(tester, friends, none);
-    expect(find.text('크루원 초대하기'), findsNothing);
     await tester.tap(find.text('크루'));
     await tester.pumpAndSettle();
     expect(find.textContaining('아직 크루가 없어요'), findsOneWidget);
   });
 
-  testWidgets('크루 탭에서 받은 초대를 수락하면 크루원이 됩니다', (tester) async {
+  testWidgets('이미 크루가 있어도 크루 탭에서 받은 초대를 수락해 크루원이 됩니다', (tester) async {
     final service = FakeCrewService()
+      ..crews = [FakeCrewService.crewJson(id: 'crew-9', name: '내 크루')]
       ..invites = [
         {
           'crew_id': 'crew-1',
@@ -245,6 +335,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.calls, ['respond:crew-1:true']);
     expect(find.text('러너2님의 초대'), findsNothing);
-    expect(find.text('크루원 2/30명'), findsOneWidget);
+    // 이제 두 크루에 속하므로 크루를 골라 볼 수 있습니다.
+    expect(find.byKey(const ValueKey('crew-chip-crew-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-chip-crew-9')), findsOneWidget);
   });
 }

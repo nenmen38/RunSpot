@@ -6,7 +6,9 @@ abstract interface class CrewService {
   bool get isCurrentOwner;
   Future<CrewDashboard> load();
   Future<CrewDashboard> create(String name, String description, CrewIcon icon);
-  Future<CrewDashboard> invite(String userId);
+
+  /// [crewId] 크루로 친구를 초대합니다. 그 크루의 크루장만 할 수 있습니다.
+  Future<CrewDashboard> invite(String userId, String crewId);
   Future<CrewDashboard> respond(String crewId, {required bool accept});
 }
 
@@ -47,8 +49,8 @@ class SupabaseCrewService implements CrewService {
   });
 
   @override
-  Future<CrewDashboard> invite(String userId) =>
-      _rpc('invite_to_crew', {'target': userId});
+  Future<CrewDashboard> invite(String userId, String crewId) =>
+      _rpc('invite_to_crew', {'target': userId, 'requested_crew': crewId});
 
   @override
   Future<CrewDashboard> respond(String crewId, {required bool accept}) =>

@@ -39,7 +39,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.tap(find.byTooltip('말머리 선택'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '꿀 정보'));
+    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '러닝 팁'));
     await tester.pumpAndSettle();
     expect(service.loads.last.topic, BoardTopic.tip);
     await tester.ensureVisible(find.text('제목1'));
@@ -66,7 +66,7 @@ void main() {
       enlarged(BoardComposeScreen(controller: controller)),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('꿀 정보'));
+    await tester.tap(find.text('러닝 팁'));
     await tester.enterText(find.byKey(const ValueKey('title')), '좋은 러닝 코스');
     await tester.enterText(
       find.byKey(const ValueKey('body')),

@@ -773,7 +773,7 @@ class LiveMapController extends ChangeNotifier {
 
   bool _crewNearby = false;
 
-  /// 오라를 합칠 수 있는 친구가 100m 안에 있으면 위치를 더 자주 주고받습니다.
+  /// 오라를 합칠 수 있는 친구가 빛줄기 거리(600m) 안에 있으면 위치를 더 자주 주고받습니다.
   /// 멀리 있으면 주기를 늘려 통신과 배터리 사용을 줄입니다.
   void setCrewNearby(bool nearby) {
     if (_disposed || _crewNearby == nearby) return;

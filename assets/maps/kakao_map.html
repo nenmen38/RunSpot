@@ -23,7 +23,7 @@
     @media (prefers-reduced-motion:reduce) { .point.frame.aura, .runner.framed.aura { animation:none; box-shadow:0 0 14px 5px var(--g); } }
     /* 친구와 이어진 오라는 아래 캔버스가 대신 그리므로 개별 오라는 끕니다. */
     .fused { animation:none !important; box-shadow:none !important; }
-    .aura-layer { display:block; width:560px; height:560px; pointer-events:none; }
+    .aura-layer { display:block; pointer-events:none; }
   </style>
 </head>
 <body><div id="map"></div>
@@ -64,11 +64,13 @@ window.runspotAura = (() => {
     }
     return out;
   }
-  // 빛줄기 세기: 100m에서 0, 30m에서 1입니다.
-  const beam = meters => Math.max(0, Math.min(1, (100-meters)/70));
+  // 거리 기준은 앱이 보냅니다(합체·분리·빛줄기 시작 거리, m). 값이 없으면 기본값을 씁니다.
+  const LIMITS = {merge: 300, split: 400, beam: 600};
+  // 빛줄기 세기: 빛줄기가 시작되는 거리에서 0, 합체 거리에서 1입니다.
+  const beam = (meters, l = LIMITS) => Math.max(0, Math.min(1, (l.beam-meters)/(l.beam-l.merge)));
   // 합쳐진 뒤 25m에서 40m로 멀어질수록 목이 가늘어집니다.
-  const neck = meters => 1-.65*Math.max(0, Math.min(1, (meters-25)/15));
-  return {rgb, kernel, smooth, sample, beam, neck};
+  const neck = (meters, l = LIMITS) => 1-.65*Math.max(0, Math.min(1, (meters-l.merge)/(l.split-l.merge)));
+  return {rgb, kernel, smooth, sample, beam, neck, LIMITS};
 })();
 window.createRunspotMap = () => {
   if (!window.kakao || !kakao.maps) { window.mapLoadFailed(); return; }
@@ -88,7 +90,9 @@ window.createRunspotMap = () => {
     // ── 친구와 합쳐지는 오라 ──
     // 합칠지 말지는 앱이 실제 거리(m)로 정해 보내고, 여기서는 받은 상태를 지도 위 캔버스에 그리기만 합니다.
     const aura = (() => {
-      const M = window.runspotAura, SIZE = 560, BASE = 46;
+      const M = window.runspotAura, BASE = 46;
+      // 캔버스 크기(px)입니다. 이어진 친구가 멀리 있으면 모두 담기도록 늘립니다.
+      let SIZE = 560, limits = M.LIMITS;
       const still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null;
@@ -102,10 +106,16 @@ window.createRunspotMap = () => {
       const middle = (a,b) => [(a.lat+b.lat)/2, (a.lng+b.lng)/2];
       const phase = id => { let h = 0; for (const ch of id) h = (h*31+ch.charCodeAt(0)) % 997; return h/997*Math.PI*2; };
 
+      function resize(size) {
+        SIZE = size;
+        canvas.width = SIZE*dpr; canvas.height = SIZE*dpr;
+        if (canvas.style) { canvas.style.width = SIZE+'px'; canvas.style.height = SIZE+'px'; }
+      }
+
       function ensureLayer(position) {
         if (!canvas) {
           canvas = document.createElement('canvas'); canvas.className = 'aura-layer';
-          canvas.width = SIZE*dpr; canvas.height = SIZE*dpr;
+          resize(SIZE);
           ctx = canvas.getContext ? canvas.getContext('2d') : null;
           off = document.createElement('canvas'); offCtx = off.getContext ? off.getContext('2d') : null;
           layer = overlay(position, canvas, 1);
@@ -133,6 +143,7 @@ window.createRunspotMap = () => {
           return;
         }
         self = {lat: data.position[0], lng: data.position[1], rgb: M.rgb(next.self.color), crew: next.self.crew, sync: true, phase: 0};
+        limits = next.limits || M.LIMITS;
         const seen = new Set();
         for (const item of next.nodes) {
           seen.add(item.id);
@@ -157,7 +168,11 @@ window.createRunspotMap = () => {
           links.delete(id);
         }
         for (const id of [...nodes.keys()]) if (!seen.has(id)) nodes.delete(id);
-        ensureLayer(data.position);
+        // 캔버스는 나와 친구들의 가운데에 둡니다.
+        const all = [self, ...[...nodes.values()].map(n => ({lat: n.toLat, lng: n.toLng}))];
+        const lat = all.reduce((sum, n) => sum+n.lat, 0)/all.length;
+        const lng = all.reduce((sum, n) => sum+n.lng, 0)/all.length;
+        ensureLayer([lat, lng]);
         start();
       }
 
@@ -210,9 +225,18 @@ window.createRunspotMap = () => {
         const anchor = layer && layer.getPosition ? layer.getPosition() : null;
         if (!ctx || !projection || !anchor) return;
         const origin = projection.containerPointFromCoords(anchor);
-        const at = p => { const q = projection.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng)); return [q.x-origin.x+SIZE/2, q.y-origin.y+SIZE/2]; };
         // 배율은 오라 크기에만 반영합니다. 확대할수록 조금 크게 그립니다.
         const zoom = Math.max(.7, Math.min(1.5, 1.6-map.getLevel()*.15));
+        // 이어진 친구가 멀어도 캔버스 안에 들어오게 크기를 맞춥니다(너무 커지지 않게 상한을 둡니다).
+        let reach = 0;
+        for (const n of [self, ...nodes.values(), ...ghosts.flatMap(g => [g.a, g.b]), ...effects]) {
+          if (!n) continue;
+          const q = projection.containerPointFromCoords(new kakao.maps.LatLng(n.lat, n.lng));
+          reach = Math.max(reach, Math.abs(q.x-origin.x), Math.abs(q.y-origin.y));
+        }
+        const needed = Math.min(1800, Math.max(560, Math.ceil((reach+BASE*zoom*2.2+20)*2/40)*40));
+        if (needed > SIZE || needed < SIZE*.6) resize(needed);
+        const at = p => { const q = projection.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng)); return [q.x-origin.x+SIZE/2, q.y-origin.y+SIZE/2]; };
         const seconds = now/1000;
         // 페이스가 비슷하면 같은 박자로, 다르면 어긋난 박자로 맥동합니다.
         const pulse = n => still ? 1 : 1+.07*Math.sin(n.sync ? seconds*Math.PI*2/1.6 : seconds*Math.PI*2/1.15+n.phase);
@@ -235,13 +259,13 @@ window.createRunspotMap = () => {
             for (const link of links.values()) {
               if (!link.fusion || !ids.has(link.a) || !ids.has(link.b)) continue;
               const a = where(link.a), b = where(link.b), [ax,ay] = at(a), [bx,by] = at(b);
-              shapes.push({link: true, ax, ay, bx, by, r: BASE*zoom*grow*.62*M.neck(link.m)*link.fusion, w: .9*link.fusion, ca: a.rgb, cb: b.rgb});
+              shapes.push({link: true, ax, ay, bx, by, r: BASE*zoom*grow*.62*M.neck(link.m, limits)*link.fusion, w: .9*link.fusion, ca: a.rgb, cb: b.rgb});
             }
             blob(shapes, count >= 2, count >= 3 ? members.map(m => m[1].rgb) : null, seconds);
           }
           // 100m 안의 아직 합쳐지지 않은 친구와는 빛줄기로 잇습니다. 가까울수록 굵어집니다.
           for (const link of links.values()) {
-            const strength = M.beam(link.m)*(1-link.fusion);
+            const strength = M.beam(link.m, limits)*(1-link.fusion);
             const a = where(link.a), b = where(link.b);
             if (strength <= 0 || !a || !b) continue;
             const [ax,ay] = at(a), [bx,by] = at(b);

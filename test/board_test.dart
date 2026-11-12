@@ -186,10 +186,10 @@ void main() {
     // 말머리 메뉴에는 전국 게시판 말머리와 동네가 함께 있습니다.
     await tester.tap(find.byTooltip('말머리 선택'));
     await tester.pumpAndSettle();
-    for (final label in ['전체', '추천 코스', '꿀 정보', '맛집', '동네']) {
+    for (final label in ['전체', '러닝 코스', '러닝 팁', '맛집·카페', '우리 동네']) {
       expect(find.widgetWithText(PopupMenuItem<int>, label), findsOneWidget);
     }
-    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '동네'));
+    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '우리 동네'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('서울특별시'));
     await tester.pumpAndSettle();
@@ -205,7 +205,7 @@ void main() {
     // 다른 말머리를 누르면 러닝 소식으로 돌아갑니다.
     await tester.tap(find.byTooltip('말머리 선택'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '맛집'));
+    await tester.tap(find.widgetWithText(PopupMenuItem<int>, '맛집·카페'));
     await tester.pumpAndSettle();
     expect(
       (service.loads.last.kind, service.loads.last.topic),
@@ -228,7 +228,7 @@ void main() {
     expect(find.text('제목을 입력해 주세요.'), findsOneWidget);
     expect(service.created, isEmpty);
 
-    await tester.tap(find.text('맛집'));
+    await tester.tap(find.text('맛집·카페'));
     await tester.enterText(
       find.widgetWithText(TextFormField, '제목'),
       ' 부산 돼지국밥 ',
@@ -269,7 +269,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('광화문'), findsOneWidget);
     expect(find.text('공지 등록'), findsNothing);
-    expect(find.text('추천 코스'), findsNothing);
+    expect(find.text('러닝 코스'), findsNothing);
 
     staff = true;
     await tester.tap(find.text('러닝 소식'));

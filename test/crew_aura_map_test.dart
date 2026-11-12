@@ -80,7 +80,7 @@ void main() {
     );
     final service = FakeRunnerService()
       ..runners = [
-        runner('a', 60),
+        runner('a', 450),
         // 친구가 아니거나 오라가 없는 러너는 합쳐지지 않고 테두리만 보입니다.
         runner('b', 10, friend: false, color: '#22C55E'),
         runner('c', 10, frame: 'basic', color: '#F97316'),
@@ -112,7 +112,7 @@ void main() {
     await tester.pumpAndSettle();
     RunMap view() => tester.widget<RunMap>(find.byType(RunMap));
 
-    // 60m: 빛줄기만 있고 아직 합쳐지지 않았습니다.
+    // 450m: 빛줄기만 있고 아직 합쳐지지 않았습니다.
     var aura = view().aura!;
     expect((aura['nodes'] as List).single['id'], 'a');
     expect((aura['links'] as List).single['merged'], isFalse);
@@ -125,9 +125,9 @@ void main() {
     expect(frames['c'], {'style': 'basic', 'color': '#F97316'});
     expect(frames['d'], isNull);
 
-    // 20m로 다가오면 합쳐지고 햅틱이 한 번 울립니다.
+    // 250m로 다가오면 합쳐지고 햅틱이 한 번 울립니다.
     // 위치를 몇 초 평균으로 보정하므로 이전 위치가 섞이지 않게 10초 뒤의 위치로 넣습니다.
-    service.runners = [runner('a', 20, later: const Duration(seconds: 10))];
+    service.runners = [runner('a', 250, later: const Duration(seconds: 10))];
     await map.refresh();
     await tester.pump();
     aura = view().aura!;

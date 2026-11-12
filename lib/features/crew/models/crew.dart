@@ -80,14 +80,19 @@ class CrewInvite {
 
 class CrewDashboard {
   CrewDashboard.fromJson(Map<String, dynamic> json)
-    : crew = json['crew'] == null
-          ? null
-          : Crew.fromJson(Map<String, dynamic>.from(json['crew'] as Map)),
+    : crews = List.unmodifiable([
+        // 이전 서버는 크루 하나만 'crew'로 돌려줍니다.
+        for (final row
+            in json['crews'] as List? ??
+                [if (json['crew'] != null) json['crew']])
+          Crew.fromJson(Map<String, dynamic>.from(row as Map)),
+      ]),
       invites = List.unmodifiable([
         for (final row in json['invites'] as List? ?? const [])
           CrewInvite.fromJson(Map<String, dynamic>.from(row as Map)),
       ]);
 
-  final Crew? crew;
+  /// 내가 속한 크루들입니다. 가입한 순서입니다.
+  final List<Crew> crews;
   final List<CrewInvite> invites;
 }

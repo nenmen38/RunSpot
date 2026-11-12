@@ -259,13 +259,13 @@ class CrewTab extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         TextButton(
-                          onPressed: controller.busy == null && crew == null
+                          onPressed: controller.busy == null
                               ? () => respond(invite, false)
                               : null,
                           child: const Text('거절'),
                         ),
                         FilledButton(
-                          onPressed: controller.busy == null && crew == null
+                          onPressed: controller.busy == null
                               ? () => respond(invite, true)
                               : null,
                           child: const Text('수락'),
@@ -274,6 +274,28 @@ class CrewTab extends StatelessWidget {
                     ),
                   ),
                 ),
+              const SizedBox(height: 12),
+            ],
+            // 여러 크루에 속해 있으면 크루를 골라서 봅니다.
+            if (controller.crews.length > 1) ...[
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final item in controller.crews)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          key: ValueKey('crew-chip-${item.id}'),
+                          avatar: Icon(item.icon.icon, color: item.icon.color),
+                          label: Text(item.name),
+                          selected: item.id == crew?.id,
+                          onSelected: (_) => controller.select(item.id),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 12),
             ],
             if (crew != null) ...[
@@ -353,7 +375,7 @@ class CrewTab extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    '친구 탭에서 친구 옆의 "크루원 초대하기"를 누르면 초대할 수 있어요.',
+                    '친구 탭에서 친구 이름 옆 … 메뉴의 "크루원 초대하기"로 초대할 수 있어요.',
                     style: text.bodySmall,
                   ),
                 ),

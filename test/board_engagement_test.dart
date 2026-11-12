@@ -107,7 +107,7 @@ void main() {
     await tester.tap(find.text('글쓰기'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('꿀 정보'));
+    await tester.tap(find.text('러닝 팁'));
     await tester.enterText(find.widgetWithText(TextFormField, '제목'), '새벽 러닝');
     // 정해진 이모지 목록 없이 키보드로 입력한 이모지를 그대로 저장합니다.
     expect(find.byKey(const ValueKey('emoji')), findsNothing);
@@ -161,7 +161,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('글 수정'), findsOneWidget);
     expect(find.text('사진 1/4'), findsOneWidget);
-    await tester.tap(find.text('맛집'));
+    await tester.tap(find.text('맛집·카페'));
     await tester.enterText(find.widgetWithText(TextFormField, '제목'), '고친 제목');
     await tester.ensureVisible(find.byIcon(Icons.close));
     await tester.pumpAndSettle();

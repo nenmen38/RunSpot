@@ -1,5 +1,5 @@
 enum BoardKind {
-  local('local', '동네'),
+  local('local', '우리 동네'),
   national('national', '러닝 소식'),
   race('race', '러닝 대회'),
 
@@ -12,9 +12,9 @@ enum BoardKind {
 }
 
 enum BoardTopic {
-  course('course', '추천 코스'),
-  tip('tip', '꿀 정보'),
-  food('food', '맛집');
+  course('course', '러닝 코스'),
+  tip('tip', '러닝 팁'),
+  food('food', '맛집·카페');
 
   const BoardTopic(this.code, this.label);
   final String code;

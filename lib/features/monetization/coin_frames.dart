@@ -115,7 +115,7 @@ class Wallet {
   final int crewTicketPrice;
   final int crewTickets;
 
-  /// 이미 크루에 속해 있으면 생성권을 사거나 쓸 수 없습니다.
+  /// 크루에 하나 이상 속해 있는지 여부입니다.
   final bool inCrew;
 }
 
@@ -526,14 +526,10 @@ class FrameInventory extends StatelessWidget {
             const SizedBox(height: 10),
             _CrewTicketCard(
               key: const ValueKey('inventory-crew-ticket'),
-              subtitle: wallet.inCrew
-                  ? '이미 크루에 속해 있어 지금은 쓸 수 없어요.'
-                  : '사용하면 크루 이름·설명·아이콘을 정해 크루를 만들어요.',
+              subtitle: '사용하면 크루 이름·설명·아이콘을 정해 크루를 만들어요.',
               count: wallet.crewTickets,
               action: FilledButton(
-                onPressed: wallet.inCrew || controller.busy
-                    ? null
-                    : onUseCrewTicket,
+                onPressed: controller.busy ? null : onUseCrewTicket,
                 child: const Text('사용하기'),
               ),
             ),
@@ -928,18 +924,15 @@ class FrameShop extends StatelessWidget {
             builder: (context) {
               final price =
                   wallet?.crewTicketPrice ?? Wallet.crewTicketDefaultPrice;
-              final blocked =
-                  wallet != null && (wallet.inCrew || wallet.crewTickets > 0);
+              // 쓰지 않은 생성권이 있으면 먼저 쓰도록 더 사지 않습니다.
+              final blocked = wallet != null && wallet.crewTickets > 0;
               final short = wallet != null && wallet.coins < price;
               return _CrewTicketCard(
                 key: const ValueKey('shop-crew-ticket'),
                 subtitle:
                     '나만의 크루를 만들고 친구를 크루원으로 초대해요.\n${formatNumber(price)}코인',
                 action: blocked
-                    ? FilledButton(
-                        onPressed: null,
-                        child: Text(wallet.inCrew ? '크루 있음' : '보유 중'),
-                      )
+                    ? FilledButton(onPressed: null, child: const Text('보유 중'))
                     : short
                     ? OutlinedButton(
                         onPressed: onCharge,

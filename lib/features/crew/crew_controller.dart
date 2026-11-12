@@ -22,14 +22,35 @@ class CrewController extends ChangeNotifier {
   /// 처리 중인 작업 대상입니다. 초대 중인 친구 ID나 응답 중인 크루 ID가 들어갑니다.
   String? busy;
 
-  Crew? get crew => dashboard?.crew;
-  List<CrewInvite> get invites => dashboard?.invites ?? const [];
-  bool get isOwner => crew?.isOwner ?? false;
+  /// 소셜 크루 탭에서 보고 있는 크루입니다.
+  String? _selectedId;
 
-  /// 크루장에게 [userId] 친구의 초대 버튼을 보여줄지 정합니다. 이미 크루원이면 숨깁니다.
-  bool canInvite(String userId) =>
-      isOwner && !(crew?.hasMember(userId) ?? true);
-  bool invited(String userId) => crew?.pending.contains(userId) ?? false;
+  List<Crew> get crews => dashboard?.crews ?? const [];
+  List<CrewInvite> get invites => dashboard?.invites ?? const [];
+
+  /// 보고 있는 크루입니다. 고른 크루가 없어졌으면 첫 크루를 보여줍니다.
+  Crew? get crew =>
+      crews.where((crew) => crew.id == _selectedId).firstOrNull ??
+      crews.firstOrNull;
+
+  void select(String crewId) {
+    if (_disposed || _selectedId == crewId) return;
+    _selectedId = crewId;
+    notifyListeners();
+  }
+
+  /// 내가 크루장인 크루 중 [userId] 친구가 아직 크루원이 아닌 크루입니다.
+  List<Crew> inviteTargets(String userId) => [
+    for (final crew in crews)
+      if (crew.isOwner && !crew.hasMember(userId)) crew,
+  ];
+
+  /// 초대할 수 있는 크루마다 이미 초대를 보냈으면 true입니다.
+  bool invitedEverywhere(String userId) {
+    final targets = inviteTargets(userId);
+    return targets.isNotEmpty &&
+        targets.every((crew) => crew.pending.contains(userId));
+  }
 
   String _message(Object exception, String fallback) => switch (exception) {
     AuthException() => '다시 로그인해 주세요.',
@@ -83,15 +104,21 @@ class CrewController extends ChangeNotifier {
     return failure;
   }
 
-  Future<String?> create(String name, String description, CrewIcon icon) =>
-      _change(
-        'create',
-        () => service.create(name, description, icon),
-        '크루를 만들지 못했습니다.',
-      );
+  /// 크루를 만들면 새 크루를 보고 있는 크루로 고릅니다.
+  Future<String?> create(String name, String description, CrewIcon icon) async {
+    final before = {for (final crew in crews) crew.id};
+    final error = await _change(
+      'create',
+      () => service.create(name, description, icon),
+      '크루를 만들지 못했습니다.',
+    );
+    final created = crews.where((crew) => !before.contains(crew.id));
+    if (error == null && created.isNotEmpty) select(created.first.id);
+    return error;
+  }
 
-  Future<String?> invite(String userId) =>
-      _change(userId, () => service.invite(userId), '크루원을 초대하지 못했습니다.');
+  Future<String?> invite(String userId, String crewId) =>
+      _change(userId, () => service.invite(userId, crewId), '크루원을 초대하지 못했습니다.');
 
   Future<String?> respond(String crewId, {required bool accept}) => _change(
     crewId,

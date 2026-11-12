@@ -83,6 +83,12 @@ class CrewAuraState {
   bool get isSolo => nodes.isEmpty;
 
   Map<String, Object?> toJson() => {
+    // 지도는 이 거리 기준으로 빛줄기 굵기와 합쳐진 목의 굵기를 정합니다.
+    'limits': {
+      'merge': CrewAuraTracker.mergeMeters,
+      'split': CrewAuraTracker.splitMeters,
+      'beam': CrewAuraTracker.beamMeters,
+    },
     'self': {'color': self.color, 'crew': self.crew, 'sync': self.inSync},
     'nodes': [
       for (final node in nodes)
@@ -109,15 +115,15 @@ class CrewAuraState {
 
 /// 실제 GPS 거리(m)로 오라의 합체·분리를 판정합니다. 화면 배율은 쓰지 않습니다.
 ///
-/// - 100m 이상: 각자 오라
-/// - 100m 안: 빛줄기(가까울수록 굵게)
-/// - 25m 이내로 들어오면 합체, 40m 밖으로 나가야 분리(경계에서 깜빡이지 않게 간격을 둠)
+/// - 600m 이상: 각자 오라
+/// - 600m 안: 빛줄기(가까울수록 굵게)
+/// - 300m 이내로 들어오면 합체, 400m 밖으로 나가야 분리(경계에서 깜빡이지 않게 간격을 둠)
 class CrewAuraTracker {
   CrewAuraTracker({this.window = const Duration(seconds: 6)});
 
-  static const mergeMeters = 25.0;
-  static const splitMeters = 40.0;
-  static const beamMeters = 100.0;
+  static const mergeMeters = 300.0;
+  static const splitMeters = 400.0;
+  static const beamMeters = 600.0;
 
   /// 페이스 차이가 이 값(초/km) 이내면 같은 박자로 맥동합니다.
   static const syncPaceSeconds = 10;

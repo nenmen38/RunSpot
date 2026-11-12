@@ -10,22 +10,25 @@ class FakeCrewService implements CrewService {
 
   /// 크루를 만들면 생성권을 쓰고 크루에 들어간 상태로 바꿉니다.
   final FakeWalletService? wallet;
-  Map<String, dynamic>? crew;
+  List<Map<String, dynamic>> crews = [];
   List<Map<String, dynamic>> invites = [];
   final calls = <String>[];
 
   CrewDashboard get _dashboard =>
-      CrewDashboard.fromJson({'crew': crew, 'invites': invites});
+      CrewDashboard.fromJson({'crews': crews, 'invites': invites});
 
   /// [owner]가 true면 내가 크루장인 크루, 아니면 크루원으로 속한 크루입니다.
   static Map<String, dynamic> crewJson({
     bool owner = true,
     List<String> pending = const [],
+    String id = 'crew-1',
+    String name = '새벽런',
+    String icon = 'flame',
   }) => {
-    'id': 'crew-1',
-    'name': '새벽런',
+    'id': id,
+    'name': name,
     'description': '매일 아침 한강 5km',
-    'icon': 'flame',
+    'icon': icon,
     'is_owner': owner,
     'size_limit': 30,
     'members': [
@@ -54,15 +57,18 @@ class FakeCrewService implements CrewService {
         code: 'P0001',
       );
     }
-    crew = {
-      ...crewJson(),
-      'name': name,
-      'description': description,
-      'icon': icon.code,
-      'members': [
-        {'user_id': 'me', 'nickname': '나', 'role': 'owner'},
-      ],
-    };
+    crews = [
+      ...crews,
+      {
+        ...crewJson(id: 'crew-${crews.length + 1}'),
+        'name': name,
+        'description': description,
+        'icon': icon.code,
+        'members': [
+          {'user_id': 'me', 'nickname': '나', 'role': 'owner'},
+        ],
+      },
+    ];
     if (wallet case final wallet?) {
       wallet.crewTickets--;
       wallet.inCrew = true;
@@ -71,19 +77,24 @@ class FakeCrewService implements CrewService {
   }
 
   @override
-  Future<CrewDashboard> invite(String userId) async {
-    calls.add('invite:$userId');
-    crew = {
-      ...crew!,
-      'pending': [...crew!['pending'] as List, userId],
-    };
+  Future<CrewDashboard> invite(String userId, String crewId) async {
+    calls.add('invite:$userId:$crewId');
+    crews = [
+      for (final crew in crews)
+        crew['id'] == crewId
+            ? {
+                ...crew,
+                'pending': [...crew['pending'] as List, userId],
+              }
+            : crew,
+    ];
     return _dashboard;
   }
 
   @override
   Future<CrewDashboard> respond(String crewId, {required bool accept}) async {
     calls.add('respond:$crewId:$accept');
-    if (accept) crew = crewJson(owner: false);
+    if (accept) crews = [...crews, crewJson(owner: false, id: crewId)];
     invites = [];
     return _dashboard;
   }
