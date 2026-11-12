@@ -199,6 +199,37 @@ class NotificationController extends ChangeNotifier {
     return failure;
   }
 
+  bool clearing = false;
+
+  /// 알림창의 알림을 모두 지웁니다. 성공하면 null, 실패하면 안내 문구를 반환합니다.
+  Future<String?> clearAll() async {
+    if (_disposed || loading || clearing || responding != null) return null;
+    ++_generation;
+    clearing = true;
+    respondError = null;
+    notifyListeners();
+    String? failure;
+    try {
+      await service.clearAll().timeout(_timeout);
+      if (!_disposed && _checkOwner()) {
+        items = const [];
+        pendingInvites = const [];
+        unreadCount = 0;
+      }
+    } catch (exception) {
+      failure = switch (exception) {
+        AuthException() => '다시 로그인해 주세요.',
+        TimeoutException() => '응답이 지연됩니다. 잠시 후 다시 확인해 주세요.',
+        _ => unexpectedServerError(exception, '알림을 지우지 못했습니다.'),
+      };
+    }
+    if (_disposed) return failure;
+    clearing = false;
+    respondError = failure;
+    notifyListeners();
+    return failure;
+  }
+
   @override
   void dispose() {
     _disposed = true;

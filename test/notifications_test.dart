@@ -96,6 +96,14 @@ class FakeNotificationService implements NotificationService {
     marked.add(seenUntil);
     unread = 0;
   }
+
+  int clears = 0;
+  @override
+  Future<void> clearAll() async {
+    clears++;
+    rows = [];
+    unread = 0;
+  }
 }
 
 void main() {
@@ -187,6 +195,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(opened, ['post1']);
     expect(find.text('알림'), findsNothing);
+  });
+
+  testWidgets('모두 지우기를 확인하면 알림이 모두 사라집니다', (tester) async {
+    final service = FakeNotificationService()
+      ..unread = 2
+      ..rows = [notificationJson('1'), notificationJson('2', kind: 'like')];
+    final controller = NotificationController(service);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NotificationBell(controller: controller, onOpenPost: (_) {}),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.campaign_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byType(ListTile), findsNWidgets(2));
+
+    await tester.tap(find.text('모두 지우기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(service.clears, 0);
+    expect(find.byType(ListTile), findsNWidgets(2));
+
+    await tester.tap(find.text('모두 지우기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '모두 지우기'));
+    await tester.pumpAndSettle();
+    expect(service.clears, 1);
+    expect(controller.items, isEmpty);
+    expect(controller.unreadCount, 0);
+    expect(find.byType(ListTile), findsNothing);
+    expect(find.textContaining('아직 알림이 없어요'), findsOneWidget);
+    final button = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, '모두 지우기'),
+    );
+    expect(button.onPressed, isNull);
   });
 
   testWidgets('알림이 없으면 빈 안내를 보여줍니다', (tester) async {

@@ -24,7 +24,7 @@ select pg_temp.assert_true(pg_temp.fails(format('select public.group_action(%L,'
 select public.group_action(:'group_id','invite','00000000-0000-0000-0000-000000000112');
 select public.group_action(:'group_id','invite','00000000-0000-0000-0000-000000000112');
 select public.group_action(:'group_id','invite','00000000-0000-0000-0000-000000000113');
-select pg_temp.assert_true(pg_temp.fails(format('select public.group_action(%L,''start'')',:'group_id'),'P0001'),'두 명 이상 준비 필요');
+select pg_temp.assert_true(pg_temp.fails(format('select public.group_action(%L,''start'')',:'group_id'),'P0001'),'수락한 친구 없이 출발 금지');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000114',true);
 select pg_temp.assert_true(jsonb_array_length(public.group_dashboard()->'groups')=0,'제삼자 그룹 비공개');
 select pg_temp.assert_true(pg_temp.fails(format('select public.group_action(%L,''accept'')',:'group_id'),'42501'),'초대 없는 참여 금지');
@@ -66,8 +66,10 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000112'
 select pg_temp.assert_true(pg_temp.fails(format('select public.group_action(%L,''accept'')',:'next_group'),'P0001'),'취소한 초대 수락 금지');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000111',true);
 select public.change_my_block('00000000-0000-0000-0000-000000000113',true);
-select pg_temp.assert_true((select e->>'state'='cancelled' from jsonb_array_elements(public.group_dashboard()->'groups')e where e->>'id'=:'next_group'),'공통 그룹 차단 즉시 취소');
+-- 취소된 그룹은 목록에 남기지 않습니다.
+select pg_temp.assert_true(not exists(select 1 from jsonb_array_elements(public.group_dashboard()->'groups')e where e->>'id'=:'next_group'),'공통 그룹 차단 즉시 취소');
 reset role;
+select pg_temp.assert_true((select state='cancelled' from runspot_private.running_groups where id=:'next_group'),'차단으로 취소된 그룹 상태');
 update runspot_private.running_groups set expires_at=now()-interval '1 second',state='lobby' where id=:'next_group';
 set local role authenticated;
 select pg_temp.assert_true((select e->>'state'='expired' from jsonb_array_elements(public.group_dashboard()->'groups')e where e->>'id'=:'next_group'),'서버 시각으로 만료 처리');

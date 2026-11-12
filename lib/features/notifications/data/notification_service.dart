@@ -15,6 +15,9 @@ abstract interface class NotificationService {
 
   /// 크루 초대를 수락하거나 거절합니다.
   Future<void> respondToCrewInvite(String crewId, {required bool accept});
+
+  /// 내 알림을 모두 지웁니다.
+  Future<void> clearAll();
 }
 
 class SupabaseNotificationService implements NotificationService {
@@ -71,5 +74,10 @@ class SupabaseNotificationService implements NotificationService {
     await _rpc('mark_notifications_read', {
       'seen_until': seenUntil.toUtc().toIso8601String(),
     });
+  }
+
+  @override
+  Future<void> clearAll() async {
+    await _rpc('clear_my_notifications');
   }
 }

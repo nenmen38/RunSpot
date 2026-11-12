@@ -19,7 +19,7 @@ class GroupRunningScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('함께 달리기 참여'),
         content: const Text(
-          '참여자에게 닉네임과 완료 거리·시간이 공유됩니다. 경로와 현재 위치는 공유하지 않습니다. GPS 준비 후 방장이 출발을 예약하면 앱이 열린 상태에서 자동으로 러닝을 시작합니다.',
+          '참여자에게 닉네임과 완료 거리·시간이 공유됩니다. 경로와 현재 위치는 공유하지 않습니다. 방장이 출발하면 앱이 열린 상태에서 자동으로 러닝을 시작합니다.',
         ),
         actions: [
           TextButton(
@@ -90,6 +90,9 @@ class GroupRunningScreen extends StatelessWidget {
     final host = group.hostId == controller.service.ownerId;
     final seconds = controller.secondsUntil(group);
     final prepared = controller.preparedGroupId == group.id;
+    final joined = group.members
+        .where((member) => member.status == 'accepted')
+        .length;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -114,7 +117,7 @@ class GroupRunningScreen extends StatelessWidget {
                 subtitle: Text(
                   member.distance != null
                       ? '${(member.distance! / 1000).toStringAsFixed(2)}km · ${member.seconds}초'
-                      : '${_memberState(member.status)}${member.ready ? ' · GPS 준비 완료' : ''}',
+                      : _memberState(member.status),
                 ),
                 trailing:
                     host && group.state == 'lobby' && member.status == 'invited'
@@ -150,17 +153,16 @@ class GroupRunningScreen extends StatelessWidget {
                 ],
               ),
             if (group.myStatus == 'accepted' && group.state == 'lobby') ...[
-              const Text('출발 전 GPS를 준비하고 앱을 열어 두세요. 준비 중에도 위치는 그룹에 전송하지 않습니다.'),
-              if (host) const Text('그룹을 만들면 참여자에게 닉네임과 완료 거리·시간을 공유합니다.'),
+              Text(
+                host
+                    ? joined < 2
+                          ? '친구가 초대를 수락하면 바로 출발할 수 있어요.'
+                          : '출발하면 10초 뒤 모두 함께 러닝을 시작합니다.'
+                    : '방장이 출발하면 앱이 열린 상태에서 자동으로 러닝을 시작합니다.',
+              ),
               Wrap(
                 spacing: 8,
                 children: [
-                  OutlinedButton(
-                    onPressed: controller.busy || prepared
-                        ? null
-                        : () => controller.prepare(group.id),
-                    child: Text(prepared ? 'GPS 준비됨' : 'GPS 준비'),
-                  ),
                   if (host)
                     OutlinedButton(
                       onPressed: controller.busy
@@ -170,7 +172,7 @@ class GroupRunningScreen extends StatelessWidget {
                     ),
                   if (host)
                     FilledButton(
-                      onPressed: controller.busy
+                      onPressed: controller.busy || joined < 2
                           ? null
                           : () => controller.change('start', groupId: group.id),
                       child: const Text('10초 뒤 출발'),
@@ -185,7 +187,7 @@ class GroupRunningScreen extends StatelessWidget {
                     ? '개인 측정 중입니다. 홈에서 일시 정지하거나 종료하세요.'
                     : prepared
                     ? '공동 출발을 기다리고 있습니다.'
-                    : '공동 출발을 놓쳤거나 GPS 준비가 해제되었습니다. 개인 러닝을 시작하거나 새 그룹에 참여하세요.',
+                    : '공동 출발을 놓쳤습니다. 개인 러닝을 시작하거나 새 그룹에 참여하세요.',
               ),
             if (group.myStatus == 'accepted' && group.active)
               Align(
@@ -200,8 +202,6 @@ class GroupRunningScreen extends StatelessWidget {
                   child: Text(host ? '그룹 취소' : '그룹 나가기'),
                 ),
               ),
-            if (group.state == 'cancelled')
-              const Text('개인 러닝 측정과 저장은 홈에서 계속할 수 있습니다.'),
           ],
         ),
       ),

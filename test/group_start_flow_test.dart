@@ -37,6 +37,7 @@ class _Service implements GroupService {
   bool host = true;
   bool failStart = false;
   String state = 'lobby';
+  String friendStatus = 'accepted';
   DateTime? startsAt;
   int starts = 0;
 
@@ -55,7 +56,16 @@ class _Service implements GroupService {
             'user_id': 'owner',
             'nickname': '러너',
             'status': 'accepted',
-            'ready': true,
+            'ready': false,
+            'client_run_id': null,
+            'distance_m': null,
+            'duration_sec': null,
+          },
+          {
+            'user_id': 'friend',
+            'nickname': '친구',
+            'status': friendStatus,
+            'ready': false,
             'client_run_id': null,
             'distance_m': null,
             'duration_sec': null,
@@ -75,7 +85,7 @@ class _Service implements GroupService {
     if (operation == 'start') {
       if (failStart) {
         throw const PostgrestException(
-          message: 'GPS 준비를 확인해 주세요.',
+          message: '초대한 친구가 수락하면 출발할 수 있어요.',
           code: 'P0001',
         );
       }
@@ -136,9 +146,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('함께 달리기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('GPS 준비'));
-    await tester.pumpAndSettle();
-    expect(map.groupPrepared, isTrue);
+    // GPS 준비 버튼 없이, 출발 예약 전에는 위치를 따로 잡지 않습니다.
+    expect(find.text('GPS 준비'), findsNothing);
+    expect(map.groupPrepared, isFalse);
     return (groups, map);
   }
 
@@ -222,6 +232,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('함께 달리기 초대가 도착했어요.'), findsOneWidget);
     await tester.tap(find.text('확인'));
     await tester.pump();
@@ -232,19 +243,35 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('수락한 친구가 없으면 방장의 출발 버튼이 꺼져 있습니다', (tester) async {
+    final service = _Service()..friendStatus = 'invited';
+    final (groups, _) = await show(tester, service);
+    expect(find.text('친구가 초대를 수락하면 바로 출발할 수 있어요.'), findsOneWidget);
+    FilledButton start() => tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '10초 뒤 출발'),
+    );
+    expect(start().onPressed, isNull);
+    service.friendStatus = 'accepted';
+    await groups.refresh();
+    await tester.pump();
+    expect(start().onPressed, isNotNull);
+    groups.dispose();
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('출발 예약이 실패하면 그룹 화면에 남고 카운트다운을 표시하지 않습니다', (tester) async {
     final service = _Service()..failStart = true;
     final (groups, _) = await show(tester, service);
     await tester.tap(find.text('10초 뒤 출발'));
     await tester.pumpAndSettle();
     expect(find.byType(GroupRunningScreen), findsOneWidget);
-    expect(find.text('GPS 준비를 확인해 주세요.'), findsOneWidget);
+    expect(find.text('초대한 친구가 수락하면 출발할 수 있어요.'), findsOneWidget);
     expect(find.text('잠시 후 출발'), findsNothing);
     groups.dispose();
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('카운트다운 중 GPS 준비가 해제되면 표시와 자동 출발을 중단합니다', (tester) async {
+  testWidgets('카운트다운 중 백그라운드로 가면 표시와 자동 출발을 중단합니다', (tester) async {
     final service = _Service();
     final (groups, map) = await show(tester, service);
     await tester.tap(find.text('10초 뒤 출발'));

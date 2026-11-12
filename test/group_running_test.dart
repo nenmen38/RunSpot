@@ -64,7 +64,9 @@ class _Groups implements GroupService {
 }
 
 void main() {
-  testWidgets('GPS 준비 뒤 서버 공동 출발 시각에 한 번만 개인 측정을 시작합니다', (tester) async {
+  testWidgets('참여한 그룹은 자동으로 위치를 준비하고 서버 공동 출발 시각에 한 번만 개인 측정을 시작합니다', (
+    tester,
+  ) async {
     final location = FakeLocationService();
     final history = RunHistoryController(
       FakeRunRecordService(),
@@ -78,8 +80,13 @@ void main() {
     final service = _Groups();
     final groups = GroupController(service, map);
     await tester.pump();
-    await groups.prepare('group');
+    await groups.refresh();
+    expect(map.groupPrepared, isFalse);
+    service.state = 'scheduled';
+    service.startsAt = DateTime.now().toUtc().add(const Duration(seconds: 10));
+    await groups.refresh();
     expect(map.groupPrepared, isTrue);
+    expect(groups.preparedGroupId, 'group');
     expect(map.runSession, isNull);
     service.state = 'running';
     service.startsAt = DateTime.now().toUtc().subtract(
@@ -99,7 +106,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('백그라운드로 가면 GPS 준비를 해제하고 복귀 시 자동 출발하지 않습니다', (tester) async {
+  testWidgets('백그라운드로 가면 위치 준비를 해제하고 복귀 시 자동 출발하지 않습니다', (tester) async {
     final location = FakeLocationService();
     final history = RunHistoryController(
       FakeRunRecordService(),
@@ -113,11 +120,15 @@ void main() {
     final service = _Groups();
     final groups = GroupController(service, map);
     await tester.pump();
-    await groups.prepare('group');
+    await groups.refresh();
+    expect(map.groupPrepared, isFalse);
+    service.state = 'scheduled';
+    service.startsAt = DateTime.now().toUtc().add(const Duration(seconds: 10));
+    await groups.refresh();
+    expect(map.groupPrepared, isTrue);
     groups.didChangeAppLifecycleState(AppLifecycleState.paused);
     await tester.pump();
     expect(map.groupPrepared, isFalse);
-    expect(service.actions, contains('unready'));
     service.state = 'running';
     service.startsAt = DateTime.now().toUtc().subtract(
       const Duration(seconds: 1),
@@ -147,7 +158,12 @@ void main() {
     final service = _Groups();
     final groups = GroupController(service, map);
     await tester.pump();
-    await groups.prepare('group');
+    await groups.refresh();
+    expect(map.groupPrepared, isFalse);
+    service.state = 'scheduled';
+    service.startsAt = DateTime.now().toUtc().add(const Duration(seconds: 10));
+    await groups.refresh();
+    expect(map.groupPrepared, isTrue);
     service.state = 'running';
     service.startsAt = DateTime.now().toUtc().subtract(
       const Duration(minutes: 1),
@@ -157,18 +173,52 @@ void main() {
     await tester.pump();
     expect(map.runSession, isNull);
     expect(map.groupPrepared, isFalse);
-    service.state = 'lobby';
-    service.startsAt = null;
-    await groups.prepare('group');
+    service.state = 'scheduled';
+    service.startsAt = DateTime.now().toUtc().add(const Duration(seconds: 10));
+    await groups.refresh();
+    expect(map.groupPrepared, isTrue);
     service.fail = true;
     await groups.refresh();
     expect(groups.groups, isEmpty);
     expect(map.groupPrepared, isFalse);
     service.fail = false;
     await map.startRun();
-    await groups.prepare('group');
+    await groups.refresh();
     expect(map.groupPrepared, isFalse);
     expect(map.runSession?.isRunning, isTrue);
+    groups.dispose();
+    map.dispose();
+    history.dispose();
+    await location.updates.close();
+    await tester.pump();
+  });
+
+  testWidgets('취소된 그룹은 목록에 남기지 않고 서버 준비 요청도 보내지 않습니다', (tester) async {
+    final location = FakeLocationService();
+    final history = RunHistoryController(
+      FakeRunRecordService(),
+      outbox: FakeRunOutbox(),
+    );
+    final map = LiveMapController(
+      locationService: location,
+      runnerService: FakeRunnerService(),
+      runHistory: history,
+    );
+    final service = _Groups()..state = 'cancelled';
+    final groups = GroupController(service, map);
+    await tester.pump();
+    await groups.refresh();
+    expect(groups.groups, isEmpty);
+    expect(map.groupPrepared, isFalse);
+    service.state = 'lobby';
+    await groups.refresh();
+    expect(groups.groups, hasLength(1));
+    expect(map.groupPrepared, isFalse);
+    service.state = 'scheduled';
+    service.startsAt = DateTime.now().toUtc().add(const Duration(seconds: 10));
+    await groups.refresh();
+    expect(map.groupPrepared, isTrue);
+    expect(service.actions, isNot(contains('ready')));
     groups.dispose();
     map.dispose();
     history.dispose();

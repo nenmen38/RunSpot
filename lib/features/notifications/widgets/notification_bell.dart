@@ -119,11 +119,30 @@ class NotificationSheet extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Text(
-                  '알림',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 8, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '알림',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed:
+                          controller.items.isEmpty ||
+                              controller.loading ||
+                              controller.clearing ||
+                              controller.responding != null
+                          ? null
+                          : () => _clearAll(context),
+                      child: const Text('모두 지우기'),
+                    ),
+                  ],
                 ),
               ),
               Expanded(child: _body()),
@@ -133,6 +152,27 @@ class NotificationSheet extends StatelessWidget {
       ),
     ),
   );
+
+  Future<void> _clearAll(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('알림 모두 지우기'),
+        content: const Text('받은 알림을 모두 지울까요? 지운 알림은 되돌릴 수 없어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('모두 지우기'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await controller.clearAll();
+  }
 
   Widget _body() {
     if (controller.loading && controller.items.isEmpty) {
