@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'chat_list_style.dart';
+import 'chat_room_style.dart';
+
 class FriendChatService {
   FriendChatService(this.client) : ownerId = client.auth.currentUser?.id;
   final SupabaseClient client;
@@ -182,9 +185,27 @@ class _FriendChatViewState extends State<FriendChatView>
     super.dispose();
   }
 
+  DateTime? _sentAt(Map<String, dynamic> row) {
+    final value = row['sent_at'];
+    return value is String ? DateTime.tryParse(value)?.toLocal() : null;
+  }
+
+  bool _sameDay(DateTime a, DateTime? b) =>
+      b != null && a.year == b.year && a.month == b.month && a.day == b.day;
+
+  bool _sameGroup(Map<String, dynamic> row, Map<String, dynamic>? other) {
+    if (other == null || row['sender_id'] != other['sender_id']) return false;
+    final time = _sentAt(row);
+    final otherTime = _sentAt(other);
+    return time != null &&
+        otherTime != null &&
+        _sameDay(time, otherTime) &&
+        time.difference(otherTime).abs() < const Duration(minutes: 2);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isRoom = widget.peer != null;
+    if (widget.peer == null) return _buildConversationList();
     final content = Column(
       children: [
         if (_loadError case final error?)
@@ -193,12 +214,11 @@ class _FriendChatViewState extends State<FriendChatView>
           child: !_loaded
               ? const Center(child: CircularProgressIndicator())
               : _rows.isEmpty
-              ? Center(
-                  child: Text(isRoom ? '아직 메시지가 없습니다.' : '친구를 눌러 대화를 시작해 보세요.'),
-                )
+              ? Center(child: Text('아직 메시지가 없습니다.'))
               : ListView.builder(
-                  reverse: isRoom,
-                  itemCount: _rows.length + (isRoom && _older ? 1 : 0),
+                  reverse: true,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                  itemCount: _rows.length + (_older ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (index == _rows.length) {
                       return TextButton(
@@ -207,80 +227,89 @@ class _FriendChatViewState extends State<FriendChatView>
                       );
                     }
                     final row = _rows[index];
-                    if (isRoom) {
-                      final mine = row['sender_id'] == widget.service.ownerId;
-                      return Align(
-                        alignment: mine
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.sizeOf(context).width * .75,
-                          ),
-                          child: Card(
-                            color: mine
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : null,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(row['body'] as String),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    return ListTile(
-                      leading: const Icon(Icons.chat_bubble_outline),
-                      title: Text(row['nickname'] as String),
-                      subtitle: Text(
-                        row['body'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () => openFriendChat(
-                        context,
-                        widget.service.client,
-                        row['peer_id'] as String,
-                        row['nickname'] as String,
-                      ),
+                    final time = _sentAt(row);
+                    final previous = index + 1 < _rows.length
+                        ? _rows[index + 1]
+                        : null;
+                    final next = index > 0 ? _rows[index - 1] : null;
+                    return ChatMessageBubble(
+                      key: ValueKey(row['id']),
+                      body: row['body'] as String,
+                      nickname: widget.nickname ?? '',
+                      mine: row['sender_id'] == widget.service.ownerId,
+                      sentAt: time,
+                      showDay:
+                          time != null &&
+                          (previous == null ||
+                              !_sameDay(time, _sentAt(previous))),
+                      showAvatar: !_sameGroup(row, previous),
+                      showTime: !_sameGroup(row, next),
                     );
                   },
                 ),
         ),
-        if (isRoom) ...[
-          if (_sendError case final error?) Text(error),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _input,
-                    maxLength: 1000,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: '메시지 입력',
-                      counterText: '',
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '보내기',
-                  onPressed: _sending || _loadError != null ? null : _send,
-                  icon: const Icon(Icons.send),
-                ),
-              ],
-            ),
-          ),
-        ],
+        if (_sendError case final error?) Text(error),
+        ChatComposer(
+          controller: _input,
+          sending: _sending,
+          canSend: _loadError == null,
+          onSend: _send,
+        ),
       ],
     );
-    return isRoom
-        ? Scaffold(
-            appBar: AppBar(title: Text(widget.nickname!)),
-            body: SafeArea(child: content),
-          )
-        : content;
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      appBar: AppBar(
+        titleSpacing: 4,
+        title: Row(
+          children: [
+            ChatAvatar(nickname: widget.nickname ?? ''),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                widget.nickname ?? '대화',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(top: false, child: content),
+    );
+  }
+
+  Widget _buildConversationList() {
+    if (!_loaded) return const Center(child: CircularProgressIndicator());
+    if (_loadError case final error?) {
+      return ChatListPlaceholder(message: error, onRetry: _load);
+    }
+    if (_rows.isEmpty) {
+      return const ChatListPlaceholder(message: '친구를 눌러 대화를 시작해 보세요.');
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _rows.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final row = _rows[index];
+          final nickname = row['nickname'] as String;
+          final peer = row['peer_id'] as String;
+          return ChatConversationTile(
+            key: ValueKey(peer),
+            nickname: nickname,
+            preview: row['body'] as String,
+            sentAt: _sentAt(row),
+            onTap: () =>
+                openFriendChat(context, widget.service.client, peer, nickname),
+          );
+        },
+      ),
+    );
   }
 }
