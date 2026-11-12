@@ -17,10 +17,13 @@ class RunnerCluster {
   );
 }
 
+/// [solo]의 러너는 무리 표식으로 묶지 않고 각자 위치에 따로 보여줍니다.
+/// 오라가 합쳐지는 러너는 아이콘을 각자 자리에 두어야 하기 때문입니다.
 List<RunnerCluster> clusterRunners(
   List<LiveRunner> runners,
-  List<RunningGroup> groups,
-) {
+  List<RunningGroup> groups, {
+  Set<String> solo = const {},
+}) {
   const distance = Distance();
   final membership = <String, String>{};
   for (final group in groups) {
@@ -32,7 +35,7 @@ List<RunnerCluster> clusterRunners(
   final clusters = <RunnerCluster>[];
   final ordered = [...runners]..sort((a, b) => a.id.compareTo(b.id));
   for (final runner in ordered) {
-    final groupId = membership[runner.id];
+    final groupId = solo.contains(runner.id) ? null : membership[runner.id];
     // 모든 구성원과 가까울 때만 합쳐 긴 대열이 하나로 묶이지 않게 합니다.
     final cluster = clusters
         .where(

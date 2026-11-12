@@ -90,9 +90,11 @@ class FakeRunnerService implements LiveRunnerService {
   Completer<List<LiveRunner>>? pendingNearby;
   Object? nearbyFailure;
 
+  final publishedPaces = <int?>[];
   @override
-  Future<void> publish(LocationFix fix) async {
+  Future<void> publish(LocationFix fix, {int? paceSecPerKm}) async {
     actions.add('publish');
+    publishedPaces.add(paceSecPerKm);
     if (pendingPublish != null) await pendingPublish!.future;
     if (publishFailure != null) throw publishFailure!;
   }

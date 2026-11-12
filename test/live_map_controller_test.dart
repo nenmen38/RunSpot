@@ -652,10 +652,20 @@ void main() {
         updatedAt: DateTime.now(),
       ),
     ];
+    // 오라를 합칠 친구가 멀리 있으면 갱신을 늦추고, 100m 안에 들어오면 1초 안에 갱신합니다.
     service.onChanged!();
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    expect(controller.runners, isEmpty);
+    controller.setCrewNearby(true);
     await Future<void>.delayed(const Duration(milliseconds: 1100));
     expect(controller.runners.single.nickname, '새러너');
     service.onConnection!(false);
     expect(controller.runners, isEmpty);
+  });
+
+  test('막 출발해 페이스를 아직 모르면 위치만 공유합니다', () async {
+    await controller.startRun();
+    await controller.setSharing(true);
+    expect(service.publishedPaces, [null]);
   });
 }

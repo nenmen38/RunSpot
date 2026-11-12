@@ -17,18 +17,23 @@ class RunMapMarker {
     required this.nickname,
     this.selected = false,
     this.memberCount = 1,
+    this.frame,
   });
   final String id;
   final LatLng point;
   final String nickname;
   final bool selected;
   final int memberCount;
+
+  /// 이 러너가 착용한 테두리입니다. 무리 표식에는 쓰지 않습니다.
+  final RunMapFrame? frame;
   Map<String, Object?> toJson() => {
     'id': id,
     'point': [point.latitude, point.longitude],
     'nickname': nickname,
     'selected': selected,
     'memberCount': memberCount,
+    'frame': frame?.toJson(),
   };
 }
 
@@ -48,6 +53,7 @@ class RunMap extends StatefulWidget {
     required this.controller,
     this.position,
     this.positionFrame,
+    this.aura,
     this.markers = const [],
     this.segments = const [],
     this.endpoints = false,
@@ -63,6 +69,9 @@ class RunMap extends StatefulWidget {
 
   /// 내 위치 원에 두를 테두리입니다. 없으면 기본 원입니다.
   final RunMapFrame? positionFrame;
+
+  /// 친구와 합쳐지는 오라의 상태입니다. 거리 판정은 앱이 하고 지도는 그리기만 합니다.
+  final Map<String, Object?>? aura;
   final List<RunMapMarker> markers;
   final List<List<LatLng>> segments;
   final bool endpoints;
@@ -184,6 +193,7 @@ class _RunMapState extends State<RunMap> {
         ? null
         : [widget.position!.latitude, widget.position!.longitude],
     'frame': widget.positionFrame?.toJson(),
+    'aura': widget.aura,
     'markers': widget.markers.map((m) => m.toJson()).toList(),
     'segments': widget.segments
         .map((s) => s.map((p) => [p.latitude, p.longitude]).toList())

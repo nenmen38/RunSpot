@@ -699,7 +699,7 @@ class LiveMapController extends ChangeNotifier {
       }
       await _enqueue(() async {
         if (canShareLocation && generation == _generation) {
-          await runnerService.publish(fix);
+          await runnerService.publish(fix, paceSecPerKm: _sharedPace);
         }
       });
       if (!canShareLocation || generation != _generation) return;
@@ -740,15 +740,14 @@ class LiveMapController extends ChangeNotifier {
         fix == null ||
         !fix.isUsable ||
         (_lastPublished != null &&
-            DateTime.now().difference(_lastPublished!) <
-                const Duration(seconds: 5))) {
+            DateTime.now().difference(_lastPublished!) < _publishInterval)) {
       return;
     }
     _lastPublished = DateTime.now();
     try {
       await _enqueue(() async {
         if (canShareLocation && sharing && generation == _generation) {
-          await runnerService.publish(fix);
+          await runnerService.publish(fix, paceSecPerKm: _sharedPace);
         }
       });
     } catch (error, stack) {
@@ -769,7 +768,31 @@ class LiveMapController extends ChangeNotifier {
     if (!canViewNearby || _refreshTimer?.isActive == true) {
       return;
     }
-    _refreshTimer = Timer(const Duration(seconds: 1), refresh);
+    _refreshTimer = Timer(_refreshDelay, refresh);
+  }
+
+  bool _crewNearby = false;
+
+  /// 오라를 합칠 수 있는 친구가 100m 안에 있으면 위치를 더 자주 주고받습니다.
+  /// 멀리 있으면 주기를 늘려 통신과 배터리 사용을 줄입니다.
+  void setCrewNearby(bool nearby) {
+    if (_disposed || _crewNearby == nearby) return;
+    _crewNearby = nearby;
+    if (nearby && _refreshTimer?.isActive == true) {
+      _refreshTimer!.cancel();
+      _scheduleRefresh();
+    }
+  }
+
+  Duration get _refreshDelay => Duration(seconds: _crewNearby ? 1 : 4);
+  Duration get _publishInterval => Duration(seconds: _crewNearby ? 3 : 5);
+
+  /// 달리는 중일 때만 현재 페이스를 함께 공유합니다.
+  int? get _sharedPace {
+    final seconds = runSession?.currentPace?.inSeconds;
+    return seconds != null && seconds >= 120 && seconds <= 1800
+        ? seconds
+        : null;
   }
 
   Future<void> refresh() async {

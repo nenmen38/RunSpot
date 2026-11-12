@@ -3,6 +3,7 @@ import '../run_history/run_history_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../shared/theme/app_colors.dart';
@@ -24,6 +25,7 @@ import '../group_running/group_controller.dart';
 import '../monetization/coin_frames.dart';
 import '../notifications/notification_controller.dart';
 import '../notifications/widgets/notification_bell.dart';
+import 'models/crew_aura.dart';
 import 'models/live_runner.dart';
 import 'models/runner_cluster.dart';
 import 'data/location_service.dart';
@@ -69,6 +71,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _overviewZoom = 15.5;
   static const _runningZoom = 16.5;
   final _map = RunMapController();
+
+  // 친구와 합쳐지는 오라의 거리 판정과 현재 상태입니다.
+  final _crew = CrewAuraTracker();
+  CrewAuraState? _aura;
   bool _mapReady = false;
   bool _following = true;
   Timer? _mapReturnTimer;
@@ -158,7 +164,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _groupChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _updateAura();
+    setState(() {});
+  }
+
+  /// 내가 오라 테두리를 착용했을 때만, 오라를 착용한 친구와의 실제 거리로 합체 여부를 정합니다.
+  void _updateAura() {
+    final state = widget.controller;
+    final wallet = widget.wallet;
+    final position = state.position;
+    if (wallet?.equipped != FrameKind.aura ||
+        position == null ||
+        !position.isUsable) {
+      _crew.reset();
+      _aura = null;
+      state.setCrewNearby(false);
+      return;
+    }
+    final aura = _aura = _crew.update(
+      self: AuraRunner(
+        id: CrewAuraState.selfId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        at: position.recordedAt,
+        color: wallet!.wallet!.color,
+        paceSecPerKm: state.runSession?.currentPace?.inSeconds,
+      ),
+      friends: [
+        for (final runner in state.runners)
+          if (runner.isFriend && runner.hasAura)
+            AuraRunner(
+              id: runner.id,
+              latitude: runner.latitude,
+              longitude: runner.longitude,
+              at: runner.updatedAt,
+              color: runner.frameColor!,
+              paceSecPerKm: runner.paceSecPerKm,
+            ),
+      ],
+    );
+    final nearest = aura.nearestMeters;
+    state.setCrewNearby(
+      nearest != null && nearest < CrewAuraTracker.beamMeters,
+    );
+    if (aura.joinedSelf) unawaited(HapticFeedback.mediumImpact());
   }
 
   void _changed() {
@@ -182,6 +232,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _pendingZoom = null;
       _animateZoom = false;
     }
+    _updateAura();
     setState(() {});
   }
 
@@ -404,9 +455,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       );
     }
+    // 오라가 이어진 친구는 무리 표식으로 묶지 않고 각자 자리에 보여줍니다.
+    final aura = _aura == null || _aura!.isSolo ? null : _aura;
+    final auraNodes = {
+      for (final node in aura?.nodes ?? const []) node.id: node,
+    };
     final clusters = clusterRunners(
       visible,
       groups?.service.isCurrentOwner == true ? groups!.groups : [],
+      solo: aura == null ? const {} : {ownerId, ...auraNodes.keys},
     );
     final ownClustered = clusters.any(
       (cluster) =>
@@ -445,6 +502,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     _ => null,
                   },
+                  aura: aura?.toJson(),
                   segments:
                       state.runSession?.routeSegments
                           .map(
@@ -463,7 +521,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       .map(
                         (cluster) => RunMapMarker(
                           id: cluster.id,
-                          point: cluster.point,
+                          // 오라가 이어진 친구는 보정한 위치에 그려 오라와 어긋나지 않게 합니다.
+                          point: switch (auraNodes[cluster.id]) {
+                            final node? => LatLng(
+                              node.latitude,
+                              node.longitude,
+                            ),
+                            null => cluster.point,
+                          },
+                          frame: switch (cluster.members) {
+                            [LiveRunner(:final frame?, :final frameColor?)] =>
+                              RunMapFrame(
+                                aura: frame == 'aura',
+                                color: frameColor,
+                              ),
+                            _ => null,
+                          },
                           nickname: cluster.members.length > 1
                               ? '함께 달리기 ${cluster.members.length}명'
                               : cluster.members.single.nickname,

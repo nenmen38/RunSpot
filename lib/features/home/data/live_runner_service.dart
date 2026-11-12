@@ -5,7 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/live_runner.dart';
 
 abstract interface class LiveRunnerService {
-  Future<void> publish(LocationFix fix);
+  /// [paceSecPerKm]은 달리는 중일 때의 현재 페이스입니다. 친구의 오라 박자 맞춤에 씁니다.
+  Future<void> publish(LocationFix fix, {int? paceSecPerKm});
   Future<void> stopSharing();
   Future<List<LiveRunner>> nearby(int radiusMeters, LocationFix origin);
   Future<void> connect(
@@ -22,6 +23,7 @@ class SupabaseLiveRunnerService implements LiveRunnerService {
   final SupabaseClient client;
   final String? _ownerId;
   RealtimeChannel? _channel;
+  bool _paceSupported = true;
 
   void _requireOwner() {
     if (_ownerId == null || client.auth.currentSession?.user.id != _ownerId) {
@@ -30,16 +32,27 @@ class SupabaseLiveRunnerService implements LiveRunnerService {
   }
 
   @override
-  Future<void> publish(LocationFix fix) async {
+  Future<void> publish(LocationFix fix, {int? paceSecPerKm}) async {
     _requireOwner();
-    await client.rpc(
+    Future<void> send(int? pace) => client.rpc(
       'update_my_live_location',
       params: {
         'latitude': fix.latitude,
         'longitude': fix.longitude,
         'accuracy_m': fix.accuracy,
+        'pace_sec_per_km': ?pace,
       },
     );
+    try {
+      await send(_paceSupported ? paceSecPerKm : null);
+    } on PostgrestException catch (error) {
+      // 서버가 아직 페이스를 받지 못하는 버전이면 위치만 보내 공유가 끊기지 않게 합니다.
+      if (error.code != 'PGRST202' || paceSecPerKm == null || !_paceSupported) {
+        rethrow;
+      }
+      _paceSupported = false;
+      await send(null);
+    }
   }
 
   @override
