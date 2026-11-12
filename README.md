@@ -137,7 +137,7 @@ Supabase Auth의 Redirect URLs에는 `runspot://login-callback`을 등록해야 
 
 ## 지도와 위치 공유
 
-- 홈과 기록 상세 지도는 카카오 공식 웹 지도 SDK를 `webview_flutter`로 표시합니다. Android x86·x64 가상 휴대폰에서도 네이티브 카카오 지도 SDK 없이 동작하는 방식입니다. Android 7(API 24) 이상과 iOS 13 이상이 필요합니다.
+- 홈과 기록 상세 지도는 카카오 공식 웹 지도 SDK를 `webview_flutter`로 표시합니다. Android x86·x64 가상 휴대폰에서도 네이티브 카카오 지도 SDK 없이 동작하는 방식입니다. 현재 앱의 최소 설치 기준은 Android 8(API 26)과 iOS 15입니다.
 - 카카오디벨로퍼스에서 카카오맵을 활성화하고 **JavaScript 키**의 SDK 도메인을 등록합니다. `config/dev.json`의 `KAKAO_JAVASCRIPT_KEY`와 `KAKAO_MAP_ORIGIN`을 사용하며 네이티브·REST API 키로 대체할 수 없습니다. 키를 소스나 채팅에 넣지 않습니다.
 - 로컬 개발용 SDK 도메인은 `https://localhost`입니다. 같은 주소를 `KAKAO_MAP_ORIGIN`과 카카오 JavaScript SDK 도메인에 등록하고 `flutter run --dart-define-from-file=config/dev.json`으로 실행합니다. 운영 빌드에는 등록한 실제 HTTPS 서비스 도메인이 필수이며 localhost는 거절합니다. Xcode로 실행하려면 먼저 `flutter build ios --config-only --dart-define-from-file=config/dev.json`으로 빌드 설정을 준비합니다.
 - 카카오 SDK의 지도 로고·저작권 표시는 가리지 않습니다. 지도 영역 조회 시 카카오에 해당 지도 영역 정보가 전달되지만 닉네임·러닝 경로는 기기 웹뷰 안에서 표시하며 별도 검색·경로 API를 호출하지 않습니다.
