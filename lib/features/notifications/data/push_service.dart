@@ -106,23 +106,23 @@ class PushService with WidgetsBindingObserver {
 
   void syncQuietly() {
     _retry?.cancel();
-    unawaited(
-      sync()
-          .then((_) {
-            _failures = 0;
-          })
-          .catchError((_) {
-            if (!_foreground ||
-                _suspended ||
-                _client.auth.currentSession == null) {
-              return;
-            }
-            const delays = [30, 60, 120, 240, 300];
-            final delay = delays[_failures.clamp(0, delays.length - 1)];
-            _failures++;
-            _retry = Timer(Duration(seconds: delay), syncQuietly);
-          }),
-    );
+    unawaited(sync().catchError((_) => _scheduleRetry()));
+  }
+
+  void _scheduleRetry() {
+    if (!_foreground || _suspended || _client.auth.currentSession == null) {
+      return;
+    }
+    if (_retry?.isActive ?? false) return;
+    const delays = [30, 60, 120, 240, 300];
+    final delay = delays[_failures.clamp(0, delays.length - 1)];
+    _failures++;
+    _retry = Timer(Duration(seconds: delay), syncQuietly);
+  }
+
+  void _clearRetry() {
+    _retry?.cancel();
+    _failures = 0;
   }
 
   /// 권한 요청은 설정 화면에서 사용자가 알림 켜기를 선택했을 때만 실행합니다.
@@ -146,10 +146,15 @@ class PushService with WidgetsBindingObserver {
         await _client
             .rpc('unregister_push_device')
             .setHeader('Authorization', 'Bearer ${session.accessToken}');
+        _clearRetry();
         return;
       }
       if (defaultTargetPlatform == TargetPlatform.iOS &&
           await messaging.getAPNSToken() == null) {
+        // 권한 허용 직후 APNs 토큰이 늦게 도착하면 권한 요청 없이 다시 등록합니다.
+        if (_client.auth.currentSession?.accessToken == session.accessToken) {
+          _scheduleRetry();
+        }
         return;
       }
       final token = await messaging.getToken();
@@ -169,6 +174,7 @@ class PushService with WidgetsBindingObserver {
             },
           )
           .setHeader('Authorization', 'Bearer ${session.accessToken}');
+      _clearRetry();
     });
     _work = operation.catchError((_) {});
     return operation;
