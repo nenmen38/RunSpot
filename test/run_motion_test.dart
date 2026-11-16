@@ -55,15 +55,17 @@ void main() {
     expect(restored.snapshot().last[4], greaterThan(segments.last));
   });
 
-  test('거리 누적에서도 GPS 점프와 부정확한 위치를 연결하지 않습니다', () {
+  test('거리 누적에서 GPS 점프는 잇지 않고 부정확한 위치는 건너뜁니다', () {
     final run = RunSession(fix(0));
     run.accept(fix(1, latitude: 38));
     expect(run.distanceMeters, 0);
     run.accept(fix(5, latitude: 38.0001));
     expect(run.distanceMeters, closeTo(11.1, 1));
+    // 부정확한 위치(1km 밖)는 거리에 넣지 않고, 다음 정상 위치는 이전 위치와 잇습니다.
     run.accept(fix(6, latitude: 38.01, accuracy: 30));
     run.accept(fix(7, latitude: 38.0002));
-    expect(run.distanceMeters, closeTo(11.1, 1));
+    expect(run.distanceMeters, closeTo(22.2, 1));
+    expect(run.routeSegments.last, hasLength(3));
     run.finish();
   });
 

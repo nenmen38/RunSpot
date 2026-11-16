@@ -14,7 +14,10 @@ void main() {
       recording: true,
     ) as AndroidSettings;
     expect(map.foregroundNotificationConfig, isNull);
-    expect(run.intervalDuration, const Duration(seconds: 5));
+    expect(run.intervalDuration, const Duration(seconds: 2));
+    expect(run.distanceFilter, 0);
+    expect(map.intervalDuration, const Duration(seconds: 5));
+    expect(map.distanceFilter, 5);
     final notification = run.foregroundNotificationConfig!;
     expect(notification.enableWakeLock, isTrue);
     expect(notification.enableWifiLock, isFalse);
@@ -38,8 +41,9 @@ void main() {
     expect(run.showBackgroundLocationIndicator, isTrue);
     expect(run.pauseLocationUpdatesAutomatically, isFalse);
     expect(run.activityType, ActivityType.fitness);
-    expect(run.accuracy, LocationAccuracy.high);
-    expect(run.distanceFilter, 5);
+    expect(run.accuracy, LocationAccuracy.bestForNavigation);
+    expect(run.distanceFilter, 0);
+    expect(map.distanceFilter, 5);
     expect(run.timeLimit, isNull);
   });
 

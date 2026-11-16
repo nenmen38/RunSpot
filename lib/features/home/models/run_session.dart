@@ -181,8 +181,7 @@ class RunSession {
     );
     _motion?.accept(fix);
     if (!RunMotionTracker.usable(fix)) {
-      _previous = null;
-      _segment = null;
+      // 건물·나무 사이에서 잠깐 부정확한 위치가 와도 경로는 끊지 않고 그 위치만 버립니다.
       _pace.clear();
       return;
     }
@@ -192,10 +191,9 @@ class RunSession {
       return;
     }
     if (!fix.recordedAt.isAfter(previous.recordedAt)) return;
-    // 위치가 끊긴 구간은 직선 거리로 추정해 더하지 않습니다.
-    if (fix.recordedAt.difference(previous.recordedAt) >
-            RunMotionTracker.maximumGap ||
-        RunMotionTracker.jumped(previous, fix)) {
+    // 잠깐 위치가 끊겨도 달릴 수 있는 속도로 이어지면 같은 경로로 잇습니다.
+    // 너무 오래 끊겼거나 순간 이동한 위치는 새 구간으로 시작하고 거리를 추정하지 않습니다.
+    if (!continuesRoute(previous, fix)) {
       _startSegment(fix);
       return;
     }
@@ -217,6 +215,29 @@ class RunSession {
     _segment!.add(fix);
     _routeSnapshot = null;
     _pace.accept(_distanceMeters, fix.recordedAt);
+  }
+
+  /// 경로를 이어 그릴 수 있는 가장 긴 위치 끊김입니다.
+  static const maximumRouteGap = Duration(seconds: 60);
+
+  /// 위치가 잠깐 끊긴 동안의 평균 속도 상한(m/s)입니다. 전력 질주보다 조금 빠릅니다.
+  static const maximumGapSpeed = 8.0;
+
+  static bool continuesRoute(LocationFix previous, LocationFix next) {
+    final gap = next.recordedAt.difference(previous.recordedAt);
+    if (gap <= RunMotionTracker.maximumGap) {
+      return !RunMotionTracker.jumped(previous, next);
+    }
+    if (gap > maximumRouteGap) return false;
+    final distance = Geolocator.distanceBetween(
+      previous.latitude,
+      previous.longitude,
+      next.latitude,
+      next.longitude,
+    );
+    final seconds = gap.inMicroseconds / Duration.microsecondsPerSecond;
+    return distance - previous.accuracy - next.accuracy <=
+        maximumGapSpeed * seconds;
   }
 
   void pause({int reason = 0}) {

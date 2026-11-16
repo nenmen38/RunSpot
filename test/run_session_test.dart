@@ -126,4 +126,36 @@ void main() {
     expect(session.averagePace, pace);
     session.finish();
   });
+
+  test('부정확한 위치가 끼거나 잠깐 끊겨도 경로를 한 줄로 잇습니다', () {
+    final session = RunSession(fix(37.5665, 0));
+    session.accept(fix(37.567, 10));
+    // 정확도가 낮은 위치는 버리지만 경로는 끊지 않습니다.
+    session.accept(fix(37.58, 12, accuracy: 60));
+    session.accept(fix(37.5675, 20));
+    // 25초 동안 신호가 없어도 달릴 수 있는 거리(약 170m)면 이어서 더합니다.
+    session.accept(fix(37.569, 45));
+    expect(session.routeSegments, hasLength(1));
+    expect(session.routeSegments.single, hasLength(4));
+    expect(session.distanceMeters, closeTo(55.6 * 5, 2));
+    session.finish();
+  });
+
+  test('끊긴 동안 달릴 수 없는 거리를 이동했으면 잇지 않습니다', () {
+    final session = RunSession(fix(37.5665, 0));
+    session.accept(fix(37.567, 10));
+    // 20초 만에 약 1.1km는 자동차 속도이므로 새 구간입니다.
+    session.accept(fix(37.577, 30));
+    expect(session.routeSegments, hasLength(2));
+    expect(session.distanceMeters, closeTo(55.6, 1));
+    session.finish();
+  });
+
+  test('1분 넘게 끊긴 위치는 가까워도 잇지 않습니다', () {
+    expect(RunSession.continuesRoute(fix(37.5665, 0), fix(37.567, 50)), isTrue);
+    expect(
+      RunSession.continuesRoute(fix(37.5665, 0), fix(37.567, 61)),
+      isFalse,
+    );
+  });
 }

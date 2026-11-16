@@ -8,8 +8,9 @@ LocationSettings trackingSettings({
   if (platform == TargetPlatform.android) {
     return AndroidSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
-      intervalDuration: const Duration(seconds: 5),
+      // 러닝 중에는 멈춰 있어도 위치를 계속 받아야 신호가 끊긴 것으로 오해하지 않습니다.
+      distanceFilter: recording ? 0 : 5,
+      intervalDuration: Duration(seconds: recording ? 2 : 5),
       foregroundNotificationConfig: recording
           ? const ForegroundNotificationConfig(
               notificationTitle: '러닝 측정 중',
@@ -23,8 +24,10 @@ LocationSettings trackingSettings({
   }
   if (platform == TargetPlatform.iOS) {
     return AppleSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
+      accuracy: recording
+          ? LocationAccuracy.bestForNavigation
+          : LocationAccuracy.high,
+      distanceFilter: recording ? 0 : 5,
       activityType: ActivityType.fitness,
       pauseLocationUpdatesAutomatically: false,
       allowBackgroundLocationUpdates: recording,
