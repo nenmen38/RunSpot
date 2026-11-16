@@ -3,6 +3,7 @@ import '../run_history/run_history_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/layout/readable_width.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -784,68 +785,78 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
             ),
           ),
+          // 넓은 화면에서는 지도는 끝까지 보여주고 아래 정보와 버튼만 읽기 좋은 폭으로 둡니다.
           if (widget.conditionsController != null)
-            ConditionsPanel(controller: widget.conditionsController!),
+            ColoredBox(
+              color: Colors.white,
+              child: ReadableWidth(
+                child: ConditionsPanel(
+                  controller: widget.conditionsController!,
+                ),
+              ),
+            ),
           Material(
             color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '주변 러너',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
+            child: ReadableWidth(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '주변 러너',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                            ),
-                            Text(
-                              '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
-                            ),
-                          ],
+                              Text(
+                                '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
+                              ),
+                            ],
+                          ),
                         ),
+                        if (state.changingSharing)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
+                    ),
+                    if (state.canViewNearby && !state.connected)
+                      const Text('실시간 연결 중'),
+                    if (state.nearbyError != null)
+                      Text(
+                        state.nearbyError!,
+                        style: const TextStyle(color: Colors.red),
                       ),
-                      if (state.changingSharing)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                    ],
-                  ),
-                  if (state.canViewNearby && !state.connected)
-                    const Text('실시간 연결 중'),
-                  if (state.nearbyError != null)
-                    Text(
-                      state.nearbyError!,
-                      style: const TextStyle(color: Colors.red),
+                    if (state.sharingError != null)
+                      Text(
+                        state.sharingError!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    if (groups?.error case final error?)
+                      Text(error, style: const TextStyle(color: Colors.red)),
+                    if (state.recoveredRun)
+                      Text(
+                        state.runSession?.isFinished == true
+                            ? '종료한 러닝을 복구했습니다. 저장을 다시 시도해 주세요.'
+                            : '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
+                      ),
+                    RunControls(
+                      controller: state,
+                      busy: _endingRun,
+                      onFinish: _finishRun,
                     ),
-                  if (state.sharingError != null)
-                    Text(
-                      state.sharingError!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  if (groups?.error case final error?)
-                    Text(error, style: const TextStyle(color: Colors.red)),
-                  if (state.recoveredRun)
-                    Text(
-                      state.runSession?.isFinished == true
-                          ? '종료한 러닝을 복구했습니다. 저장을 다시 시도해 주세요.'
-                          : '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
-                    ),
-                  RunControls(
-                    controller: state,
-                    busy: _endingRun,
-                    onFinish: _finishRun,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -5,6 +5,7 @@ import '../features/monetization/profile_cosmetics.dart';
 import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/layout/readable_width.dart';
 
 import '../shared/maps/run_map.dart';
 import '../features/social/blocked_users_screen.dart';
@@ -318,78 +319,114 @@ class _RunQuestShellState extends State<RunQuestShell> {
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: _tab == 3 ? Colors.white : null,
-      body: SafeArea(
-        child: Stack(
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _layout(pages, wide: ReadableWidth.isWide(constraints)),
+    );
+  }
+
+  Widget _layout(List<Widget> pages, {required bool wide}) {
+    void select(int index) {
+      // 홈과 아이템 탭을 열 때 코인과 착용 테두리를 다시 확인합니다.
+      if (index == 0 || index == 4) unawaited(_wallet?.refresh());
+      // 소셜·아이템 탭을 열 때 크루와 받은 초대를 다시 확인합니다.
+      if (index == 1 || index == 4) unawaited(_crew?.refresh());
+      setState(() => _tab = index);
+    }
+
+    final background = _tab == 3 ? Colors.white : null;
+    final content = SafeArea(
+      // 넓은 화면에서는 왼쪽 메뉴가 왼쪽 여백을 맡습니다.
+      left: !wide,
+      child: Stack(
+        children: [
+          Offstage(
+            offstage: _tab != 0,
+            child: HomeScreen(
+              groupController: _groups,
+              controller: _map,
+              conditionsController: _conditions,
+              progressService: _progress,
+              blockService: _blocks,
+              friendService: widget.friendService ?? _friends,
+              notificationController: _notifications,
+              wallet: _wallet,
+              onOpenPost: _openPost,
+              isActive: _tab == 0,
+              mapBridgeFactory: widget.mapBridgeFactory,
+            ),
+          ),
+          if (_tab != 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+              // 폴드를 펼친 화면에서도 글과 버튼이 읽기 좋은 폭을 넘지 않게 합니다.
+              child: ReadableWidth(child: pages[_tab - 1]),
+            ),
+          if (_groups case final groups?)
+            Positioned.fill(child: GroupStartCountdown(controller: groups)),
+        ],
+      ),
+    );
+
+    if (wide) {
+      // 폴드를 펼친 화면처럼 넓으면 메뉴를 왼쪽 세로로 옮겨 세로 공간을 넓힙니다.
+      return Scaffold(
+        backgroundColor: background,
+        body: Row(
           children: [
-            Offstage(
-              offstage: _tab != 0,
-              child: HomeScreen(
-                groupController: _groups,
-                controller: _map,
-                conditionsController: _conditions,
-                progressService: _progress,
-                blockService: _blocks,
-                friendService: widget.friendService ?? _friends,
-                notificationController: _notifications,
-                wallet: _wallet,
-                onOpenPost: _openPost,
-                isActive: _tab == 0,
-                mapBridgeFactory: widget.mapBridgeFactory,
+            SafeArea(
+              right: false,
+              child: NavigationRail(
+                backgroundColor: background,
+                selectedIndex: _tab,
+                indicatorColor: AppColors.blueSoft,
+                labelType: NavigationRailLabelType.all,
+                groupAlignment: 0,
+                onDestinationSelected: select,
+                destinations: [
+                  for (final item in _destinations)
+                    NavigationRailDestination(
+                      icon: Icon(item.$1),
+                      selectedIcon: Icon(item.$2),
+                      label: Text(item.$3),
+                    ),
+                ],
               ),
             ),
-            if (_tab != 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
-                child: pages[_tab - 1],
-              ),
-            if (_groups case final groups?)
-              Positioned.fill(child: GroupStartCountdown(controller: groups)),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(child: content),
           ],
         ),
-      ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: background,
+      body: content,
       bottomNavigationBar: NavigationBar(
-        backgroundColor: _tab == 3 ? Colors.white : null,
+        backgroundColor: background,
         surfaceTintColor: _tab == 3 ? Colors.transparent : null,
         height: 66,
         selectedIndex: _tab,
         indicatorColor: AppColors.blueSoft,
-        onDestinationSelected: (index) {
-          // 홈과 아이템 탭을 열 때 코인과 착용 테두리를 다시 확인합니다.
-          if (index == 0 || index == 4) unawaited(_wallet?.refresh());
-          // 소셜·아이템 탭을 열 때 크루와 받은 초대를 다시 확인합니다.
-          if (index == 1 || index == 4) unawaited(_crew?.refresh());
-          setState(() => _tab = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: '홈',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: '소셜',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '프로필',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.forum_outlined),
-            selectedIcon: Icon(Icons.forum),
-            label: '게시판',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined),
-            selectedIcon: Icon(Icons.inventory_2),
-            label: '아이템',
-          ),
+        onDestinationSelected: select,
+        destinations: [
+          for (final item in _destinations)
+            NavigationDestination(
+              icon: Icon(item.$1),
+              selectedIcon: Icon(item.$2),
+              label: item.$3,
+            ),
         ],
       ),
     );
   }
+
+  static const _destinations = [
+    (Icons.map_outlined, Icons.map, '홈'),
+    (Icons.groups_outlined, Icons.groups, '소셜'),
+    (Icons.person_outline, Icons.person, '프로필'),
+    (Icons.forum_outlined, Icons.forum, '게시판'),
+    (Icons.inventory_2_outlined, Icons.inventory_2, '아이템'),
+  ];
 }

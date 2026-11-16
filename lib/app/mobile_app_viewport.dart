@@ -1,15 +1,26 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
+/// 웹 미리보기에서만 앱을 폰 모양 틀 안에 보여줍니다.
+/// 실제 휴대폰·태블릿·폴더블에서는 기기 화면 크기 그대로 배치해 잘리거나 늘어나지 않게 합니다.
 class MobileAppViewport extends StatelessWidget {
-  const MobileAppViewport({required this.child, super.key});
+  const MobileAppViewport({
+    required this.child,
+    this.framed = kIsWeb,
+    super.key,
+  });
 
   final Widget child;
 
+  /// 폰 모양 틀을 씌울지 여부입니다. 기본값은 웹에서만 true입니다.
+  final bool framed;
+
   @override
   Widget build(BuildContext context) {
+    if (!framed) return child;
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Center(
