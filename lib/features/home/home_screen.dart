@@ -1,3 +1,6 @@
+import 'package:runquest/features/profile/widgets/personal_records_card.dart';
+import 'package:runquest/features/profile/data/personal_records_service.dart';
+
 import '../run_history/run_history_controller.dart';
 
 import 'dart:async';
@@ -42,6 +45,7 @@ class HomeScreen extends StatefulWidget {
     this.mapBridgeFactory,
     this.conditionsController,
     this.progressService,
+    this.personalRecordsService,
     this.blockService,
     this.friendService,
     this.groupController,
@@ -55,6 +59,9 @@ class HomeScreen extends StatefulWidget {
   final MapBridgeFactory? mapBridgeFactory;
   final ConditionsController? conditionsController;
   final ProgressService? progressService;
+
+  /// 있으면 러닝 완료 창에 '신기록!'을 알려 줍니다.
+  final PersonalRecordsService? personalRecordsService;
   final BlockService? blockService;
   final FriendService? friendService;
   final GroupController? groupController;
@@ -307,6 +314,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 RunRecordDetails(record: record),
+                // 서버에 저장된 기록만 최고 기록과 비교할 수 있습니다.
+                if (widget.personalRecordsService case final records?
+                    when !record.pendingSync)
+                  NewRecordBanner(service: records, runId: record.id),
                 if (widget.progressService case final progress?)
                   RunRewardSection(
                     service: progress,

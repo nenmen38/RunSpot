@@ -6,6 +6,7 @@ import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
 import 'package:runquest/features/chat/chat_sync.dart';
+import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:runquest/features/chat/friend_chat.dart';
 import 'package:runquest/features/home/run_guide/run_guide.dart';
 import 'package:runquest/features/settings/run_voice_settings.dart';
@@ -105,6 +106,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
 
   /// 친구 대화의 안 읽은 수와 실시간 신호입니다. 소셜 탭 배지와 대화 화면이 함께 씁니다.
   ChatSync? _chat;
+  PersonalRecordsService? _records;
   bool _socialShowChat = false;
 
   @override
@@ -123,6 +125,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       final client = Supabase.instance.client;
       _blocks = SupabaseBlockService(client);
       _chat = ChatSync(FriendChatService(client))..start();
+      _records = SupabasePersonalRecordsService(client);
       _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
       _reviews = SupabaseReviewService(client);
@@ -327,6 +330,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
           ),
         ),
         progressService: _progress,
+        personalRecordsService: _records,
         statisticsService: _statistics,
         mapController: _map,
         achievementService: _achievements,
@@ -370,6 +374,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
               controller: _map,
               conditionsController: _conditions,
               progressService: _progress,
+              personalRecordsService: _records,
               blockService: _blocks,
               friendService: widget.friendService ?? _friends,
               notificationController: _notifications,

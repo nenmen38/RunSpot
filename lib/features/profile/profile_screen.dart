@@ -1,3 +1,5 @@
+import 'package:runquest/features/profile/widgets/personal_records_card.dart';
+import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -26,6 +28,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onHistoryTap,
     this.onSettingsTap,
     this.progressService,
+    this.personalRecordsService,
     this.statisticsService,
     this.mapController,
     this.achievementService,
@@ -35,6 +38,9 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback onHistoryTap;
   final VoidCallback? onSettingsTap;
   final ProgressService? progressService;
+
+  /// 있으면 1km·5km·10km 개인 최고 기록을 보여줍니다.
+  final PersonalRecordsService? personalRecordsService;
   final StatisticsService? statisticsService;
   final LiveMapController? mapController;
   final AchievementService? achievementService;
@@ -85,6 +91,10 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 10),
             if (statisticsService != null)
               QuickStats(service: statisticsService!),
+            if (personalRecordsService case final records?) ...[
+              const SizedBox(height: 12),
+              PersonalRecordsCard(service: records),
+            ],
             const SizedBox(height: 20),
             if (mapController != null)
               RecentRuns(
