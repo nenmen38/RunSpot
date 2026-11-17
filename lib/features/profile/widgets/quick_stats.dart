@@ -5,11 +5,15 @@ import '../../../shared/widgets/account_query_panel.dart';
 import '../../../shared/formatters/run_format.dart';
 import '../data/statistics_service.dart';
 import '../models/run_statistics.dart';
+import '../weekly_goal.dart';
 import 'run_growth_panel.dart';
 
 class QuickStats extends StatelessWidget {
-  const QuickStats({required this.service, super.key});
+  const QuickStats({required this.service, this.goal, super.key});
   final StatisticsService service;
+
+  /// 주간 목표입니다. 없으면 앱 공용 설정을 씁니다.
+  final WeeklyGoal? goal;
 
   @override
   Widget build(BuildContext context) => AccountQueryPanel<RunStatistics>(
@@ -20,6 +24,11 @@ class QuickStats extends StatelessWidget {
     builder: (context, stats) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        WeeklyGoalBar(
+          weeklyDistanceMeters: stats.weeklyDistanceMeters,
+          goal: goal,
+        ),
+        const SizedBox(height: 12),
         RunStatCards(stats: stats),
         const SizedBox(height: 20),
         if (stats.growth case final growth?)
