@@ -1,3 +1,5 @@
+import 'package:runquest/shared/widgets/status_view.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -301,9 +303,12 @@ class _FriendChatViewState extends State<FriendChatView>
           ListTile(title: Text(error), onTap: _load),
         Expanded(
           child: !_loaded
-              ? const Center(child: CircularProgressIndicator())
+              ? const StatusView.loading()
               : _rows.isEmpty
-              ? Center(child: Text('아직 메시지가 없습니다.'))
+              ? const StatusView.empty(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  message: '아직 메시지가 없습니다.',
+                )
               : ListView.builder(
                   reverse: true,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -373,7 +378,7 @@ class _FriendChatViewState extends State<FriendChatView>
   }
 
   Widget _buildConversationList() {
-    if (!_loaded) return const Center(child: CircularProgressIndicator());
+    if (!_loaded) return const StatusView.loading();
     if (_loadError case final error?) {
       return ChatListPlaceholder(message: error, onRetry: _load);
     }

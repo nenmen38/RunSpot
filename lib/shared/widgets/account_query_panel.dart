@@ -1,3 +1,5 @@
+import 'package:runquest/shared/widgets/status_view.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -129,7 +131,7 @@ class _AccountQueryPanelState<T> extends State<AccountQueryPanel<T>>
         if (_loading)
           const LinearProgressIndicator()
         else if (_failed || !widget.isCurrentOwner())
-          Text(widget.errorMessage)
+          InlineError(message: widget.errorMessage)
         else if (value != null)
           widget.builder(context, value),
         Align(

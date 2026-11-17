@@ -1,3 +1,5 @@
+import 'package:runquest/shared/widgets/status_view.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -176,25 +178,18 @@ class NotificationSheet extends StatelessWidget {
 
   Widget _body() {
     if (controller.loading && controller.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const StatusView.loading();
     }
     if (controller.error != null && controller.items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(controller.error!, textAlign: TextAlign.center),
-            TextButton(onPressed: controller.open, child: const Text('다시 시도')),
-          ],
-        ),
+      return StatusView.error(
+        message: controller.error!,
+        onRetry: controller.open,
       );
     }
     if (controller.items.isEmpty) {
-      return const Center(
-        child: Text(
-          '아직 알림이 없어요.\n내 글 반응이나 함께 달리기 초대가 오면 알려 드릴게요.',
-          textAlign: TextAlign.center,
-        ),
+      return const StatusView.empty(
+        icon: Icons.notifications_none_rounded,
+        message: '아직 알림이 없어요.\n내 글 반응이나 함께 달리기 초대가 오면 알려 드릴게요.',
       );
     }
     return Column(

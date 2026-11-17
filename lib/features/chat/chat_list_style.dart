@@ -1,3 +1,4 @@
+import 'package:runquest/shared/widgets/status_view.dart';
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
@@ -151,37 +152,10 @@ class ChatListPlaceholder extends StatelessWidget {
   final VoidCallback? onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: AppColors.blueSoft,
-              foregroundColor: AppColors.blueDark,
-              child: Icon(
-                onRetry == null
-                    ? Icons.chat_bubble_outline_rounded
-                    : Icons.sync_problem_rounded,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (onRetry != null)
-              TextButton(onPressed: onRetry, child: const Text('다시 시도')),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => onRetry == null
+      ? StatusView.empty(
+          icon: Icons.chat_bubble_outline_rounded,
+          message: message,
+        )
+      : StatusView.error(message: message, onRetry: onRetry);
 }

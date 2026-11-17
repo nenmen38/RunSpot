@@ -1,3 +1,5 @@
+import 'package:runquest/shared/widgets/status_view.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -166,7 +168,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
         const SizedBox(height: 8),
         Expanded(
           child: _loading && _feed == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const StatusView.loading()
               : LayoutBuilder(
                   builder: (context, constraints) => RefreshIndicator(
                     onRefresh: () async {

@@ -1,3 +1,5 @@
+import 'package:runquest/shared/widgets/status_view.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -315,7 +317,7 @@ class _BoardScreenState extends State<BoardScreen> {
       );
     }
     if (controller.loading && controller.posts.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const StatusView.loading();
     }
     if (controller.needsRegion) {
       return _Notice(
@@ -455,22 +457,12 @@ class _Notice extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 44, color: AppColors.gray),
-        const SizedBox(height: 12),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        if (action != null) ...[
-          const SizedBox(height: 12),
-          FilledButton(onPressed: onAction, child: Text(action!)),
-        ],
-      ],
-    ),
-  );
+  Widget build(BuildContext context) => icon == Icons.cloud_off_outlined
+      ? StatusView.error(message: message, onRetry: onAction)
+      : StatusView.empty(
+          icon: icon,
+          message: message,
+          actionLabel: action,
+          onAction: onAction,
+        );
 }
