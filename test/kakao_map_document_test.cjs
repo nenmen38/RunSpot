@@ -58,6 +58,14 @@ test('단절된 경로를 각각 그리고 출발·도착을 따로 표시합니
   const lines=f.lines.length;f.update(d);assert.equal(f.lines.length,lines);
   f.update({...d,segments:[]});assert.ok(f.lines.every(l=>l.map===null));
 });
+test('구간별 색을 받으면 그 색으로 경로를 그리고 잘못된 색은 기본색을 씁니다',()=>{
+  const f=documentFixture(),d=data();d.segments=[[[37,127],[37.1,127]],[[37.1,127],[37.2,127]]];
+  d.colors=['#16a34a','red;x'];f.update(d);
+  const colors=f.lines.filter(l=>l.strokeWeight===5).map(l=>l.strokeColor);
+  assert.deepEqual(colors,['#16a34a','#16836f']);
+  f.update({...d,colors:['#dc2626','#f59e0b']});
+  assert.deepEqual(f.lines.filter(l=>l.strokeWeight===5&&l.map!==null).map(l=>l.strokeColor),['#dc2626','#f59e0b']);
+});
 test('이름은 텍스트로 표시하며 삭제된 러너·내 위치는 지도에서 제거합니다',()=>{
   const f=documentFixture(),d=data();d.markers=[{id:'friend',point:[37,127],nickname:'<img onerror=alert(1)>',selected:true}];f.update(d);
   const runner=f.overlays.find(o=>o.content.className==='runner selected');

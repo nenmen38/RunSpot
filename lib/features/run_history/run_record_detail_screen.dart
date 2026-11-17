@@ -235,6 +235,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                   else
                     SavedRunMap(
                       route: _route!,
+                      splits: _record.splits,
                       mapBridgeFactory: widget.mapBridgeFactory,
                     ),
                   Padding(

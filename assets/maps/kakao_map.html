@@ -422,17 +422,19 @@ window.createRunspotMap = () => {
         if(!aura.fused(marker.id)||!entry.glided){entry.overlay.setPosition(point(marker.point));}
         entry.glided=aura.fused(marker.id);
       }
-      const nextGeometry=JSON.stringify([data.segments,data.endpoints]);
+      const nextGeometry=JSON.stringify([data.segments,data.colors,data.endpoints]);
       if(nextGeometry!==geometry){
         geometry=nextGeometry;
         for(const line of lines) line.setMap(null);
         for(const end of ends) end.setMap(null);
         lines=[];ends=[];
-        for(const segment of data.segments){if(segment.length<2)continue;
+        // 구간마다 색을 받으면(페이스 색 경로) 그 색으로, 없으면 기본 초록으로 그립니다.
+        data.segments.forEach((segment,index)=>{if(segment.length<2)return;
           const path=segment.map(point);
-          for(const [strokeColor,strokeWeight] of [['#ffffff',8],['#16836f',5]])
+          const color=(Array.isArray(data.colors)&&/^#[0-9a-f]{6}$/i.test(data.colors[index]))?data.colors[index]:'#16836f';
+          for(const [strokeColor,strokeWeight] of [['#ffffff',8],[color,5]])
             lines.push(new kakao.maps.Polyline({map,path,strokeColor,strokeWeight,strokeOpacity:1}));
-        }
+        });
         const points=data.segments.flat();
         if(data.endpoints&&points.length){
           const first=points[0],last=points[points.length-1];
