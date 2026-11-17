@@ -43,11 +43,17 @@ class ChatMessageBubble extends StatelessWidget {
     required this.sentAt,
     required this.showDay,
     this.unread = false,
+    this.replyPreview,
+    this.content,
+    this.onLongPress,
     super.key,
   });
 
   /// 내가 보낸 메시지를 상대가 아직 읽지 않았으면 true입니다.
   final bool unread;
+  final String? replyPreview;
+  final Widget? content;
+  final VoidCallback? onLongPress;
 
   final String body;
   final String nickname;
@@ -134,33 +140,61 @@ class ChatMessageBubble extends StatelessWidget {
                             ),
                           ),
                         Flexible(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: mine
-                                  ? AppColors.blueDark
-                                  : theme.colorScheme.surface,
-                              border: mine
-                                  ? null
-                                  : Border.all(
-                                      color: theme.colorScheme.outlineVariant,
-                                    ),
-                              borderRadius: BorderRadius.only(
-                                topLeft: mine ? corner : groupedCorner,
-                                topRight: mine ? groupedCorner : corner,
-                                bottomLeft: corner,
-                                bottomRight: corner,
+                          child: GestureDetector(
+                            onLongPress: onLongPress,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: mine
+                                    ? AppColors.blueDark
+                                    : theme.colorScheme.surface,
+                                border: mine
+                                    ? null
+                                    : Border.all(
+                                        color: theme.colorScheme.outlineVariant,
+                                      ),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: mine ? corner : groupedCorner,
+                                  topRight: mine ? groupedCorner : corner,
+                                  bottomLeft: corner,
+                                  bottomRight: corner,
+                                ),
                               ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              child: SelectableText(
-                                body,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: foreground,
-                                  height: 1.45,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (replyPreview case final preview?)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        child: Text(
+                                          '↪ $preview',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: foreground.withValues(
+                                                  alpha: .8,
+                                                ),
+                                              ),
+                                        ),
+                                      ),
+                                    content ??
+                                        Text(
+                                          body,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                color: foreground,
+                                                height: 1.45,
+                                              ),
+                                        ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -202,6 +236,7 @@ class ChatComposer extends StatelessWidget {
     required this.sending,
     required this.canSend,
     required this.onSend,
+    this.onAttach,
     super.key,
   });
 
@@ -209,6 +244,7 @@ class ChatComposer extends StatelessWidget {
   final bool sending;
   final bool canSend;
   final VoidCallback onSend;
+  final VoidCallback? onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +263,12 @@ class ChatComposer extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            if (onAttach != null)
+              IconButton(
+                tooltip: '첨부',
+                onPressed: canSend && !sending ? onAttach : null,
+                icon: const Icon(Icons.add_circle_outline_rounded),
+              ),
             Expanded(
               child: TextField(
                 controller: controller,

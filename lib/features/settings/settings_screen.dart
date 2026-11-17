@@ -1,3 +1,4 @@
+import '../moderation/moderation_screen.dart';
 import '../notifications/push_settings_screen.dart';
 
 import 'package:runquest/features/notifications/data/push_service.dart';
@@ -93,6 +94,22 @@ class SettingsScreen extends StatelessWidget {
     appBar: AppBar(title: const Text('설정')),
     body: ListView(
       children: [
+        ListTile(
+          leading: const Icon(Icons.policy_outlined),
+          title: const Text('이용 제한·이의신청'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            if (!isCurrentOwner()) return;
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ModerationScreen(
+                  service: ModerationService(Supabase.instance.client),
+                ),
+              ),
+            );
+          },
+        ),
         ListTile(
           leading: const Icon(Icons.notifications_outlined),
           title: const Text('알림 설정'),

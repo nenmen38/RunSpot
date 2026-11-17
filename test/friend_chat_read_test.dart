@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/chat/chat_sync.dart';
 import 'package:runquest/features/chat/friend_chat.dart';
+import 'package:runquest/features/chat/friend_chat_content.dart';
 import 'package:runquest/features/notifications/data/push_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -31,6 +32,24 @@ class _Chat extends FriendChatService {
   Future<void> markRead(String peer, int lastId) async =>
       marked.add((peer, lastId));
 
+  final sent = <FriendChatDraft>[];
+
+  @override
+  Future<void> sendContent(String peer, FriendChatDraft draft) async {
+    sent.add(draft);
+  }
+
+  @override
+  Future<void> delete(String peer, int id) async {
+    room = [
+      for (final row in room)
+        if (row['id'] == id)
+          {...row, 'body': '삭제된 메시지입니다.', 'kind': 'deleted'}
+        else
+          row,
+    ];
+  }
+
   int total = 0;
   int loads = 0;
   void Function()? changed;
@@ -58,6 +77,59 @@ Map<String, dynamic> message(int id, String sender, {bool read = true}) => {
 };
 
 void main() {
+  testWidgets('메시지에 답장하고 내 메시지를 두 사람의 대화에서 삭제합니다', (tester) async {
+    final chat = _Chat()..room = [message(2, 'me'), message(1, 'friend')];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FriendChatView(service: chat, peer: 'friend', nickname: '친구'),
+      ),
+    );
+    await tester.pump();
+    await tester.longPress(find.text('메시지1'));
+    await tester.pumpAndSettle();
+    expect(find.text('복사'), findsOneWidget);
+    expect(find.text('삭제'), findsNothing);
+    await tester.tap(find.text('답장'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '답장 내용');
+    await tester.pump();
+    await tester.tap(find.byTooltip('보내기'));
+    await tester.pumpAndSettle();
+    expect(chat.sent.single.body, '답장 내용');
+    expect(chat.sent.single.replyTo, 1);
+
+    await tester.longPress(find.text('메시지2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+    expect(find.text('메시지2'), findsNothing);
+    expect(find.text('삭제된 메시지입니다.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('공유된 달리기 기록을 요약 카드로 표시합니다', (tester) async {
+    final chat = _Chat()
+      ..room = [
+        {
+          ...message(1, 'friend'),
+          'kind': 'run',
+          'run_summary': {'distance_m': 5000, 'duration_sec': 1500},
+        },
+      ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FriendChatView(service: chat, peer: 'friend', nickname: '친구'),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('달리기 기록'), findsOneWidget);
+    expect(find.textContaining('5.00 km'), findsOneWidget);
+    expect(find.textContaining('5:00 /km'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('상대가 안 읽은 내 메시지에만 1을 붙이고 받은 메시지는 읽음으로 알립니다', (tester) async {
     final chat = _Chat()
       ..room = [

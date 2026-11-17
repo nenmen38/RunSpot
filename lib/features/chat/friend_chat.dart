@@ -1,12 +1,17 @@
+import '../moderation/moderation_screen.dart';
+
 import 'package:runquest/shared/widgets/status_view.dart';
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'chat_list_style.dart';
+import 'friend_chat_content.dart';
 import 'chat_sync.dart';
 import 'chat_room_style.dart';
 
@@ -29,6 +34,37 @@ class FriendChatService {
       'message_body': body,
       'request_id': requestId,
     });
+  }
+
+  Future<void> sendContent(String peer, FriendChatDraft draft) async {
+    if (draft.body case final body? when draft.replyTo == null) {
+      return send(peer, body, draft.id);
+    }
+    await _call('friend_chat_send_content', {
+      'peer_id': peer,
+      'message_body': draft.body,
+      'request_id': draft.id,
+      'reply_to': draft.replyTo,
+      'jpeg': draft.photo,
+      'run_id': draft.runId,
+    });
+  }
+
+  Future<Uint8List> photo(String peer, int id) async {
+    final encoded = await _call('friend_chat_photo', {
+      'peer_id': peer,
+      'message_id': id,
+    }) as String?;
+    if (encoded == null) throw StateError('사진을 볼 수 없습니다.');
+    return base64Decode(encoded.replaceAll('\n', ''));
+  }
+
+  Future<void> report(int id, String reason) async {
+    await _call('report_chat', {'message_id': id, 'reason': reason});
+  }
+
+  Future<void> delete(String peer, int id) async {
+    await _call('friend_chat_delete', {'peer_id': peer, 'message_id': id});
   }
 
   /// 안 읽은 메시지 총 개수입니다.
@@ -125,7 +161,10 @@ class _FriendChatViewState extends State<FriendChatView>
   bool _loaded = false;
   String? _loadError;
   String? _sendError;
-  ({String body, String id})? _pendingMessage;
+  FriendChatDraft? _pendingMessage;
+  Map<String, dynamic>? _reply;
+  bool _reloadQueued = false;
+  bool _refreshAfterDialog = false;
 
   /// 서버에 읽음으로 알린 마지막 메시지 ID입니다. 같은 값을 반복해서 보내지 않습니다.
   int _markedRead = 0;
@@ -155,7 +194,9 @@ class _FriendChatViewState extends State<FriendChatView>
   void _schedulePoll() {
     _poll?.cancel();
     _poll = Timer.periodic(_pollInterval, (_) {
-      if (ModalRoute.of(context)?.isCurrent != false) unawaited(_load());
+      if (widget.peer != null || ModalRoute.of(context)?.isCurrent != false) {
+        unawaited(_load());
+      }
     });
   }
 
@@ -164,7 +205,9 @@ class _FriendChatViewState extends State<FriendChatView>
     if (sync == null || !mounted) return;
     if (_seenRevision != sync.revision) {
       _seenRevision = sync.revision;
-      if (ModalRoute.of(context)?.isCurrent != false) unawaited(_load());
+      if (widget.peer != null || ModalRoute.of(context)?.isCurrent != false) {
+        unawaited(_load());
+      }
     }
     if (_poll != null) _schedulePoll();
   }
@@ -179,26 +222,39 @@ class _FriendChatViewState extends State<FriendChatView>
   }
 
   Future<void> _load({bool older = false}) async {
-    if (_loading || !mounted) return;
+    if (!mounted) return;
+    if (_loading) {
+      if (!older) _reloadQueued = true;
+      return;
+    }
     _loading = true;
     try {
-      final page = await widget.service.load(
-        peer: widget.peer,
+      final peer = widget.peer;
+      final firstPage = await widget.service.load(
+        peer: peer,
         before: older ? _rows.last['id'] as int : null,
       );
+      final page = [...firstPage];
+      var lastPageSize = page.length;
+      if (!older && peer != null && _rows.length >= 50) {
+        final oldest = _rows.last['id'] as int;
+        while (lastPageSize == 50 && (page.last['id'] as int) > oldest) {
+          if (!mounted) return;
+          final next = await widget.service.load(
+            peer: peer,
+            before: page.last['id'] as int,
+          );
+          lastPageSize = next.length;
+          page.addAll(next);
+        }
+      }
       if (!mounted) return;
       setState(() {
-        if (widget.peer == null) {
-          _rows = page;
-        } else {
-          final ids = page.map((row) => row['id']).toSet();
-          final overlap = _rows.any((row) => ids.contains(row['id']));
-          _rows = older
-              ? [..._rows, ...page]
-              : overlap
-              ? [...page, ..._rows.where((row) => !ids.contains(row['id']))]
-              : page;
-          if (older || !overlap) _older = page.length == 50;
+        _rows = older ? [..._rows, ...page] : page;
+        _older = lastPageSize == 50;
+        final replyId = _reply?['id'];
+        for (final row in _rows) {
+          if (row['id'] == replyId) _reply = row;
         }
         _loaded = true;
         _loadError = null;
@@ -214,17 +270,27 @@ class _FriendChatViewState extends State<FriendChatView>
       }
     } finally {
       _loading = false;
+      if (_reloadQueued && mounted) {
+        _reloadQueued = false;
+        unawaited(_load());
+      }
     }
   }
 
   /// 대화방을 보고 있을 때 받은 메시지 중 가장 최근 것까지 읽음으로 표시합니다.
   void _markRead() {
     final peer = widget.peer;
-    if (peer == null || ModalRoute.of(context)?.isCurrent == false) return;
+    if (peer == null) return;
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      _refreshAfterDialog = true;
+      return;
+    }
+    _refreshAfterDialog = false;
     var latest = 0;
     for (final row in _rows) {
       final id = row['id'];
-      if (row['sender_id'] != widget.service.ownerId &&
+      if (row['kind'] != 'deleted' &&
+          row['sender_id'] != widget.service.ownerId &&
           id is int &&
           id > latest) {
         latest = id;
@@ -240,30 +306,197 @@ class _FriendChatViewState extends State<FriendChatView>
     );
   }
 
+  void _showError(String message) {
+    if (mounted) setState(() => _sendError = message);
+  }
+
   Future<void> _send() async {
-    final text = _input.text.trim();
-    if (_sending || text.isEmpty || widget.peer == null) return;
+    final body = _input.text.trim();
+    if (_sending || body.isEmpty) return;
+    final replyTo = _reply?['id'] as int?;
+    final previous = _pendingMessage;
+    await _sendDraft(
+      previous != null && previous.body == body && previous.replyTo == replyTo
+          ? previous
+          : FriendChatDraft(
+              id: const Uuid().v4(),
+              body: body,
+              replyTo: replyTo,
+            ),
+    );
+  }
+
+  Future<void> _sendDraft(FriendChatDraft draft) async {
+    final peer = widget.peer;
+    if (_sending || peer == null || !mounted) return;
     setState(() {
       _sending = true;
       _sendError = null;
+      _pendingMessage = draft;
     });
     try {
-      final previous = _pendingMessage;
-      final message = previous != null && previous.body == text
-          ? previous
-          : (body: text, id: const Uuid().v4());
-      _pendingMessage = message;
-      await widget.service.send(widget.peer!, text, message.id);
-      _pendingMessage = null;
+      await widget.service.sendContent(peer, draft);
       if (!mounted) return;
-      if (_input.text.trim() == text) _input.clear();
+      setState(() {
+        _pendingMessage = null;
+        if (_reply?['id'] == draft.replyTo) _reply = null;
+      });
+      if (_input.text.trim() == draft.body) _input.clear();
       await _load();
+    } on PostgrestException catch (error) {
+      _showError(error.message);
     } catch (_) {
-      if (mounted) {
-        setState(() => _sendError = '메시지를 보내지 못했습니다. 친구 관계와 연결을 확인해 주세요.');
-      }
+      _showError('메시지를 보내지 못했습니다. 친구 관계와 연결을 확인해 주세요.');
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _attach() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_outlined),
+              title: const Text('갤러리 사진'),
+              onTap: () => Navigator.pop(context, 'photo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.directions_run_rounded),
+              title: const Text('기록 자랑하기'),
+              onTap: () => Navigator.pop(context, 'run'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null || _sending) return;
+    try {
+      final replyTo = _reply?['id'] as int?;
+      if (choice == 'photo') {
+        final photo = await pickFriendChatPhoto(context);
+        if (photo == null || !mounted) return;
+        await _sendDraft(
+          FriendChatDraft(
+            id: const Uuid().v4(),
+            photo: base64Encode(photo),
+            replyTo: replyTo,
+          ),
+        );
+      } else {
+        final id = await pickFriendChatRun(context, widget.service.client);
+        if (id == null || !mounted) return;
+        await _sendDraft(
+          FriendChatDraft(id: const Uuid().v4(), runId: id, replyTo: replyTo),
+        );
+      }
+    } on FriendChatPhotoException catch (error) {
+      _showError(error.message);
+    } on AuthException {
+      _showError('계정이 변경되었습니다. 다시 로그인해 주세요.');
+    } finally {
+      if (mounted && _refreshAfterDialog) _markRead();
+    }
+  }
+
+  Future<void> _messageActions(Map<String, dynamic> row) async {
+    final mine = row['sender_id'] == widget.service.ownerId;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.reply_rounded),
+              title: const Text('답장'),
+              onTap: () => Navigator.pop(context, 'reply'),
+            ),
+            if (row['kind'] == null || row['kind'] == 'text')
+              ListTile(
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text('복사'),
+                onTap: () => Navigator.pop(context, 'copy'),
+              ),
+            if (!mine)
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('신고'),
+                onTap: () => Navigator.pop(context, 'report'),
+              ),
+            if (mine)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: const Text('삭제'),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (_refreshAfterDialog) _markRead();
+    switch (action) {
+      case 'reply':
+        final current = _rows
+            .where((item) => item['id'] == row['id'])
+            .firstOrNull;
+        if (current != null && current['kind'] != 'deleted') {
+          setState(() => _reply = current);
+        }
+      case 'copy':
+        await Clipboard.setData(ClipboardData(text: row['body'] as String));
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('메시지를 복사했습니다.')));
+        }
+      case 'report':
+        final reason = await moderationReason(
+          context,
+          '메시지 신고',
+          explanation:
+              '신고한 메시지와 직전 세 메시지의 텍스트가 운영자에게 전달됩니다. 사진을 신고하면 해당 사진도 포함됩니다.',
+        );
+        if (!mounted || reason == null) return;
+        try {
+          await widget.service.report(row['id'] as int, reason);
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('신고가 접수되었습니다.')));
+          }
+        } catch (_) {
+          _showError('신고하지 못했습니다. 연결과 메시지 상태를 확인해 주세요.');
+        }
+      case 'delete':
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('메시지 삭제'),
+            content: const Text('이 메시지를 두 사람의 대화에서 삭제할까요?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (_refreshAfterDialog) _markRead();
+        if (confirmed != true) return;
+        try {
+          await widget.service.delete(widget.peer!, row['id'] as int);
+          await _load();
+        } catch (_) {
+          _showError('메시지를 삭제하지 못했습니다. 다시 시도해 주세요.');
+        }
     }
   }
 
@@ -329,6 +562,23 @@ class _FriendChatViewState extends State<FriendChatView>
                     return ChatMessageBubble(
                       key: ValueKey(row['id']),
                       body: row['body'] as String,
+                      replyPreview: row['reply_preview'] as String?,
+                      onLongPress: row['kind'] == 'deleted'
+                          ? null
+                          : () => _messageActions(row),
+                      content: switch (row['kind']) {
+                        'photo' => FriendChatPhoto(
+                          load: () => widget.service.photo(
+                            widget.peer!,
+                            row['id'] as int,
+                          ),
+                        ),
+                        'run' => FriendChatRunCard(
+                          summary: row['run_summary'] as Map,
+                          mine: row['sender_id'] == widget.service.ownerId,
+                        ),
+                        _ => null,
+                      },
                       nickname: widget.nickname ?? '',
                       mine: row['sender_id'] == widget.service.ownerId,
                       sentAt: time,
@@ -345,11 +595,47 @@ class _FriendChatViewState extends State<FriendChatView>
                 ),
         ),
         if (_sendError case final error?) Text(error),
+        if (_pendingMessage case final draft?
+            when draft.body == null && !_sending)
+          ListTile(
+            title: const Text('보내지 못한 첨부'),
+            leading: IconButton(
+              tooltip: '첨부 취소',
+              onPressed: () => setState(() {
+                _pendingMessage = null;
+                _sendError = null;
+              }),
+              icon: const Icon(Icons.close_rounded),
+            ),
+            trailing: TextButton(
+              onPressed: () => _sendDraft(draft),
+              child: const Text('다시 보내기'),
+            ),
+          ),
+        if (_reply case final reply?)
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.reply_rounded),
+            title: const Text('답장'),
+            subtitle: Text(
+              reply['body'] as String,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: IconButton(
+              tooltip: '답장 취소',
+              onPressed: () => setState(() => _reply = null),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ),
         ChatComposer(
           controller: _input,
           sending: _sending,
-          canSend: _loadError == null,
+          canSend:
+              _loadError == null &&
+              (_pendingMessage == null || _pendingMessage!.body != null),
           onSend: _send,
+          onAttach: _attach,
         ),
       ],
     );

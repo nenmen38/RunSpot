@@ -1,3 +1,5 @@
+import '../moderation/moderation_screen.dart';
+
 import 'package:flutter/material.dart';
 
 import '../run_history/widgets/run_splits_panel.dart';
@@ -6,7 +8,6 @@ import '../run_history/widgets/run_motion_evidence_panel.dart';
 import '../../shared/widgets/account_query_panel.dart';
 import 'data/review_service.dart';
 import 'widgets/staff_mfa_control.dart';
-import 'widgets/board_reports_panel.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({this.service, super.key});
@@ -134,7 +135,49 @@ class _AdminScreenState extends State<AdminScreen> {
         else
           const Text('관리 기능에 연결할 수 없습니다.'),
         if (service is SupabaseReviewService)
-          BoardReportsPanel(key: ValueKey(_revision), service: service),
+          Column(
+            children: [
+              ListTile(
+                title: const Text('전체 위반 이력'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ModerationScreen(
+                      service: ModerationService(service.client),
+                      mode: 'history',
+                    ),
+                  ),
+                ),
+              ),
+              ListTile(
+                title: const Text('통합 신고 관리'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ModerationScreen(
+                      service: ModerationService(service.client),
+                      mode: 'cases',
+                    ),
+                  ),
+                ),
+              ),
+              ListTile(
+                title: const Text('이의신청 관리'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ModerationScreen(
+                      service: ModerationService(service.client),
+                      mode: 'appeals',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
