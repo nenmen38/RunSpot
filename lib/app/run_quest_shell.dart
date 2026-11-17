@@ -5,6 +5,8 @@ import '../features/monetization/profile_cosmetics.dart';
 import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
+import 'package:runquest/features/home/run_guide/run_guide.dart';
+import 'package:runquest/features/settings/run_voice_settings.dart';
 import 'package:runquest/shared/layout/readable_width.dart';
 
 import '../shared/maps/run_map.dart';
@@ -133,6 +135,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
         sharingPreferenceService: SupabaseRunSharingPreferenceService(client),
         locationService: DeviceLocationService(),
         runnerService: SupabaseLiveRunnerService(client),
+        runGuide: RunGuide(
+          DeviceRunGuideOutput(),
+          voiceEnabled: () => RunVoiceSettings.instance.enabled,
+        ),
         runHistory: RunHistoryController(
           records,
           outbox: SqliteRunOutbox(

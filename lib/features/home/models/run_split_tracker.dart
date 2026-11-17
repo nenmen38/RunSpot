@@ -22,6 +22,9 @@ class RunSplitTracker {
     _duration = duration;
   }
 
+  /// 지금까지 다 달린 1km 구간입니다.
+  List<RunSplit> get completed => List.unmodifiable(_completed);
+
   void advance(double distance, Duration duration) {
     if (distance <= _distance || duration < _duration) return;
     var boundary = (_completed.length + 1) * 1000;

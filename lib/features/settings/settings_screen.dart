@@ -11,6 +11,7 @@ import '../profile/privacy_controls.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'appearance/app_appearance.dart';
+import 'run_voice_settings.dart';
 import 'appearance/appearance_settings_screen.dart';
 import 'data/account_service.dart';
 import 'data/password_service.dart';
@@ -98,6 +99,16 @@ class SettingsScreen extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push<void>(
             MaterialPageRoute(builder: (_) => const PushSettingsScreen()),
+          ),
+        ),
+        ListenableBuilder(
+          listenable: RunVoiceSettings.instance,
+          builder: (context, _) => SwitchListTile(
+            secondary: const Icon(Icons.record_voice_over_outlined),
+            title: const Text('러닝 음성 안내'),
+            subtitle: const Text('1km마다 구간 기록과 평균 페이스를 읽어 줍니다.'),
+            value: RunVoiceSettings.instance.enabled,
+            onChanged: RunVoiceSettings.instance.setEnabled,
           ),
         ),
         ListenableBuilder(

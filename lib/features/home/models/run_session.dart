@@ -81,6 +81,9 @@ class RunSession {
   double get distanceMeters => _distanceMeters;
   Duration? get currentPace => isRunning ? _pace.current : null;
   Duration? get averagePace => calculateRunPace(distanceMeters, duration);
+
+  /// 다 달린 1km 구간입니다. 1km마다 음성 안내에 씁니다.
+  List<RunSplit> get completedSplits => _splits?.completed ?? const [];
   List<List<LocationFix>> get routeSegments =>
       _routeSnapshot ??= List<List<LocationFix>>.unmodifiable(
         _segments.map((segment) => List<LocationFix>.unmodifiable(segment)),

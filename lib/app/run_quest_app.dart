@@ -87,7 +87,7 @@ class RunQuestApp extends StatelessWidget {
       listenable: settings,
       builder: (context, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'RunQuest',
+        title: 'RunSpot',
         theme: _light,
         darkTheme: _dark,
         themeMode: settings.theme.mode,

@@ -1,3 +1,5 @@
+import 'run_guide/run_guide.dart';
+
 import 'dart:async';
 
 import '../diagnostics/error_reporter.dart';
@@ -23,7 +25,11 @@ class LiveMapController extends ChangeNotifier {
     required this.runHistory,
     this.sharingPreferenceService,
     this.checkpointStore,
+    this.runGuide,
   });
+
+  /// 러닝 중 알림 내용과 1km 음성 안내를 맡습니다. 없으면 안내하지 않습니다.
+  final RunGuide? runGuide;
 
   final LocationService locationService;
   final LiveRunnerService runnerService;
@@ -467,6 +473,8 @@ class LiveMapController extends ChangeNotifier {
   void _acceptPosition(LocationFix fix) {
     if (_disposed || (!_active && runSession?.isRunning != true)) return;
     runSession?.accept(fix);
+    // 화면이 꺼져 있어도 위치가 들어올 때마다 알림과 음성 안내를 갱신합니다.
+    if (runSession case final session?) runGuide?.update(session);
     if ((sharing || runSession?.isRunning == true) && !fix.isUsable) {
       unawaited(
         _locationLost(const LocationFailure(LocationProblem.unavailable)),
