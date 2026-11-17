@@ -157,7 +157,7 @@ class _Badge extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: highlighted ? Colors.white : AppColors.blueDark,
+          color: highlighted ? Colors.white : AppColors.blueText,
           fontWeight: FontWeight.w700,
         ),
       ),

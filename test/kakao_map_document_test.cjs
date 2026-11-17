@@ -23,12 +23,13 @@ function documentFixture() {
   const window={RunSpotMap:{postMessage:message=>events.push(JSON.parse(message))}};
   const kakao={maps:{Map:MapView,LatLng,LatLngBounds:Bounds,CustomOverlay:Overlay,Polyline:Line,load:fn=>fn(),event:{addListener(map,name,fn){map.listeners[name]=fn;}}}};
   window.kakao=kakao;
-  const context={window,kakao,document:{getElementById:()=>container,createElement:element},ResizeObserver:class{observe(){}},Map,Set,JSON,Math};
+  const root={classes:new Set(),classList:{toggle(name,on){on?root.classes.add(name):root.classes.delete(name);}}};
+  const context={window,kakao,document:{documentElement:root,getElementById:()=>container,createElement:element},ResizeObserver:class{observe(){}},Map,Set,JSON,Math};
   const html=fs.readFileSync('assets/maps/kakao_map.html','utf8');
   const inline=html.match(/<script>([\s\S]*?)<\/script>/)[1];
   vm.runInNewContext(inline,context);
   window.createRunspotMap();
-  return {events,map:maps[0],overlays,lines,container,window,update:window.runspotMap.update,frame:window.runspotMap.auraFrame,effects:()=>Array.from(window.runspotMap.auraEffects())};
+  return {events,map:maps[0],overlays,lines,container,root,window,update:window.runspotMap.update,frame:window.runspotMap.auraFrame,effects:()=>Array.from(window.runspotMap.auraEffects())};
 }
 const data = () => ({camera:{type:'move',revision:0,center:[37,127],zoom:16.5},position:[37,127],markers:[],segments:[],endpoints:false});
 
@@ -57,6 +58,12 @@ test('단절된 경로를 각각 그리고 출발·도착을 따로 표시합니
   }
   const lines=f.lines.length;f.update(d);assert.equal(f.lines.length,lines);
   f.update({...d,segments:[]});assert.ok(f.lines.every(l=>l.map===null));
+});
+test('다크 모드면 지도를 어둡게 하는 표시를 켜고 끕니다',()=>{
+  const f=documentFixture(),d=data();
+  f.update({...d,dark:true});assert.ok(f.root.classes.has('dark'));
+  f.update({...d,dark:false});assert.ok(!f.root.classes.has('dark'));
+  f.update(d);assert.ok(!f.root.classes.has('dark'));
 });
 test('구간별 색을 받으면 그 색으로 경로를 그리고 잘못된 색은 기본색을 씁니다',()=>{
   const f=documentFixture(),d=data();d.segments=[[[37,127],[37.1,127]],[[37.1,127],[37.2,127]]];

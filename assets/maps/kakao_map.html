@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <style>
     html,body,#map { margin:0; width:100%; height:100%; background:#f8fafc; overflow:hidden; }
+    /* 다크 모드에서는 밝은 지도를 살짝 어둡게 해 눈부심을 줄입니다. 경로·표시도 함께 어두워지지 않게 대비를 조금 올립니다. */
+    html.dark,html.dark body { background:#101215; }
+    html.dark #map { filter: brightness(.72) contrast(1.12) saturate(.9); }
     .point { box-sizing:border-box; width:28px; height:28px; border:4px solid white; border-radius:50%; background:#3086ff; box-shadow:0 1px 6px #0004; }
     .runner { width:44px; height:44px; border:2px solid white; border-radius:50%; background:#16836f; color:white; font:700 14px sans-serif; padding:0; }
     .runner.group { background:#6750a4; width:50px; height:50px; }
@@ -386,6 +389,7 @@ window.createRunspotMap = () => {
     const observer = new ResizeObserver(() => {const center=map.getCenter(); map.relayout(); map.setCenter(center);});
     observer.observe(container);
     window.runspotMap = {auraFrame: now => aura.frame(now), auraEffects: () => aura.effects(), update(data) {
+      document.documentElement.classList.toggle('dark', data.dark===true);
       aura.set(data);
       if (data.position) {
         if (!own) {ownElement=document.createElement('div'); ownElement.className='point'; ownElement.setAttribute('aria-label','내 현재 위치'); own=overlay(data.position,ownElement,5);}

@@ -446,7 +446,7 @@ class CoinShopSheet extends StatelessWidget {
             if (wallet.nextRewardLevel case final level?)
               Text(
                 'Lv $level이 되면 ${wallet.nextRewardCoins}코인을 더 받아요.',
-                style: text.bodySmall?.copyWith(color: AppColors.blueDark),
+                style: text.bodySmall?.copyWith(color: AppColors.blueText),
               ),
           ],
           if (note case final message?) ...[
@@ -744,7 +744,7 @@ class _CrewTicketCard extends StatelessWidget {
               color: AppColors.blueSoft,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.groups, color: AppColors.blueDark),
+            child: Icon(Icons.groups, color: AppColors.blueText),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -889,7 +889,7 @@ class FrameShop extends StatelessWidget {
                             Text(
                               '${formatNumber(price)}코인',
                               style: text.labelLarge?.copyWith(
-                                color: AppColors.blueDark,
+                                color: AppColors.blueText,
                               ),
                             ),
                           ],

@@ -52,8 +52,8 @@ class RunRecordDetails extends StatelessWidget {
       const SizedBox(height: 12),
       Text(
         '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
-        style: const TextStyle(
-          color: AppColors.blueDark,
+        style: TextStyle(
+          color: AppColors.blueText,
           fontSize: 36,
           fontWeight: FontWeight.w800,
           letterSpacing: -1,

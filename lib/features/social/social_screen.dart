@@ -128,7 +128,7 @@ class _SocialScreenState extends State<SocialScreen>
                 ),
                 foregroundColor: WidgetStateProperty.resolveWith(
                   (states) => states.contains(WidgetState.selected)
-                      ? AppColors.blueDark
+                      ? AppColors.blueText
                       : theme.colorScheme.onSurfaceVariant,
                 ),
                 textStyle: WidgetStateProperty.resolveWith(

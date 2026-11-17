@@ -167,8 +167,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               ),
                             Text(
                               '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
-                              style: const TextStyle(
-                                color: AppColors.blueDark,
+                              style: TextStyle(
+                                color: AppColors.blueText,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,
                               ),

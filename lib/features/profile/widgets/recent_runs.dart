@@ -75,8 +75,8 @@ class _RecentRunsState extends State<RecentRuns> {
               ),
               trailing: Text(
                 formatRunPace(record),
-                style: const TextStyle(
-                  color: AppColors.blueDark,
+                style: TextStyle(
+                  color: AppColors.blueText,
                   fontWeight: FontWeight.w700,
                 ),
               ),

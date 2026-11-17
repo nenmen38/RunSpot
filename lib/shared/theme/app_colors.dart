@@ -8,6 +8,10 @@ class AppColors {
 
   static const blue = Color(0xFF3182F6);
   static const blueDark = Color(0xFF1B64DA);
+
+  /// 글자·아이콘에 쓰는 파란색입니다. 다크 모드에서는 어두운 배경에서도 읽히게 밝게 바꿉니다.
+  static Color get blueText =>
+      dark ? const Color(0xFF7DB2FF) : const Color(0xFF1B64DA);
   static Color get blueSoft =>
       dark ? const Color(0xFF1C2B42) : const Color(0xFFE8F3FF);
 

@@ -68,11 +68,11 @@ class RunFeedbackCard extends StatelessWidget {
           ),
           if (ready) ...[
             const SizedBox(height: 2),
-            const Text(
+            Text(
               'AI 분석 완료',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.blueDark,
+                color: AppColors.blueText,
                 fontWeight: FontWeight.w600,
               ),
             ),

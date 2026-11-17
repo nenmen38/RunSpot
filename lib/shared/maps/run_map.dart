@@ -1,3 +1,5 @@
+import 'package:runquest/shared/theme/app_colors.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -203,6 +205,8 @@ class _RunMapState extends State<RunMap> {
         .map((s) => s.map((p) => [p.latitude, p.longitude]).toList())
         .toList(),
     'colors': widget.segmentColors,
+    // 다크 모드면 지도를 살짝 어둡게 그립니다.
+    'dark': AppColors.dark,
     'endpoints': widget.endpoints,
   };
 

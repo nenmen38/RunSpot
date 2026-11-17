@@ -59,7 +59,7 @@ class StatusView extends StatelessWidget {
                     : AppColors.blueSoft,
                 foregroundColor: _kind == _StatusKind.error
                     ? AppColors.red
-                    : AppColors.blueDark,
+                    : AppColors.blueText,
                 child: Icon(icon, size: 28),
               ),
             if (message != null) ...[

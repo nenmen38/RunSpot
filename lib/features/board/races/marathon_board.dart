@@ -340,10 +340,10 @@ class _EventTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (promoted)
-                    const Text(
+                    Text(
                       '광고',
                       style: TextStyle(
-                        color: AppColors.blueDark,
+                        color: AppColors.blueText,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

@@ -16,8 +16,8 @@ class BadgePill extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: AppColors.blueDark,
+        style: TextStyle(
+          color: AppColors.blueText,
           fontSize: 11,
           fontWeight: FontWeight.w900,
         ),
