@@ -11,6 +11,7 @@ import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
+import 'package:runquest/features/home/widgets/run_controls.dart';
 import 'package:runquest/features/profile/widgets/run_sharing_control.dart';
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
@@ -82,6 +83,8 @@ void restoreRecordableRun(LiveMapController controller) {
 }
 
 void main() {
+  // 이 파일의 테스트는 시작 버튼을 누르면 바로 측정을 확인하므로 3초 카운트다운을 끕니다.
+  setUpAll(() => RunControls.countdownSeconds = 0);
   var sharingEligible = false;
   setUp(() => sharingEligible = false);
   setUpAll(() async {

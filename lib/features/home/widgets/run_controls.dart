@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/formatters/run_format.dart';
+import '../../../shared/theme/app_colors.dart';
 import '../live_map_controller.dart';
 
 class RunControls extends StatelessWidget {
@@ -14,6 +18,22 @@ class RunControls extends StatelessWidget {
   final LiveMapController controller;
   final VoidCallback onFinish;
   final bool busy;
+
+  /// 새 러닝을 시작하기 전 3·2·1을 세는 초입니다. 0이면 바로 시작합니다.
+  static int countdownSeconds = 3;
+
+  Future<void> _start(BuildContext context) async {
+    if (countdownSeconds > 0) {
+      final go = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => RunStartCountdown(seconds: countdownSeconds),
+      );
+      if (go != true || !context.mounted) return;
+    }
+    unawaited(HapticFeedback.heavyImpact());
+    await controller.startRun();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,8 +132,13 @@ class RunControls extends StatelessWidget {
                     ? null
                     : () {
                         if (running) {
+                          unawaited(HapticFeedback.mediumImpact());
                           controller.pauseRun();
+                        } else if (session == null) {
+                          unawaited(_start(context));
                         } else {
+                          // 일시 정지 뒤 다시 달릴 때는 세지 않고 바로 이어갑니다.
+                          unawaited(HapticFeedback.heavyImpact());
                           controller.startRun();
                         }
                       },
@@ -140,7 +165,12 @@ class RunControls extends StatelessWidget {
                   minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                onPressed: session == null || waiting ? null : onFinish,
+                onPressed: session == null || waiting
+                    ? null
+                    : () {
+                        unawaited(HapticFeedback.mediumImpact());
+                        onFinish();
+                      },
                 icon: const Icon(Icons.stop),
                 label: Text(finished ? '저장 재시도' : '러닝 종료'),
               ),
@@ -187,5 +217,84 @@ class _RunMetric extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+/// 러닝 시작 전 화면 가운데에 3·2·1을 보여줍니다. 다 세면 true, 취소하면 false를 돌려줍니다.
+class RunStartCountdown extends StatefulWidget {
+  const RunStartCountdown({this.seconds = 3, super.key});
+
+  final int seconds;
+
+  @override
+  State<RunStartCountdown> createState() => _RunStartCountdownState();
+}
+
+class _RunStartCountdownState extends State<RunStartCountdown> {
+  late int _left = widget.seconds;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(HapticFeedback.selectionClick());
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_left <= 1) {
+        _timer?.cancel();
+        Navigator.of(context).pop(true);
+        return;
+      }
+      unawaited(HapticFeedback.selectionClick());
+      setState(() => _left--);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(40, 24, 40, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '곧 출발해요',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          Semantics(
+            liveRegion: true,
+            label: '$_left초 뒤 러닝 시작',
+            child: ExcludeSemantics(
+              child: SizedBox(
+                width: 144,
+                height: 144,
+                child: FittedBox(
+                  child: Text(
+                    '$_left',
+                    style: const TextStyle(
+                      fontSize: 112,
+                      height: 1.2,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.blue,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+        ],
+      ),
+    ),
   );
 }
