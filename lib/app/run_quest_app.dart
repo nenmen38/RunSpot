@@ -3,6 +3,7 @@ import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/auth/auth_gate.dart';
 import 'package:runquest/features/settings/appearance/app_appearance.dart';
+import 'package:runquest/shared/layout/readable_width.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
 /// 라이트·다크 테마를 만듭니다. 공통 색(AppColors)을 해당 밝기로 잠시 바꿔 계산합니다.
@@ -31,6 +32,8 @@ ThemeData buildAppTheme({required bool dark}) {
         surfaceTint: Colors.transparent,
       ),
       dividerColor: AppColors.line,
+      // 폴드를 펼친 화면에서도 눌러서 들어간 화면이 읽기 좋은 폭을 넘지 않게 합니다.
+      pageTransitionsTheme: ReadableWidthTransitionsBuilder.theme(),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.surface,
         foregroundColor: ink,

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:runquest/app/mobile_app_viewport.dart';
+import 'package:runquest/app/run_quest_app.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/run_conditions/conditions_controller.dart';
@@ -116,4 +117,27 @@ void main() {
       },
     );
   }
+
+  testWidgets('폴드를 펼친 화면에서 눌러서 들어간 화면은 읽기 좋은 폭으로 가운데에 둡니다', (tester) async {
+    tester.view.physicalSize = const Size(832, 750);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        theme: buildAppTheme(dark: false),
+        home: const Scaffold(body: Text('첫 화면')),
+      ),
+    );
+    // 첫 화면은 화면 전체를 씁니다.
+    expect(tester.getSize(find.byType(Scaffold)).width, 832);
+    navigator.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('상세 화면')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(Scaffold).last).width, 720);
+  });
 }
