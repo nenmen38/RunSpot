@@ -39,7 +39,7 @@ String raceCountdown(DateTime date, {DateTime? now}) {
   return days == 0 ? 'D-DAY' : 'D-$days';
 }
 
-const _metaStyle = TextStyle(
+TextStyle get _metaStyle => TextStyle(
   color: BoardStyle.secondary,
   fontSize: 12,
   fontWeight: FontWeight.w400,
@@ -62,7 +62,7 @@ class BoardCrewBadge extends StatelessWidget {
         const SizedBox(width: 2),
         Text(
           crew.name,
-          style: const TextStyle(
+          style: TextStyle(
             color: BoardStyle.ink,
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -110,7 +110,7 @@ class BoardPostTile extends StatelessWidget {
                     children: [
                       Text(
                         '${raceDate.month}.${raceDate.day}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: BoardStyle.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -118,7 +118,7 @@ class BoardPostTile extends StatelessWidget {
                       ),
                       Text(
                         raceCountdown(raceDate),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: BoardStyle.secondary,
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -192,7 +192,7 @@ class BoardPostTile extends StatelessWidget {
                           const SizedBox(width: 8),
                         ],
                         if (post.commentCount > 0) ...[
-                          const Icon(
+                          Icon(
                             Icons.chat_bubble_outline,
                             size: 13,
                             color: BoardStyle.secondary,

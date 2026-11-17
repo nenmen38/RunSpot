@@ -96,9 +96,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                         if (state.syncError != null) ...[
                           Text(
                             state.syncError!,
-                            style: const TextStyle(
-                              color: RunRecordColors.danger,
-                            ),
+                            style: TextStyle(color: RunRecordColors.danger),
                           ),
                           TextButton.icon(
                             onPressed: state.syncing ? null : state.syncPending,
@@ -110,9 +108,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                         if (state.error != null) ...[
                           Text(
                             state.error!,
-                            style: const TextStyle(
-                              color: RunRecordColors.danger,
-                            ),
+                            style: TextStyle(color: RunRecordColors.danger),
                           ),
                           TextButton.icon(
                             onPressed: state.loading ? null : state.retry,
@@ -142,7 +138,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       title: Text(
                         formatRunDate(record.startedAt),
-                        style: const TextStyle(color: RunRecordColors.label),
+                        style: TextStyle(color: RunRecordColors.label),
                       ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 6),
@@ -151,21 +147,21 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                           runSpacing: 4,
                           children: [
                             if (record.pendingSync)
-                              const Text(
+                              Text(
                                 '서버 저장 대기',
                                 style: TextStyle(
                                   color: RunRecordColors.warning,
                                 ),
                               ),
                             if (record.reviewPending)
-                              const Text(
+                              Text(
                                 '검토 중',
                                 style: TextStyle(
                                   color: RunRecordColors.warning,
                                 ),
                               )
                             else if (record.integrityStatus == 'rejected')
-                              const Text(
+                              Text(
                                 '반려됨',
                                 style: TextStyle(color: RunRecordColors.danger),
                               ),

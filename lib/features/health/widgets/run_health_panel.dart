@@ -277,10 +277,10 @@ class _RunHealthPanelState extends State<RunHealthPanel>
           if (selected != null)
             Text(
               selected.label,
-              style: const TextStyle(color: AppColors.gray, fontSize: 12),
+              style: TextStyle(color: AppColors.gray, fontSize: 12),
             ),
           if (selected?.overlappingCalories == true)
-            const Text('칼로리 자료 중복', style: TextStyle(color: AppColors.gray)),
+            Text('칼로리 자료 중복', style: TextStyle(color: AppColors.gray)),
         ],
       ],
     );

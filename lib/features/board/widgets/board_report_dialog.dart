@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 
 import 'board_theme.dart';
 
@@ -23,7 +24,7 @@ class _BoardReportDialogState extends State<BoardReportDialog> {
   @override
   Widget build(BuildContext context) => BoardTheme(
     child: AlertDialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       surfaceTintColor: Colors.transparent,
       title: Text(widget.isComment ? '댓글 신고' : '게시글 신고'),
       content: SingleChildScrollView(

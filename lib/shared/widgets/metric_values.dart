@@ -11,17 +11,14 @@ class MetricValue extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        label,
-        style: const TextStyle(color: Color(0xFF475569), fontSize: 12),
-      ),
+      Text(label, style: TextStyle(color: AppColors.gray, fontSize: 12)),
       const SizedBox(height: 6),
       FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.ink,
             fontSize: 21,
             fontWeight: FontWeight.w700,

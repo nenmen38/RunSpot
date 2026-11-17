@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 
 import 'board_theme.dart';
 
@@ -23,7 +24,7 @@ class BoardFilterMenu<T> extends StatelessWidget {
     tooltip: tooltip,
     initialValue: selected == null ? 0 : values.indexOf(selected as T) + 1,
     onSelected: (index) => onChanged(index == 0 ? null : values[index - 1]),
-    color: Colors.white,
+    color: AppColors.surface,
     surfaceTintColor: Colors.transparent,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     itemBuilder: (_) => [
@@ -41,7 +42,7 @@ class BoardFilterMenu<T> extends StatelessWidget {
               ),
               if ((index == 0 && selected == null) ||
                   (index > 0 && values[index - 1] == selected))
-                const Icon(Icons.check, color: BoardStyle.accent, size: 20),
+                Icon(Icons.check, color: BoardStyle.accent, size: 20),
             ],
           ),
         ),
@@ -60,18 +61,14 @@ class BoardFilterMenu<T> extends StatelessWidget {
           children: [
             Text(
               selected == null ? '전체' : labelOf(selected as T),
-              style: const TextStyle(
+              style: TextStyle(
                 color: BoardStyle.ink,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(
-              Icons.expand_more,
-              size: 20,
-              color: BoardStyle.secondary,
-            ),
+            Icon(Icons.expand_more, size: 20, color: BoardStyle.secondary),
           ],
         ),
       ),

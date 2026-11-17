@@ -661,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     right: notifications == null ? 12 : 64,
                     top: 12,
                     child: Material(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
@@ -728,7 +728,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       if (position == null) unawaited(state.start());
                     },
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: AppColors.surface,
                       foregroundColor: _following
                           ? AppColors.blue
                           : AppColors.ink,
@@ -742,7 +742,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     right: 68,
                     bottom: 46,
                     child: Material(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(8),
                       child: ListTile(
                         leading: const Icon(
@@ -788,7 +788,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // 넓은 화면에서는 지도는 끝까지 보여주고 아래 정보와 버튼만 읽기 좋은 폭으로 둡니다.
           if (widget.conditionsController != null)
             ColoredBox(
-              color: Colors.white,
+              color: AppColors.surface,
               child: ReadableWidth(
                 child: ConditionsPanel(
                   controller: widget.conditionsController!,
@@ -796,7 +796,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
           Material(
-            color: Colors.white,
+            color: AppColors.surface,
             child: ReadableWidth(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),

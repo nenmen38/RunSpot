@@ -231,7 +231,7 @@ class _BoardScreenState extends State<BoardScreen> {
                       tooltip: '말머리 선택',
                     ),
                   const SizedBox(width: 12),
-                  const Expanded(child: Text('최신순', style: BoardStyle.meta)),
+                  Expanded(child: Text('최신순', style: BoardStyle.meta)),
                   IconButton(
                     tooltip: _searching ? '검색 닫기' : '검색',
                     constraints: const BoxConstraints(
@@ -367,7 +367,7 @@ class _BoardScreenState extends State<BoardScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: posts.length + 1,
         separatorBuilder: (_, index) => index < posts.length - 1
-            ? const Divider(height: 1, color: BoardStyle.line, thickness: .5)
+            ? Divider(height: 1, color: BoardStyle.line, thickness: .5)
             : const SizedBox.shrink(),
         itemBuilder: (context, index) {
           if (index < posts.length) {

@@ -46,7 +46,7 @@ class RunFeedbackCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   '러닝 피드백',
                   style: TextStyle(
@@ -83,10 +83,10 @@ class RunFeedbackCard extends StatelessWidget {
           else
             Text(
               description,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 height: 1.8,
-                color: Color(0xFF333D4B),
+                color: AppColors.ink,
                 fontWeight: FontWeight.w500,
                 letterSpacing: -0.2,
               ),
@@ -96,7 +96,7 @@ class RunFeedbackCard extends StatelessWidget {
                   status == FeedbackStatus.available ||
                   status == FeedbackStatus.processing) ...[
             const SizedBox(height: 24),
-            const Divider(height: 1, color: AppColors.line),
+            Divider(height: 1, color: AppColors.line),
             const SizedBox(height: 20),
             _RecordMetrics(record: run),
           ],
@@ -104,14 +104,14 @@ class RunFeedbackCard extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               created,
-              style: const TextStyle(fontSize: 12, color: AppColors.gray),
+              style: TextStyle(fontSize: 12, color: AppColors.gray),
             ),
           ],
           if (nextLabel case final next?) ...[
             const SizedBox(height: 16),
             Text(
               '다음 요청: $next',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.6,
                 color: AppColors.gray,
@@ -131,7 +131,7 @@ class RunFeedbackCard extends StatelessWidget {
           ],
           if (busy) ...[
             const SizedBox(height: 16),
-            const ClipRRect(
+            ClipRRect(
               borderRadius: BorderRadius.all(Radius.circular(4)),
               child: LinearProgressIndicator(
                 minHeight: 3,
@@ -210,14 +210,11 @@ class _RecordMetrics extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: AppColors.gray),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: AppColors.gray)),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: AppColors.ink,

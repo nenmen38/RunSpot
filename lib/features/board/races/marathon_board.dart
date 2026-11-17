@@ -131,7 +131,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
               Expanded(
                 child: Text(
                   '${matching.length}개 대회',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: MarathonStyle.secondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
@@ -156,7 +156,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               '${matching.length}개 대회',
-              style: const TextStyle(
+              style: TextStyle(
                 color: MarathonStyle.secondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
@@ -216,7 +216,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
                                 header: true,
                                 child: Text(
                                   '${events[index].date.year}년 ${events[index].date.month}월',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AppColors.ink,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
@@ -230,7 +230,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
                                   events[index + 1].date.month &&
                               events[index].date.year ==
                                   events[index + 1].date.year)
-                            const Divider(
+                            Divider(
                               height: 1,
                               color: AppColors.line,
                               thickness: .5,
@@ -313,7 +313,7 @@ class _EventTile extends StatelessWidget {
                     MediaQuery.textScalerOf(context).scale(14) > 20
                         ? '${event.date.month}월\n${event.date.day}일'
                         : '${event.date.month}.${event.date.day}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.ink,
                       fontSize: 19,
                       fontWeight: FontWeight.w700,
@@ -323,7 +323,7 @@ class _EventTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     raceCountdown(event.date),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: MarathonStyle.secondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
@@ -347,7 +347,7 @@ class _EventTile extends StatelessWidget {
                     ),
                   Text(
                     event.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.ink,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -359,7 +359,7 @@ class _EventTile extends StatelessWidget {
                     event.place,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: MarathonStyle.secondary,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 
 import '../../../shared/widgets/account_query_panel.dart';
 import '../../../shared/widgets/page_layout.dart';
@@ -84,7 +85,7 @@ class _FriendRankingState extends State<FriendRanking> {
                       bottom: BorderSide(
                         color: _category == category
                             ? Theme.of(context).colorScheme.primary
-                            : const Color(0xFFE5E8EB),
+                            : AppColors.line,
                         width: _category == category ? 2 : 1,
                       ),
                     ),

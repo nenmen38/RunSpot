@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 
 import '../../../shared/maps/run_map.dart';
 import '../models/run_route.dart';
@@ -49,7 +50,7 @@ class _SavedRunMapState extends State<SavedRunMap> {
               top: 8,
               right: 8,
               child: Material(
-                color: Colors.white,
+                color: AppColors.surface,
                 child: IconButton(
                   tooltip: '전체 경로 보기',
                   icon: const Icon(Icons.fit_screen),

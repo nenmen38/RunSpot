@@ -253,7 +253,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.chat_bubble_outline,
                                 size: 18,
                                 color: BoardStyle.secondary,
@@ -261,7 +261,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                               const SizedBox(width: 6),
                               Text(
                                 '댓글 ${post.commentCount}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: BoardStyle.secondary,
                                   fontSize: 14,
                                 ),
@@ -388,7 +388,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isReply)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(right: 4, top: 1),
                   child: Icon(
                     Icons.subdirectory_arrow_right,
@@ -406,7 +406,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                           : () => _openUser(commentId: comment.id),
                       child: Text(
                         '${comment.nickname} · ${formatBoardDateTime(comment.createdAt)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: BoardStyle.secondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -417,7 +417,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                     const SizedBox(height: 2),
                     SelectableText(
                       comment.body,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.ink,
                         fontSize: 15,
                         fontWeight: FontWeight.w400,
@@ -439,7 +439,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                           PopupMenuButton<String>(
                             tooltip: '댓글 메뉴',
                             enabled: !_comments.busy,
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.more_horiz,
                               size: 18,
                               color: BoardStyle.secondary,
@@ -489,7 +489,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                   if (comment.likeCount > 0)
                     Text(
                       '${comment.likeCount}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: BoardStyle.secondary,
                         fontSize: 11,
                       ),
@@ -506,8 +506,8 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     top: false,
     child: Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.line)),
       ),
       child: Column(
@@ -559,7 +559,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.send, color: BoardStyle.accent),
+                    : Icon(Icons.send, color: BoardStyle.accent),
               ),
             ],
           ),

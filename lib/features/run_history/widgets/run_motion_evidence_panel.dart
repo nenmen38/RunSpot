@@ -17,7 +17,7 @@ class RunMotionEvidencePanel extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text(
+      Text(
         '속도 확인 구간',
         style: TextStyle(color: RunRecordColors.warning, fontSize: 12),
       ),
@@ -29,10 +29,7 @@ class RunMotionEvidencePanel extends StatelessWidget {
             '${formatRunDuration(Duration(seconds: item.endSeconds.round()))} · '
             '${item.speedKmh.toStringAsFixed(1)} km/h'
             '${showAccuracy ? ' · 정확도 ${item.accuracyMeters.toStringAsFixed(0)}m' : ''}',
-            style: const TextStyle(
-              color: RunRecordColors.warning,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: RunRecordColors.warning, fontSize: 12),
           ),
         ),
     ],

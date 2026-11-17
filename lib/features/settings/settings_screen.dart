@@ -10,6 +10,8 @@ import '../profile/privacy_controls.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
+import 'appearance/app_appearance.dart';
+import 'appearance/appearance_settings_screen.dart';
 import 'data/account_service.dart';
 import 'data/password_service.dart';
 import 'password_change_screen.dart';
@@ -96,6 +98,20 @@ class SettingsScreen extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push<void>(
             MaterialPageRoute(builder: (_) => const PushSettingsScreen()),
+          ),
+        ),
+        ListenableBuilder(
+          listenable: AppAppearance.instance,
+          builder: (context, _) => ListTile(
+            leading: const Icon(Icons.contrast),
+            title: const Text('화면'),
+            subtitle: Text(appearanceSummary(AppAppearance.instance)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => const AppearanceSettingsScreen(),
+              ),
+            ),
           ),
         ),
         ListTile(

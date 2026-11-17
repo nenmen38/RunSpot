@@ -29,20 +29,17 @@ class RunRecordDetails extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       if (record.pendingSync) ...[
-        const Text(
-          '서버 저장 대기',
-          style: TextStyle(color: RunRecordColors.warning),
-        ),
+        Text('서버 저장 대기', style: TextStyle(color: RunRecordColors.warning)),
         const SizedBox(height: 8),
       ],
       if (record.reviewPending) ...[
-        const Text(
+        Text(
           '검토 중 · 랭킹·경험치 보류',
           style: TextStyle(color: RunRecordColors.warning, fontSize: 12),
         ),
         const SizedBox(height: 8),
       ] else if (record.integrityStatus == 'rejected') ...[
-        const Text(
+        Text(
           '반려됨',
           style: TextStyle(color: RunRecordColors.danger, fontSize: 12),
         ),
@@ -50,7 +47,7 @@ class RunRecordDetails extends StatelessWidget {
       ],
       Text(
         formatRunDate(record.startedAt),
-        style: const TextStyle(color: RunRecordColors.label, fontSize: 13),
+        style: TextStyle(color: RunRecordColors.label, fontSize: 13),
       ),
       const SizedBox(height: 12),
       Text(
@@ -82,7 +79,7 @@ class RunRecordDetails extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           record.temperature!.label,
-          style: const TextStyle(color: RunRecordColors.label, fontSize: 13),
+          style: TextStyle(color: RunRecordColors.label, fontSize: 13),
         ),
       ],
     ],

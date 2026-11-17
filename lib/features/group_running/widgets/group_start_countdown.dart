@@ -29,7 +29,7 @@ class GroupStartCountdown extends StatelessWidget {
                     vertical: 24,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(28),
                   ),
                   child: Column(

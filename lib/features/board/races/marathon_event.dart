@@ -5,13 +5,14 @@ import '../../../shared/theme/app_colors.dart';
 enum MarathonStatus {
   upcoming('upcoming', '접수 예정', AppColors.blueDark),
   open('open', '접수 중', Color(0xFF00805A)),
-  closed('closed', '접수 마감', AppColors.gray),
-  unknown('unknown', '접수 미정', AppColors.gray);
+  closed('closed', '접수 마감', null),
+  unknown('unknown', '접수 미정', null);
 
-  const MarathonStatus(this.code, this.label, this.color);
+  const MarathonStatus(this.code, this.label, this._color);
   final String code;
   final String label;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? AppColors.gray;
 }
 
 class MarathonEvent {

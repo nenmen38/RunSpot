@@ -16,12 +16,7 @@ class ConditionsPanel extends StatelessWidget {
       final data = controller.data;
       final assessment = data?.assess(controller.now);
       final status = assessment?.status ?? RunningSuitability.unknown;
-      final color = switch (status) {
-        RunningSuitability.good => const Color(0xFF18734A),
-        RunningSuitability.caution => const Color(0xFF946100),
-        RunningSuitability.avoid => const Color(0xFFB52C36),
-        RunningSuitability.unknown => const Color(0xFF657079),
-      };
+      final color = suitabilityColor(status);
       final weather = data?.weather, dust = data?.dust;
       final freshWeather =
           RunningConditions.isFresh(weather?.observedAt, controller.now)
@@ -38,9 +33,9 @@ class ConditionsPanel extends StatelessWidget {
         RunningSuitability.unknown => '확인 필요',
       };
       return Material(
-        color: Colors.white,
+        color: AppColors.surface,
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: AppColors.line)),
           ),
           padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
@@ -55,7 +50,7 @@ class ConditionsPanel extends StatelessWidget {
                       runSpacing: 4,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           '러닝 환경',
                           style: TextStyle(
                             color: AppColors.ink,
@@ -91,10 +86,7 @@ class ConditionsPanel extends StatelessWidget {
                     if (data == null)
                       Text(
                         controller.loading ? '불러오는 중' : '자료 없음',
-                        style: const TextStyle(
-                          color: AppColors.gray,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: AppColors.gray, fontSize: 13),
                       )
                     else
                       Wrap(
@@ -106,7 +98,7 @@ class ConditionsPanel extends StatelessWidget {
                             freshWeather?.temperature == null
                                 ? '--'
                                 : '${freshWeather!.temperature!.toStringAsFixed(1)}°C',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.ink,
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -116,15 +108,15 @@ class ConditionsPanel extends StatelessWidget {
                             freshWeather?.precipitation == null
                                 ? '강수 --'
                                 : freshWeather!.precipitationLabel,
-                            style: const TextStyle(
-                              color: Color(0xFF475569),
+                            style: TextStyle(
+                              color: AppColors.gray,
                               fontSize: 12,
                             ),
                           ),
                           Text(
                             '초미세 ${freshDust?.pm25 == null ? '--' : DustObservation.gradeLabel(DustObservation.grade(freshDust!.pm25, fine: true))}',
-                            style: const TextStyle(
-                              color: Color(0xFF475569),
+                            style: TextStyle(
+                              color: AppColors.gray,
                               fontSize: 12,
                             ),
                           ),
@@ -136,7 +128,7 @@ class ConditionsPanel extends StatelessWidget {
               IconButton(
                 tooltip: '러닝 환경 상세',
                 onPressed: () => _details(context),
-                icon: const Icon(
+                icon: Icon(
                   Icons.chevron_right,
                   color: AppColors.gray,
                   size: 20,
@@ -152,3 +144,14 @@ class ConditionsPanel extends StatelessWidget {
   void _details(BuildContext context) =>
       showConditionsDetails(context, controller);
 }
+
+/// 러닝 환경 판단 색입니다. 다크 모드에서는 어두운 배경에서도 읽히도록 밝은 색을 씁니다.
+Color suitabilityColor(RunningSuitability status) => switch (status) {
+  RunningSuitability.good =>
+    AppColors.dark ? const Color(0xFF4ED18F) : const Color(0xFF18734A),
+  RunningSuitability.caution =>
+    AppColors.dark ? const Color(0xFFF2B640) : const Color(0xFF946100),
+  RunningSuitability.avoid =>
+    AppColors.dark ? const Color(0xFFFF7B85) : const Color(0xFFB52C36),
+  RunningSuitability.unknown => AppColors.gray,
+};

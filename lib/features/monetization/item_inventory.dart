@@ -75,7 +75,7 @@ class _InventoryTile extends StatelessWidget {
     final item = entry.item;
     return Material(
       key: ValueKey('inventory-${item.id}'),
-      color: Colors.white,
+      color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(

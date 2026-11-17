@@ -23,7 +23,7 @@ class ActionButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(42),
         foregroundColor: AppColors.ink,
         textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-        side: const BorderSide(color: AppColors.line),
+        side: BorderSide(color: AppColors.line),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );

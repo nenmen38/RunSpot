@@ -33,7 +33,7 @@ class AchievementRow extends StatelessWidget {
                   ),
                   Text(
                     achievement.value,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.gray,
                       fontWeight: FontWeight.w800,
                     ),

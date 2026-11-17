@@ -40,7 +40,7 @@ Future<bool?> showFeedbackConsent(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      subtitle: const Text(
+                      subtitle: Text(
                         '평균·최대·구간별 심박 요약 전송 동의',
                         style: TextStyle(fontSize: 12, color: AppColors.gray),
                       ),
@@ -50,7 +50,7 @@ Future<bool?> showFeedbackConsent(
                     ),
                   ),
                   if (includeHeart)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 8),
                       child: Text(
                         '심박이 포함된 피드백은 저장됩니다.',
@@ -59,7 +59,7 @@ Future<bool?> showFeedbackConsent(
                     ),
                   const SizedBox(height: 16),
                 ],
-                const Text(
+                Text(
                   '72시간마다 1회 · 생성 실패 시에도 적용',
                   style: TextStyle(fontSize: 12, color: AppColors.gray),
                 ),

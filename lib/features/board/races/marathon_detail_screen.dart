@@ -15,7 +15,7 @@ class MarathonDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => BoardTheme(
     child: Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(title: const Text('러닝 대회')),
       bottomNavigationBar: event.website == null
           ? null
@@ -53,7 +53,7 @@ class MarathonDetailScreen extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             event.name,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.ink,
               fontSize: 24,
               fontWeight: FontWeight.w700,
@@ -64,7 +64,7 @@ class MarathonDetailScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFBFC),
+              color: BoardStyle.surface,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -81,7 +81,7 @@ class MarathonDetailScreen extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         event.address!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: MarathonStyle.secondary,
                           fontSize: 13,
                           height: 1.5,
@@ -108,7 +108,7 @@ class MarathonDetailScreen extends StatelessWidget {
                     SizedBox(
                       child: Text(
                         price.key,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: MarathonStyle.secondary,
                           fontSize: 14,
                         ),
@@ -118,7 +118,7 @@ class MarathonDetailScreen extends StatelessWidget {
                       price.value is num
                           ? '${_amount(price.value as num)}원'
                           : '${price.value}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.ink,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -134,7 +134,7 @@ class MarathonDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               event.description!,
-              style: const TextStyle(
+              style: TextStyle(
                 color: MarathonStyle.secondary,
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
@@ -151,7 +151,7 @@ class MarathonDetailScreen extends StatelessWidget {
               _row('문의', event.field('hosts', 'phone')!),
           ],
           const SizedBox(height: 28),
-          const Text(
+          Text(
             '일정·접수 여부는 공식 사이트에서 확인해 주세요.',
             style: TextStyle(
               color: MarathonStyle.secondary,
@@ -160,7 +160,7 @@ class MarathonDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             '정보 제공 APIZOA',
             style: TextStyle(color: MarathonStyle.secondary, fontSize: 11),
           ),
@@ -171,7 +171,7 @@ class MarathonDetailScreen extends StatelessWidget {
 
   Widget _heading(String text) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       color: AppColors.ink,
       fontSize: 16,
       fontWeight: FontWeight.w700,
@@ -187,7 +187,7 @@ class MarathonDetailScreen extends StatelessWidget {
           width: 48,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: MarathonStyle.secondary,
               fontSize: 13,
               height: 1.5,
@@ -197,7 +197,7 @@ class MarathonDetailScreen extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.ink,
               fontSize: 15,
               fontWeight: FontWeight.w500,

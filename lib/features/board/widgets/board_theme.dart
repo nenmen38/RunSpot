@@ -1,33 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 
 /// 게시판 안에서만 사용하는 색·글자 위계입니다. 다른 탭의 테마는 바꾸지 않습니다.
 abstract final class BoardStyle {
-  static const ink = Color(0xFF191F28);
-  static const secondary = Color(0xFF596574);
-  static const accent = Color(0xFF1B64DA);
-  static const accentSoft = Color(0xFFE8F3FF);
-  static const surface = Color(0xFFF5F6F8);
-  static const line = Color(0xFFE5E8EB);
+  static bool get _dark => AppColors.dark;
+  static Color get ink => AppColors.ink;
+  static Color get secondary =>
+      _dark ? const Color(0xFFA5AFBB) : const Color(0xFF596574);
+  static Color get accent =>
+      _dark ? const Color(0xFF6AA6FF) : const Color(0xFF1B64DA);
+  static Color get accentSoft => AppColors.blueSoft;
+  static Color get surface =>
+      _dark ? const Color(0xFF23272D) : const Color(0xFFF5F6F8);
+  static Color get line => AppColors.line;
   static const error = Color(0xFFBC3344);
-  static const title = TextStyle(
+  static TextStyle get title => TextStyle(
     color: ink,
     fontSize: 24,
     fontWeight: FontWeight.w700,
     height: 1.4,
   );
-  static const section = TextStyle(
+  static TextStyle get section => TextStyle(
     color: ink,
     fontSize: 16,
     fontWeight: FontWeight.w600,
     height: 1.4,
   );
-  static const body = TextStyle(
+  static TextStyle get body => TextStyle(
     color: ink,
     fontSize: 15,
     fontWeight: FontWeight.w400,
     height: 1.65,
   );
-  static const meta = TextStyle(
+  static TextStyle get meta => TextStyle(
     color: secondary,
     fontSize: 12,
     fontWeight: FontWeight.w400,
@@ -47,18 +52,18 @@ class BoardTheme extends StatelessWidget {
     );
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: BoardStyle.line),
+      borderSide: BorderSide(color: BoardStyle.line),
     );
     return Theme(
       data: base.copyWith(
-        scaffoldBackgroundColor: Colors.white,
+        scaffoldBackgroundColor: AppColors.surface,
         colorScheme: base.colorScheme.copyWith(
           primary: BoardStyle.accent,
           onPrimary: Colors.white,
           secondary: BoardStyle.accent,
           secondaryContainer: BoardStyle.accentSoft,
           onSecondaryContainer: BoardStyle.accent,
-          surface: Colors.white,
+          surface: AppColors.surface,
           surfaceTint: Colors.transparent,
           error: BoardStyle.error,
         ),
@@ -69,15 +74,15 @@ class BoardTheme extends StatelessWidget {
           bodyLarge: BoardStyle.body,
           bodyMedium: BoardStyle.body,
           bodySmall: BoardStyle.meta,
-          labelLarge: const TextStyle(
+          labelLarge: TextStyle(
             color: BoardStyle.ink,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
           labelMedium: BoardStyle.meta,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppColors.surface,
           foregroundColor: BoardStyle.ink,
           elevation: 0,
           scrolledUnderElevation: 0,
@@ -88,12 +93,12 @@ class BoardTheme extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        dividerTheme: const DividerThemeData(
+        dividerTheme: DividerThemeData(
           color: BoardStyle.line,
           thickness: .5,
           space: 1,
         ),
-        iconTheme: const IconThemeData(color: BoardStyle.secondary, size: 22),
+        iconTheme: IconThemeData(color: BoardStyle.secondary, size: 22),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             backgroundColor: BoardStyle.accent,
@@ -111,7 +116,7 @@ class BoardTheme extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: BoardStyle.ink,
             minimumSize: const Size(48, 48),
-            side: const BorderSide(color: BoardStyle.line),
+            side: BorderSide(color: BoardStyle.line),
             shape: rounded,
           ),
         ),
@@ -131,7 +136,7 @@ class BoardTheme extends StatelessWidget {
           side: BorderSide.none,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           showCheckmark: false,
-          labelStyle: const TextStyle(
+          labelStyle: TextStyle(
             color: BoardStyle.ink,
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -164,7 +169,7 @@ class BoardTheme extends StatelessWidget {
           border: border,
           enabledBorder: border.copyWith(borderSide: BorderSide.none),
           focusedBorder: border.copyWith(
-            borderSide: const BorderSide(color: BoardStyle.accent, width: 1.5),
+            borderSide: BorderSide(color: BoardStyle.accent, width: 1.5),
           ),
           errorBorder: border.copyWith(
             borderSide: const BorderSide(color: BoardStyle.error),
@@ -173,24 +178,21 @@ class BoardTheme extends StatelessWidget {
             horizontal: 16,
             vertical: 16,
           ),
-          hintStyle: const TextStyle(
+          hintStyle: TextStyle(
             color: BoardStyle.secondary,
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
-          labelStyle: const TextStyle(
-            color: BoardStyle.secondary,
-            fontSize: 14,
-          ),
+          labelStyle: TextStyle(color: BoardStyle.secondary, fontSize: 14),
           counterStyle: BoardStyle.meta,
         ),
         dialogTheme: DialogThemeData(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.surface,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          titleTextStyle: const TextStyle(
+          titleTextStyle: TextStyle(
             color: BoardStyle.ink,
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -198,7 +200,7 @@ class BoardTheme extends StatelessWidget {
           contentTextStyle: BoardStyle.body,
         ),
         popupMenuTheme: PopupMenuThemeData(
-          color: Colors.white,
+          color: AppColors.surface,
           surfaceTintColor: Colors.transparent,
           shape: rounded,
           textStyle: BoardStyle.body,

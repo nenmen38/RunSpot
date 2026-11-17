@@ -233,7 +233,7 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
                   if (_kind == BoardKind.local && region != null) ...[
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.place_outlined,
                           size: 16,
                           color: BoardStyle.accent,
@@ -469,7 +469,7 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
                           ),
                       ],
                     ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 6),
                     child: Text(
                       '사진의 촬영 위치 등 기기 정보는 지우고 올려요.',

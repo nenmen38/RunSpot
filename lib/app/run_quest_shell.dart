@@ -334,7 +334,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       setState(() => _tab = index);
     }
 
-    final background = _tab == 3 ? Colors.white : null;
+    final background = _tab == 3 ? AppColors.surface : null;
     final content = SafeArea(
       // 넓은 화면에서는 왼쪽 메뉴가 왼쪽 여백을 맡습니다.
       left: !wide,

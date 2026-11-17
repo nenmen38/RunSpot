@@ -31,7 +31,7 @@ class RunSplitsPanel extends StatelessWidget {
       if (!reviewResolved &&
           motionEvidence == null &&
           splits?.any(RunIntegrity.suspicious) == true)
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 8),
           child: Text(
             '속도 확인 필요',
@@ -40,7 +40,7 @@ class RunSplitsPanel extends StatelessWidget {
         ),
       const SizedBox(height: 16),
       if (splits == null || splits!.isEmpty)
-        const Text('기록 없음', style: TextStyle(color: RunRecordColors.label))
+        Text('기록 없음', style: TextStyle(color: RunRecordColors.label))
       else ...[
         const _SplitRow(values: ['km', '시간', '페이스', 'km/h'], heading: true),
         const SizedBox(height: 8),
@@ -67,7 +67,7 @@ class RunSplitsPanel extends StatelessWidget {
             ],
           ),
           if (i < splits!.length - 1)
-            const Divider(height: 16, color: AppColors.line),
+            Divider(height: 16, color: AppColors.line),
         ],
       ],
     ],

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'conditions_panel.dart';
+
 import '../../../shared/theme/app_colors.dart';
 import '../conditions_controller.dart';
 import '../models/running_conditions.dart';
@@ -12,7 +14,7 @@ void showConditionsDetails(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AppColors.surface,
     constraints: BoxConstraints(
       maxHeight: MediaQuery.sizeOf(context).height * 0.85,
     ),
@@ -34,12 +36,7 @@ void showConditionsDetails(
               ? data?.dust
               : null;
           final status = assessment?.status ?? RunningSuitability.unknown;
-          final color = switch (status) {
-            RunningSuitability.good => const Color(0xFF18734A),
-            RunningSuitability.caution => const Color(0xFF946100),
-            RunningSuitability.avoid => const Color(0xFFB52C36),
-            RunningSuitability.unknown => AppColors.gray,
-          };
+          final color = suitabilityColor(status);
           final label = switch (status) {
             RunningSuitability.good => '양호',
             RunningSuitability.caution => '주의',
@@ -54,7 +51,7 @@ void showConditionsDetails(
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         '러닝 환경',
                         style: TextStyle(
@@ -66,7 +63,7 @@ void showConditionsDetails(
                     ),
                     IconButton(
                       tooltip: '관측 정보',
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.info_outline,
                         size: 20,
                         color: AppColors.gray,
@@ -76,7 +73,7 @@ void showConditionsDetails(
                     IconButton(
                       tooltip: '새로고침',
                       onPressed: controller.loading ? null : controller.refresh,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.refresh,
                         size: 20,
                         color: AppColors.gray,
@@ -93,7 +90,7 @@ void showConditionsDetails(
                         weather?.temperature == null
                             ? '--'
                             : '${weather!.temperature!.toStringAsFixed(1)}°C',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.ink,
                           fontSize: 44,
                           fontWeight: FontWeight.w800,
@@ -124,10 +121,7 @@ void showConditionsDetails(
                 const SizedBox(height: 4),
                 Text(
                   _precipitation(weather),
-                  style: const TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: AppColors.gray, fontSize: 14),
                 ),
                 if (controller.loading) ...[
                   const SizedBox(height: 12),
@@ -136,7 +130,7 @@ void showConditionsDetails(
                   const SizedBox(height: 12),
                   Text(
                     data?.refreshNotice != null ? '최신 정보 확인 필요' : '일부 정보 없음',
-                    style: const TextStyle(color: AppColors.gray, fontSize: 12),
+                    style: TextStyle(color: AppColors.gray, fontSize: 12),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -147,13 +141,13 @@ void showConditionsDetails(
                       ? '--'
                       : '${weather!.wind!.toStringAsFixed(1)} m/s',
                 ),
-                const Divider(height: 24, color: AppColors.line),
+                Divider(height: 24, color: AppColors.line),
                 _ConditionRow(
                   icon: Icons.blur_on,
                   label: '미세먼지',
                   value: _dust(dust?.pm10, fine: false),
                 ),
-                const Divider(height: 24, color: AppColors.line),
+                Divider(height: 24, color: AppColors.line),
                 _ConditionRow(
                   icon: Icons.grain,
                   label: '초미세먼지',
@@ -196,7 +190,7 @@ class _ConditionRow extends StatelessWidget {
       Expanded(
         child: Text(
           label,
-          style: const TextStyle(color: Color(0xFF475569), fontSize: 14),
+          style: TextStyle(color: AppColors.gray, fontSize: 14),
         ),
       ),
       const SizedBox(width: 12),
@@ -205,7 +199,7 @@ class _ConditionRow extends StatelessWidget {
         child: Text(
           value,
           textAlign: TextAlign.right,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.ink,
             fontSize: 15,
             fontWeight: FontWeight.w700,

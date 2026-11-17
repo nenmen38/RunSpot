@@ -104,7 +104,7 @@ class _RunRewardSectionState extends State<RunRewardSection> {
         children: [
           const _Notice(
             icon: Icons.error_outline,
-            color: AppColors.red,
+            tint: AppColors.red,
             text: '보상을 확인하지 못했습니다.\n기록은 저장되었으니 다시 시도해 주세요.',
           ),
           const SizedBox(height: 8),
@@ -238,14 +238,11 @@ class _LevelUpBanner extends StatelessWidget {
 }
 
 class _Notice extends StatelessWidget {
-  const _Notice({
-    required this.icon,
-    required this.text,
-    this.color = AppColors.gray,
-  });
+  const _Notice({required this.icon, required this.text, this.tint});
   final IconData icon;
   final String text;
-  final Color color;
+  final Color? tint;
+  Color get color => tint ?? AppColors.gray;
 
   @override
   Widget build(BuildContext context) => Row(

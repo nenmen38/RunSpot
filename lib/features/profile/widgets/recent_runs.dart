@@ -58,14 +58,14 @@ class _RecentRunsState extends State<RecentRuns> {
               widget.controller.error == null
                   ? '첫 러닝을 시작해 보세요.'
                   : '기록을 불러오지 못했습니다.',
-              style: const TextStyle(color: AppColors.gray),
+              style: TextStyle(color: AppColors.gray),
             ),
           for (final record in records)
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
                 '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.ink,
                   fontWeight: FontWeight.w700,
                 ),

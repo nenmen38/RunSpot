@@ -324,7 +324,7 @@ class _FrameBadgeState extends State<FrameBadge>
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         shape: BoxShape.circle,
         border: Border.all(
           color: widget.color,
@@ -461,7 +461,7 @@ class CoinShopSheet extends StatelessWidget {
                 key: ValueKey(pack.id),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
-                  side: const BorderSide(color: AppColors.line),
+                  side: BorderSide(color: AppColors.line),
                 ),
                 leading: const Icon(
                   Icons.monetization_on,
@@ -632,7 +632,7 @@ class _OwnedFrame extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: equipped ? AppColors.blue : AppColors.line,
@@ -730,7 +730,7 @@ class _CrewTicketCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.line),
       ),
@@ -863,7 +863,7 @@ class FrameShop extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: AppColors.line),
                   ),

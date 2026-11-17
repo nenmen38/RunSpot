@@ -27,7 +27,7 @@ class NotificationBell extends StatelessWidget {
         tooltip: count == 0 ? '알림' : '알림 $count개',
         onPressed: () => showNotificationSheet(context, controller, onOpenPost),
         style: IconButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.surface,
           foregroundColor: AppColors.ink,
         ),
         icon: Badge(

@@ -46,7 +46,7 @@ class RankRow extends StatelessWidget {
                   runner.badge,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.gray,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -86,7 +86,7 @@ class TinyTab extends StatelessWidget {
         height: 36,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.blue : Colors.white,
+          color: selected ? AppColors.blue : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: selected ? AppColors.blue : AppColors.line),
         ),

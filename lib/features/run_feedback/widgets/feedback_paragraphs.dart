@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 
 /// 원문은 유지하고 문장과 기존 줄바꿈을 기준으로 읽기 좋은 문단을 나눕니다.
 class FeedbackParagraphs extends StatelessWidget {
@@ -20,10 +21,10 @@ class FeedbackParagraphs extends StatelessWidget {
           if (i > 0) const SizedBox(height: 12),
           Text(
             paragraphs[i],
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               height: 1.7,
-              color: Color(0xFF333D4B),
+              color: AppColors.ink,
               fontWeight: FontWeight.w500,
             ),
             textHeightBehavior: const TextHeightBehavior(
