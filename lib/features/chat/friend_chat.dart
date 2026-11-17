@@ -28,6 +28,11 @@ class FriendChatService {
     });
   }
 
+  /// [lastId]까지 받은 메시지를 읽음으로 표시합니다. 상대 화면의 '1'이 사라집니다.
+  Future<void> markRead(String peer, int lastId) async {
+    await _call('friend_chat_mark_read', {'peer_id': peer, 'last_id': lastId});
+  }
+
   Future<dynamic> _call(String function, Map<String, dynamic> params) async {
     final session = client.auth.currentSession;
     if (session == null || session.user.id != ownerId) {
@@ -88,6 +93,9 @@ class _FriendChatViewState extends State<FriendChatView>
   String? _sendError;
   ({String body, String id})? _pendingMessage;
 
+  /// 서버에 읽음으로 알린 마지막 메시지 ID입니다. 같은 값을 반복해서 보내지 않습니다.
+  int _markedRead = 0;
+
   @override
   void initState() {
     super.initState();
@@ -137,6 +145,7 @@ class _FriendChatViewState extends State<FriendChatView>
         _loaded = true;
         _loadError = null;
       });
+      if (widget.peer != null) _markRead();
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -148,6 +157,29 @@ class _FriendChatViewState extends State<FriendChatView>
     } finally {
       _loading = false;
     }
+  }
+
+  /// 대화방을 보고 있을 때 받은 메시지 중 가장 최근 것까지 읽음으로 표시합니다.
+  void _markRead() {
+    final peer = widget.peer;
+    if (peer == null || ModalRoute.of(context)?.isCurrent == false) return;
+    var latest = 0;
+    for (final row in _rows) {
+      final id = row['id'];
+      if (row['sender_id'] != widget.service.ownerId &&
+          id is int &&
+          id > latest) {
+        latest = id;
+      }
+    }
+    if (latest <= _markedRead) return;
+    _markedRead = latest;
+    unawaited(
+      widget.service.markRead(peer, latest).catchError((Object _) {
+        // 실패하면 다음 새로고침 때 다시 알립니다.
+        if (_markedRead == latest) _markedRead = 0;
+      }),
+    );
   }
 
   Future<void> _send() async {
@@ -244,6 +276,8 @@ class _FriendChatViewState extends State<FriendChatView>
                               !_sameDay(time, _sentAt(previous))),
                       showAvatar: !_sameGroup(row, previous),
                       showTime: !_sameGroup(row, next),
+                      // 상대가 아직 읽지 않은 내 메시지에는 카카오톡처럼 '1'을 붙입니다.
+                      unread: row['read'] == false,
                     );
                   },
                 ),
@@ -305,8 +339,17 @@ class _FriendChatViewState extends State<FriendChatView>
             nickname: nickname,
             preview: row['body'] as String,
             sentAt: _sentAt(row),
-            onTap: () =>
-                openFriendChat(context, widget.service.client, peer, nickname),
+            unread: (row['unread'] as num?)?.toInt() ?? 0,
+            onTap: () async {
+              await openFriendChat(
+                context,
+                widget.service.client,
+                peer,
+                nickname,
+              );
+              // 대화방에서 읽은 메시지 수를 바로 반영합니다.
+              if (mounted) unawaited(_load());
+            },
           );
         },
       ),

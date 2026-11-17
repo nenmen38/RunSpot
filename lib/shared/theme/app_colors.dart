@@ -12,4 +12,7 @@ class AppColors {
   static const orange = Color(0xFFFF9F1C);
   static const red = Color(0xFFE34949);
   static const purple = Color(0xFF7C5CFF);
+
+  /// 채팅에서 상대가 아직 읽지 않은 메시지의 '1' 색입니다. 밝은 배경에서도 보이게 진한 노랑을 씁니다.
+  static const unreadMark = Color(0xFFE5A800);
 }

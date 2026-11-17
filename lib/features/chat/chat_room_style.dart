@@ -42,8 +42,12 @@ class ChatMessageBubble extends StatelessWidget {
     required this.showTime,
     required this.sentAt,
     required this.showDay,
+    this.unread = false,
     super.key,
   });
+
+  /// 내가 보낸 메시지를 상대가 아직 읽지 않았으면 true입니다.
+  final bool unread;
 
   final String body;
   final String nickname;
@@ -108,36 +112,61 @@ class ChatMessageBubble extends StatelessWidget {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: mine
-                            ? AppColors.blueDark
-                            : theme.colorScheme.surface,
-                        border: mine
-                            ? null
-                            : Border.all(
-                                color: theme.colorScheme.outlineVariant,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (mine && unread)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4, bottom: 2),
+                            child: Semantics(
+                              label: '읽지 않음',
+                              child: const ExcludeSemantics(
+                                child: Text(
+                                  '1',
+                                  style: TextStyle(
+                                    color: AppColors.unreadMark,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                               ),
-                        borderRadius: BorderRadius.only(
-                          topLeft: mine ? corner : groupedCorner,
-                          topRight: mine ? groupedCorner : corner,
-                          bottomLeft: corner,
-                          bottomRight: corner,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        child: SelectableText(
-                          body,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: foreground,
-                            height: 1.45,
+                            ),
+                          ),
+                        Flexible(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: mine
+                                  ? AppColors.blueDark
+                                  : theme.colorScheme.surface,
+                              border: mine
+                                  ? null
+                                  : Border.all(
+                                      color: theme.colorScheme.outlineVariant,
+                                    ),
+                              borderRadius: BorderRadius.only(
+                                topLeft: mine ? corner : groupedCorner,
+                                topRight: mine ? groupedCorner : corner,
+                                bottomLeft: corner,
+                                bottomRight: corner,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              child: SelectableText(
+                                body,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: foreground,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                     if (showTime && time != null)
                       Padding(

@@ -9,8 +9,12 @@ class ChatConversationTile extends StatelessWidget {
     required this.preview,
     required this.sentAt,
     required this.onTap,
+    this.unread = 0,
     super.key,
   });
+
+  /// 상대가 보냈지만 내가 아직 읽지 않은 메시지 수입니다.
+  final int unread;
 
   final String nickname;
   final String preview;
@@ -98,13 +102,40 @@ class ChatConversationTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              ExcludeSemantics(
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: colors.onSurfaceVariant,
+              if (unread > 0)
+                Semantics(
+                  label: '안 읽은 메시지 $unread개',
+                  child: ExcludeSemantics(
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 22),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.red,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        unread > 999 ? '999+' : '$unread',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ExcludeSemantics(
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
