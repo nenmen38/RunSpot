@@ -44,7 +44,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
   late final String? _owner = widget.client?.auth.currentUser?.id;
   // 저장소는 로그인 계정이 있을 때만 씁니다. 미리보기에서는 착용 상태를 화면에만 둡니다.
   late final _prefs = SharedPreferencesAsync();
-  Map<Cosmetic, Package> _packages = {};
 
   /// 스토어에 등록된 코인 묶음입니다. 상품 ID로 찾습니다.
   Map<String, Package> _coinPackages = {};
@@ -52,7 +51,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
   Set<Cosmetic> _selected = {};
   String? _customerId;
   bool _busy = false;
-  bool _loaded = false;
   String? _message;
 
   /// 아이템 페이지에서 보는 칸입니다. 0은 보관함, 1은 상점입니다.
@@ -147,8 +145,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     _requireOwner();
     final offerings = await Purchases.getOfferings();
     _requireOwner();
-    final packages =
-        offerings.all['profile_cosmetics']?.availablePackages ?? [];
     final coins = offerings.all['coin_packs']?.availablePackages ?? [];
     setState(() {
       _coinPackages = {
@@ -159,15 +155,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
                     ProductCategory.nonSubscription)
               pack.id: package,
       };
-      _packages = {
-        for (final item in Cosmetic.values)
-          for (final package in packages)
-            if (item.id == package.identifier &&
-                package.storeProduct.productCategory ==
-                    ProductCategory.nonSubscription)
-              item: package,
-      };
-      _loaded = true;
     });
   }
 
@@ -191,15 +178,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       _owned = owned;
       _selected = selected;
     });
-  }
-
-  Future<void> _buy(Cosmetic item, Package package) async {
-    final result = await Purchases.purchase(PurchaseParams.package(package));
-    await _apply(result.customerInfo);
-    _requireOwner();
-    if (!_owned.contains(item)) {
-      setState(() => _message = '구매 권한이 아직 확인되지 않았습니다. 구매 복원을 눌러 주세요.');
-    }
   }
 
   /// 코인은 서버가 결제 알림(웹훅)을 받아 기록하므로 반영될 때까지 잠시 다시 확인합니다.
@@ -288,101 +266,28 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     });
   }
 
-  Future<void> _restore() async {
-    await _apply(await Purchases.restorePurchases());
-    _requireOwner();
-    setState(
-      () => _message = _owned.isEmpty ? '복원할 꾸미기 아이템이 없습니다.' : '구매 내역을 복원했습니다.',
-    );
-  }
-
-  Future<void> _openItem(Cosmetic item) async {
-    final package = _packages[item];
-    final owned = _owned.contains(item);
-    final selected = _selected.contains(item);
-    final canAct = !_previewOnly && !_busy && (owned || package != null);
-    final proceed = await showModalBottomSheet<bool>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: CosmeticArtwork(item: item, large: true),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                item.label,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(item.description),
-              const SizedBox(height: 18),
-              if (canAct)
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(
-                    owned
-                        ? (selected ? '적용 해제' : '프로필에 적용')
-                        : '${package!.storeProduct.priceString} 구매',
-                  ),
-                )
-              else
-                FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('확인'),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (proceed != true || !_isOwner || !canAct) return;
-    if (owned) {
-      await _run(() => _toggle(item, !selected));
-    } else {
-      await _run(() => _buy(item, package!));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.child case final profile?) {
       return _isOwner ? decorateProfile(profile, _selected) : profile;
     }
     final text = Theme.of(context).textTheme;
-    final store = StoreCatalog(
-      items: {
-        for (final item in Cosmetic.values)
-          if (_previewOnly)
-            item: '자세히 보기'
-          else if (_owned.contains(item))
-            item: _selected.contains(item) ? '적용 중' : '보유 중'
-          else if (_packages[item] case final package?)
-            item: package.storeProduct.priceString,
-      },
-      onOpen: _openItem,
-      header: switch (widget.wallet) {
-        final wallet? => FrameShop(
-          controller: wallet,
-          onCharge: _openCoins,
-          onMessage: _showMessage,
-        ),
-        null => null,
-      },
-      onRestore: _previewOnly || _busy ? null : () => _run(_restore),
-      onRetry: !_previewOnly && !_busy && !_loaded && _message != null
-          ? () => _run(_load)
-          : null,
-      message: _message,
-      loading: _busy,
+    // 상점에는 코인 테두리와 크루 생성권만 둡니다. (블루 컬렉션·꾸미기 아이템은 판매하지 않습니다.)
+    final store = ListView(
+      padding: const EdgeInsets.only(bottom: 16),
+      children: [
+        switch (widget.wallet) {
+          final wallet? => FrameShop(
+            controller: wallet,
+            onCharge: _openCoins,
+            onMessage: _showMessage,
+          ),
+          null => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: Text('상점을 불러오는 중이에요.')),
+          ),
+        },
+      ],
     );
     final inventory = ItemInventory(
       items: [

@@ -14,7 +14,9 @@ void main() {
 
     await tester.tap(find.text('상점'));
     await tester.pumpAndSettle();
-    expect(find.text('블루 컬렉션'), findsOneWidget);
+    // 상점에는 블루 컬렉션·꾸미기 아이템을 팔지 않습니다.
+    expect(find.text('블루 컬렉션'), findsNothing);
+    expect(find.text('꾸미기 아이템'), findsNothing);
 
     await tester.tap(find.text('보관함'));
     await tester.pumpAndSettle();

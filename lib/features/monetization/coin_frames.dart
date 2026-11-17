@@ -581,7 +581,8 @@ class FrameInventory extends StatelessWidget {
                   onWear: () => run(controller.wear(kind)),
                   onRemove: () => run(controller.wear(null)),
                 ),
-          if (wallet != null && wallet.owned.isNotEmpty) ...[
+          // 테두리를 착용했을 때만 색을 고를 수 있고, 해제하면 색 선택도 숨깁니다.
+          if (wallet != null && wallet.equipped != null) ...[
             const SizedBox(height: 4),
             Text('테두리 색', style: text.labelLarge),
             const SizedBox(height: 8),

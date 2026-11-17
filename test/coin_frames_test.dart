@@ -145,6 +145,8 @@ void main() {
     await tester.tap(find.text('보관함'));
     await tester.pumpAndSettle();
     expect(button(tester, 'frame-basic', '해제').onPressed, isNull);
+    // 착용하기 전에는 색 선택 칸이 보이지 않습니다.
+    expect(find.text('테두리 색'), findsNothing);
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('frame-basic')),
@@ -155,6 +157,7 @@ void main() {
     expect(find.text('착용 중'), findsOneWidget);
     expect(button(tester, 'frame-basic', '착용').onPressed, isNull);
     expect(button(tester, 'frame-basic', '해제').onPressed, isNotNull);
+    expect(find.text('테두리 색'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('테두리 색 #EC4899'));
     await tester.pumpAndSettle();
@@ -170,6 +173,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.equipped, isNull);
     expect(find.text('착용 중'), findsNothing);
+    // 해제하면 색 선택 칸도 사라집니다.
+    expect(find.text('테두리 색'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
