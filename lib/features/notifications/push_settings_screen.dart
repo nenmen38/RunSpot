@@ -72,7 +72,7 @@ class _PushSettingsScreenState extends State<PushSettingsScreen> {
       children: [
         const ListTile(
           title: Text('활동 알림'),
-          subtitle: Text('잠금 화면에는 닉네임과 댓글 내용을 표시하지 않습니다.'),
+          subtitle: Text('잠금 화면에는 닉네임과 댓글·메시지 내용을 표시하지 않습니다.'),
         ),
         ListTile(
           title: const Text('휴대폰 알림 켜기'),
@@ -93,6 +93,7 @@ class _PushSettingsScreenState extends State<PushSettingsScreen> {
             'friend_request': '친구 요청',
             'group_invite': '함께 달리기 초대',
             'board_comment': '내 글의 댓글·답글',
+            'friend_message': '친구 메시지',
           }.entries)
             SwitchListTile(
               title: Text(entry.value),

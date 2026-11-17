@@ -69,7 +69,12 @@ export function payload(delivery: Delivery) {
     friend_request: "새 친구 요청이 도착했어요.",
     group_invite: "함께 달리기 초대가 도착했어요.",
     board_comment: "내 글이나 댓글에 새 댓글이 달렸어요.",
+    friend_message: "친구에게서 새 메시지가 도착했어요.",
   } as Record<string, string>)[delivery.kind];
+  // 친구 메시지는 보낸 친구별로 알림 하나에 덮어써서 연달아 와도 쌓이지 않게 합니다.
+  const group = delivery.kind === "friend_message"
+    ? `chat-${delivery.target_id}`
+    : delivery.job_id;
   if (!body) throw new Error("지원하지 않는 알림");
   return {
     message: {
@@ -83,12 +88,12 @@ export function payload(delivery: Delivery) {
       },
       android: {
         ttl: "900s",
-        collapse_key: delivery.job_id,
-        notification: { tag: delivery.job_id },
+        collapse_key: group,
+        notification: { tag: group },
       },
       apns: {
         headers: {
-          "apns-collapse-id": delivery.job_id,
+          "apns-collapse-id": group,
           "apns-expiration": String(Math.floor(Date.now() / 1000) + 900),
         },
         payload: { aps: { sound: "default" } },

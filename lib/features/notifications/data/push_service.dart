@@ -17,7 +17,12 @@ class PushDestination {
     final target = data['target_id'];
     if (owner == null ||
         data['recipient_id'] != owner ||
-        !['friend_request', 'group_invite', 'board_comment'].contains(kind) ||
+        ![
+          'friend_request',
+          'group_invite',
+          'board_comment',
+          'friend_message',
+        ].contains(kind) ||
         target is! String ||
         !RegExp(
           r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',

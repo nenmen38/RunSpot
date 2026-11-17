@@ -47,6 +47,7 @@
 30. `migrations/20261112000400_group_quick_start.sql`: 함께 달리기에서 GPS 준비 단계를 없앱니다. 방장은 친구가 한 명 이상 수락하면 바로 `start`할 수 있고, 그룹을 취소하면 그룹·초대 알림이 지워져 목록과 기록에 남지 않습니다(기존 취소 그룹도 삭제). `clear_my_notifications()`로 내 알림을 모두 지웁니다.
 31. `migrations/20261113000100_board_crew_promo.sql`: 게시판에 크루 홍보(`board='crew'`)를 더합니다. 크루장만 자기 크루를 골라(`create_board_post`의 `requested_crew`) 홍보글을 쓰고, 글에 크루 이름·아이콘(`crew`)이 붙습니다. `board_feed`는 내가 크루장인 크루(`own_crews`)를 함께 돌려줍니다. 러닝 소식 말머리에 자유(`free`)·질문(`question`)을 더합니다. 크루가 없어지면 그 홍보글도 지워집니다.
 32. `migrations/20261117000100_friend_chat_read_receipts.sql`: 친구 대화 읽음 표시를 더합니다. 대화 상대별로 어디까지 읽었는지(`friend_chat_reads.last_read_id`)를 저장하고, `friend_chat_read`가 대화방 메시지에 상대가 읽었는지(`read`), 대화 목록에 안 읽은 수(`unread`)를 붙입니다. `friend_chat_mark_read(peer_id,last_id)`로 받은 메시지까지 읽음 처리하며 되돌리지 않습니다. 기존 대화는 모두 읽은 상태로 시작합니다.
+33. `migrations/20261117000200_friend_chat_live.sql`: 친구 대화 마무리입니다. `friend_chat_unread_total()`로 안 읽은 메시지 총 개수를 셉니다. 메시지·읽음이 바뀌면 당사자의 비공개 실시간 주제 `chat:사용자ID`로 내용 없는 신호를 보냅니다. 새 메시지는 휴대폰 알림(`friend_message`, 본문 미포함, 보낸 친구별로 묶음)을 보내며, 이미 읽었거나 친구가 아니거나 수신을 끈 경우는 보내지 않습니다. `my_push_preferences`에 `friend_message`를 더했습니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

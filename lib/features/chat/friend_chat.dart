@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'chat_list_style.dart';
+import 'chat_sync.dart';
 import 'chat_room_style.dart';
 
 class FriendChatService {
@@ -26,6 +27,32 @@ class FriendChatService {
       'message_body': body,
       'request_id': requestId,
     });
+  }
+
+  /// 안 읽은 메시지 총 개수입니다.
+  Future<int> unreadTotal() async =>
+      ((await _call('friend_chat_unread_total', const {})) as num).toInt();
+
+  /// 내 대화에 새 메시지나 읽음 변경이 생기면 [onChanged]를 부릅니다.
+  /// 신호에는 내용이 없고, 받은 뒤 권한을 다시 검사하는 조회로 새로 불러옵니다.
+  /// 돌려준 함수를 부르면 연결을 끊습니다.
+  void Function() listen({
+    required void Function() onChanged,
+    required void Function(bool connected) onConnection,
+  }) {
+    final owner = ownerId;
+    if (owner == null) return () {};
+    final channel = client.channel(
+      'chat:$owner',
+      opts: const RealtimeChannelConfig(private: true),
+    );
+    channel
+      ..onBroadcast(event: 'changed', callback: (_) => onChanged())
+      ..subscribe(
+        (status, _) =>
+            onConnection(status == RealtimeSubscribeStatus.subscribed),
+      );
+    return () => unawaited(client.removeChannel(channel));
   }
 
   /// [lastId]까지 받은 메시지를 읽음으로 표시합니다. 상대 화면의 '1'이 사라집니다.
@@ -53,13 +80,15 @@ Future<void> openFriendChat(
   BuildContext context,
   SupabaseClient client,
   String peer,
-  String nickname,
-) => Navigator.of(context).push<void>(
+  String nickname, {
+  ChatSync? sync,
+}) => Navigator.of(context).push<void>(
   MaterialPageRoute(
     builder: (_) => FriendChatView(
       service: FriendChatService(client),
       peer: peer,
       nickname: nickname,
+      sync: sync,
     ),
   ),
 );
@@ -70,8 +99,11 @@ class FriendChatView extends StatefulWidget {
     required this.service,
     this.peer,
     this.nickname,
+    this.sync,
   });
 
+  /// 실시간 신호를 받으면 바로 다시 불러옵니다. 없으면 주기적으로만 확인합니다.
+  final ChatSync? sync;
   final FriendChatService service;
   final String? peer;
   final String? nickname;
@@ -100,15 +132,39 @@ class _FriendChatViewState extends State<FriendChatView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _seenRevision = widget.sync?.revision;
+    widget.sync?.addListener(_onSync);
     _resume();
   }
+
+  int? _seenRevision;
+
+  /// 실시간 연결이 살아 있으면 가끔만, 끊겨 있으면 4초마다 확인합니다.
+  Duration get _pollInterval => widget.sync?.connected == true
+      ? const Duration(seconds: 20)
+      : const Duration(seconds: 4);
 
   void _resume() {
     _poll?.cancel();
     unawaited(_load());
-    _poll = Timer.periodic(const Duration(seconds: 4), (_) {
+    _schedulePoll();
+  }
+
+  void _schedulePoll() {
+    _poll?.cancel();
+    _poll = Timer.periodic(_pollInterval, (_) {
       if (ModalRoute.of(context)?.isCurrent != false) unawaited(_load());
     });
+  }
+
+  void _onSync() {
+    final sync = widget.sync;
+    if (sync == null || !mounted) return;
+    if (_seenRevision != sync.revision) {
+      _seenRevision = sync.revision;
+      if (ModalRoute.of(context)?.isCurrent != false) unawaited(_load());
+    }
+    if (_poll != null) _schedulePoll();
   }
 
   @override
@@ -211,6 +267,7 @@ class _FriendChatViewState extends State<FriendChatView>
 
   @override
   void dispose() {
+    widget.sync?.removeListener(_onSync);
     _poll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _input.dispose();
@@ -346,9 +403,11 @@ class _FriendChatViewState extends State<FriendChatView>
                 widget.service.client,
                 peer,
                 nickname,
+                sync: widget.sync,
               );
               // 대화방에서 읽은 메시지 수를 바로 반영합니다.
               if (mounted) unawaited(_load());
+              unawaited(widget.sync?.refresh());
             },
           );
         },

@@ -25,6 +25,19 @@ Deno.test("잠금 화면 알림은 본문과 개인정보를 포함하지 않음
   assert(!("nickname" in value.message.data));
   assert(value.message.android.notification.tag === delivery.job_id);
 });
+Deno.test("친구 메시지 알림은 본문 없이 보낸 친구별로 하나로 묶음", () => {
+  const value = payload({
+    ...delivery,
+    kind: "friend_message",
+    target_id: "친구",
+  });
+  assert(
+    value.message.notification.body === "친구에게서 새 메시지가 도착했어요.",
+  );
+  assert(value.message.android.notification.tag === "chat-친구");
+  assert(value.message.android.collapse_key === "chat-친구");
+  assert(value.message.apns.headers["apns-collapse-id"] === "chat-친구");
+});
 Deno.test("기기 등록 해제만 토큰을 폐기하고 설정 오류와 일시 장애는 구분함", async () => {
   const response = (status: number, code: string) =>
     (() =>

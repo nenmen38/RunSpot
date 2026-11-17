@@ -12,6 +12,7 @@ import 'friend_controller.dart';
 import 'widgets/friend_list.dart';
 import 'widgets/friend_ranking.dart';
 import 'widgets/friend_search.dart';
+import '../chat/chat_sync.dart';
 import '../group_running/group_controller.dart';
 import '../group_running/group_running_screen.dart';
 
@@ -26,8 +27,16 @@ class SocialScreen extends StatefulWidget {
     this.initialTab = 0,
     this.openGroupOnStart = false,
     this.onInitialGroupOpened,
+    this.showChatOnStart = false,
+    this.chatSync,
     super.key,
   });
+
+  /// 메시지 알림으로 들어오면 처음부터 대화 목록을 보여줍니다.
+  final bool showChatOnStart;
+
+  /// 안 읽은 메시지 수와 실시간 신호입니다.
+  final ChatSync? chatSync;
 
   final RankingService? rankingService;
   final FriendService? friendService;
@@ -49,7 +58,7 @@ class _SocialScreenState extends State<SocialScreen>
     with WidgetsBindingObserver {
   late final FriendController _friends;
   late final RankingService _ranking;
-  bool _showChat = false;
+  late bool _showChat = widget.showChatOnStart;
   FriendChatService? _chat;
 
   Future<void> _invite(String userId) async {
@@ -142,9 +151,9 @@ class _SocialScreenState extends State<SocialScreen>
                   EdgeInsets.symmetric(horizontal: 18),
                 ),
               ),
-              segments: const [
-                ButtonSegment(value: false, label: Text('소셜')),
-                ButtonSegment(value: true, label: Text('대화')),
+              segments: [
+                const ButtonSegment(value: false, label: Text('소셜')),
+                ButtonSegment(value: true, label: _chatLabel()),
               ],
               selected: {_showChat},
               onSelectionChanged: (values) =>
@@ -169,11 +178,26 @@ class _SocialScreenState extends State<SocialScreen>
         Expanded(
           child: _showChat
               ? chat != null
-                    ? FriendChatView(service: chat)
+                    ? FriendChatView(service: chat, sync: widget.chatSync)
                     : const Center(child: Text('대화를 사용할 수 없습니다.'))
               : _social(),
         ),
       ],
+    );
+  }
+
+  /// '대화' 버튼 옆에 안 읽은 메시지 수를 보여줍니다.
+  Widget _chatLabel() {
+    final sync = widget.chatSync;
+    if (sync == null) return const Text('대화');
+    return ListenableBuilder(
+      listenable: sync,
+      builder: (context, _) => Badge(
+        isLabelVisible: sync.unreadTotal > 0,
+        offset: const Offset(14, -6),
+        label: Text(sync.unreadTotal > 99 ? '99+' : '${sync.unreadTotal}'),
+        child: const Text('대화'),
+      ),
     );
   }
 

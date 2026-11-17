@@ -5,6 +5,8 @@ import '../features/monetization/profile_cosmetics.dart';
 import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
+import 'package:runquest/features/chat/chat_sync.dart';
+import 'package:runquest/features/chat/friend_chat.dart';
 import 'package:runquest/features/home/run_guide/run_guide.dart';
 import 'package:runquest/features/settings/run_voice_settings.dart';
 import 'package:runquest/shared/layout/readable_width.dart';
@@ -101,6 +103,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
   WalletController? _wallet;
   CrewController? _crew;
 
+  /// 친구 대화의 안 읽은 수와 실시간 신호입니다. 소셜 탭 배지와 대화 화면이 함께 씁니다.
+  ChatSync? _chat;
+  bool _socialShowChat = false;
+
   @override
   void initState() {
     super.initState();
@@ -116,6 +122,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     } else {
       final client = Supabase.instance.client;
       _blocks = SupabaseBlockService(client);
+      _chat = ChatSync(FriendChatService(client))..start();
       _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
       _reviews = SupabaseReviewService(client);
@@ -177,6 +184,11 @@ class _RunQuestShellState extends State<RunQuestShell> {
       }
       _notifications?.refreshCount();
       if (destination.kind == 'group_invite') unawaited(_groups?.refresh());
+      if (destination.kind == 'friend_message') {
+        // 대화 화면은 실시간으로 바뀌므로 알림 대신 배지만 갱신합니다.
+        unawaited(_chat?.refresh());
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -224,6 +236,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     if (widget.notificationController == null) _notifications?.dispose();
     _wallet?.dispose();
     _crew?.dispose();
+    _chat?.dispose();
     if (widget.conditionsController == null) _conditions?.dispose();
     _map.runHistory.dispose();
     _map.dispose();
@@ -246,6 +259,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _socialRevision++;
       _socialInitialTab = destination.kind == 'friend_request' ? 1 : 0;
       _openGroupOnStart = destination.kind == 'group_invite';
+      // 메시지 알림을 누르면 소셜 탭의 대화 목록을 엽니다.
+      _socialShowChat = destination.kind == 'friend_message';
       _tab = 1;
     });
   }
@@ -287,6 +302,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
         initialTab: _socialInitialTab,
         openGroupOnStart: _openGroupOnStart,
         onInitialGroupOpened: () => _openGroupOnStart = false,
+        showChatOnStart: _socialShowChat,
+        chatSync: _chat,
         rankingService: _ranking,
         friendService: widget.friendService,
         blockService: _blocks,
@@ -390,10 +407,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
                 groupAlignment: 0,
                 onDestinationSelected: select,
                 destinations: [
-                  for (final item in _destinations)
+                  for (final (index, item) in _destinations.indexed)
                     NavigationRailDestination(
-                      icon: Icon(item.$1),
-                      selectedIcon: Icon(item.$2),
+                      icon: _navIcon(index, item.$1),
+                      selectedIcon: _navIcon(index, item.$2),
                       label: Text(item.$3),
                     ),
                 ],
@@ -417,13 +434,27 @@ class _RunQuestShellState extends State<RunQuestShell> {
         indicatorColor: AppColors.blueSoft,
         onDestinationSelected: select,
         destinations: [
-          for (final item in _destinations)
+          for (final (index, item) in _destinations.indexed)
             NavigationDestination(
-              icon: Icon(item.$1),
-              selectedIcon: Icon(item.$2),
+              icon: _navIcon(index, item.$1),
+              selectedIcon: _navIcon(index, item.$2),
               label: item.$3,
             ),
         ],
+      ),
+    );
+  }
+
+  /// 소셜 탭 아이콘에는 안 읽은 메시지 수를 붙입니다.
+  Widget _navIcon(int index, IconData icon) {
+    final chat = _chat;
+    if (index != 1 || chat == null) return Icon(icon);
+    return ListenableBuilder(
+      listenable: chat,
+      builder: (context, _) => Badge(
+        isLabelVisible: chat.unreadTotal > 0,
+        label: Text(chat.unreadTotal > 99 ? '99+' : '${chat.unreadTotal}'),
+        child: Icon(icon),
       ),
     );
   }
