@@ -1,3 +1,7 @@
+import 'friend_invite_screen.dart';
+import '../../shared/data/account_rpc.dart';
+import '../meetups/meetup_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -174,6 +178,46 @@ class _SocialScreenState extends State<SocialScreen>
               ),
           ],
         ),
+        if (!_showChat && chat != null)
+          TextButton.icon(
+            onPressed: () => Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FriendInviteScreen(client: chat.client),
+              ),
+            ),
+            icon: const Icon(Icons.qr_code),
+            label: const Text('친구 초대'),
+          ),
+        if (!_showChat && chat != null && widget.groupController != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.event_available),
+              label: const Text('동네 러닝 모임'),
+              onPressed: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MeetupScreen(
+                    service: AccountRpc(chat.client),
+                    onGroup: () async {
+                      await widget.groupController!.refresh();
+                      if (!context.mounted) return;
+                      await Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => GroupRunningScreen(
+                            controller: widget.groupController!,
+                            friends: _friends,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
         const SizedBox(height: 8),
         Expanded(
           child: _showChat

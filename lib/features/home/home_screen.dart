@@ -1,3 +1,5 @@
+import 'models/run_session.dart';
+
 import 'package:runquest/features/profile/widgets/personal_records_card.dart';
 import 'package:runquest/features/profile/data/personal_records_service.dart';
 
@@ -264,37 +266,45 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_endingRun) return;
     setState(() => _endingRun = true);
     try {
-      final confirmed =
-          widget.controller.runSession?.isFinished == true ||
-          await showDialog<bool>(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('러닝을 종료할까요?'),
-                  actions: [
+      final shortRun =
+          (widget.controller.runSession?.distanceMeters ?? 0) <
+          RunSummary.minimumRecordDistanceMeters;
+      final decision = widget.controller.runSession?.isFinished == true
+          ? 'save'
+          : await showDialog<String>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text('러닝을 종료할까요?'),
+                content: shortRun
+                    ? const Text(
+                        '300m 미만 기록도 개인 기록으로 저장할 수 있습니다. 경험치와 랭킹에는 반영되지 않습니다.',
+                      )
+                    : null,
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('취소'),
+                  ),
+                  if (shortRun)
                     TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('취소'),
+                      onPressed: () => Navigator.pop(dialogContext, 'discard'),
+                      child: const Text('버리고 종료'),
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text('종료'),
-                    ),
-                  ],
-                ),
-              ) ==
-              true;
-      if (confirmed != true || !mounted) return;
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, 'save'),
+                    child: Text(shortRun ? '저장하고 종료' : '종료'),
+                  ),
+                ],
+              ),
+            );
+      if (decision == null || !mounted) return;
       final summary = await widget.controller.finishRun(
+        discard: decision == 'discard',
         temperatureAtEnd: (endedAt) => widget.conditionsController
             ?.temperatureAt(widget.controller.position, endedAt),
       );
       if (!mounted || summary == null) return;
-      if (!summary.canSaveRecord) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('300m 미만 러닝은 저장하지 않습니다.')));
-        return;
-      }
+      if (decision == 'discard' || !summary.canSaveRecord) return;
       final history = widget.controller.runHistory;
       RunRecord currentRecord() =>
           history.visibleRecords

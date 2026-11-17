@@ -64,3 +64,23 @@ jobs:
       - run: deno fmt --check supabase/functions/coin-webhook
       - run: deno check supabase/functions/coin-webhook/index.ts
       - run: deno test supabase/functions/coin-webhook
+
+  android-build:
+    name: 안드로이드·갤럭시 워치 빌드
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --debug
+      - run: ./gradlew :wear:assembleDebug
+        working-directory: android

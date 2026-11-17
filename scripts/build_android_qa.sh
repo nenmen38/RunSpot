@@ -39,9 +39,9 @@ PY
 mkdir -p "$artifact_dir"
 flutter build apk --debug --dart-define-from-file="$work_dir/client.json"
 cp build/app/outputs/flutter-apk/app-debug.apk "$artifact_dir/runspot-android-qa.apk"
-flutter build apk --release --dart-define-from-file="$work_dir/client.json"
+ORG_GRADLE_PROJECT_runspotQaSigning=true flutter build apk --release --dart-define-from-file="$work_dir/client.json"
 cp build/app/outputs/flutter-apk/app-release.apk "$artifact_dir/runspot-android-release-qa.apk"
-flutter build apk --release --target=tool/crashlytics_probe.dart --dart-define-from-file="$work_dir/client.json"
+ORG_GRADLE_PROJECT_runspotQaSigning=true flutter build apk --release --target=tool/crashlytics_probe.dart --dart-define-from-file="$work_dir/client.json"
 cp build/app/outputs/flutter-apk/app-release.apk "$artifact_dir/runspot-crashlytics-probe.apk"
 (
   cd "$artifact_dir"

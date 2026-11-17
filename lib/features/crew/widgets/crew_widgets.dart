@@ -1,3 +1,6 @@
+import 'crew_challenge_screen.dart';
+import '../data/crew_service.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -299,6 +302,20 @@ class CrewTab extends StatelessWidget {
               const SizedBox(height: 12),
             ],
             if (crew != null) ...[
+              if (controller.service case final SupabaseCrewService service)
+                ListTile(
+                  leading: const Icon(Icons.flag),
+                  title: const Text('크루 공동 목표'),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CrewChallengeScreen(
+                        client: service.client,
+                        crew: crew,
+                      ),
+                    ),
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(

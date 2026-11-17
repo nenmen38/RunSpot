@@ -518,17 +518,16 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('300m 미만 종료는 안내만 표시하고 기록과 공유 결과를 만들지 않습니다', (tester) async {
+  testWidgets('300m 미만 종료에서 버리기를 선택하면 기록을 만들지 않습니다', (tester) async {
     final controller = await showApp(tester, const Size(390, 844));
     await tester.tap(find.text('러닝 시작'));
     await tester.pump();
     await tester.tap(find.text('러닝 종료'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('종료'));
+    await tester.tap(find.text('버리고 종료'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('300m 미만 러닝은 저장하지 않습니다.'), findsOneWidget);
     expect(find.text('러닝 완료'), findsNothing);
     expect(find.text('기기에 저장됨'), findsNothing);
     expect(controller.runSession, isNull);

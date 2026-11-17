@@ -1,3 +1,5 @@
+import '../training/training_screen.dart';
+
 import 'package:runquest/features/profile/widgets/personal_records_card.dart';
 import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:flutter/material.dart';
@@ -89,6 +91,17 @@ class ProfileScreen extends StatelessWidget {
             if (commerceClient case final client?)
               PartnerOffers(client: client),
             const SizedBox(height: 10),
+            if (commerceClient case final client?)
+              ListTile(
+                leading: const Icon(Icons.calendar_month),
+                title: const Text('나의 훈련 계획'),
+                onTap: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TrainingScreen(client: client),
+                  ),
+                ),
+              ),
             if (statisticsService != null)
               QuickStats(service: statisticsService!),
             if (personalRecordsService case final records?) ...[

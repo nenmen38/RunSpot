@@ -1,3 +1,5 @@
+import '../run_transfer/run_export.dart';
+
 import 'dart:async';
 
 import '../health/data/run_health_service.dart';
@@ -130,6 +132,18 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
         appBar: AppBar(
           title: const Text('러닝 기록'),
           actions: [
+            IconButton(
+              tooltip: '기록 파일 내보내기',
+              icon: const Icon(Icons.file_download_outlined),
+              onPressed: !widget.controller.service.isCurrentOwner
+                  ? null
+                  : () => exportRun(
+                      context,
+                      _record,
+                      () => widget.controller.loadRoute(_record),
+                      () => widget.controller.service.isCurrentOwner,
+                    ),
+            ),
             if (!widget.record.pendingSync)
               IconButton(
                 tooltip: widget.record.hidden ? '기록 복원' : '기록 숨기기',

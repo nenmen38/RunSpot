@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'app/bootstrap.dart';
 import 'app/run_quest_app.dart';
 import 'features/settings/appearance/app_appearance.dart';
-import 'features/profile/weekly_goal.dart';
 import 'features/settings/run_voice_settings.dart';
 
 Future<void> main() async {
@@ -12,7 +11,6 @@ Future<void> main() async {
     // 다크 모드·글자 크기 설정을 먼저 불러와 첫 화면부터 반영합니다.
     await AppAppearance.instance.load();
     await RunVoiceSettings.instance.load();
-    await WeeklyGoal.instance.load();
     runApp(const RunQuestApp());
   } catch (error, stackTrace) {
     FlutterError.reportError(

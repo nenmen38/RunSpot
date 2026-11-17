@@ -32,7 +32,9 @@ class RunSummary {
   static const minimumRecordDistanceMeters = 300;
 
   bool get canSaveRecord =>
-      distanceMeters.isFinite && distanceMeters >= minimumRecordDistanceMeters;
+      distanceMeters.isFinite &&
+      distanceMeters >= 0 &&
+      endedAt.isAfter(startedAt);
 
   final String clientRunId;
   final DateTime startedAt;

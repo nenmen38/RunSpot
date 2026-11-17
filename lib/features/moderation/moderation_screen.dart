@@ -241,6 +241,8 @@ class _ModerationScreenState extends State<ModerationScreen> {
         Text(
           '${row['nickname'] ?? '탈퇴한 사용자'} · ${row['kind'] == 'chat'
               ? '채팅'
+              : row['kind'] == 'meetup'
+              ? '모임 모집'
               : row['kind'] == 'comment'
               ? '댓글'
               : '게시글'}',

@@ -1,3 +1,4 @@
+import 'chat_draft_store.dart';
 import '../moderation/moderation_screen.dart';
 
 import 'package:runquest/shared/widgets/status_view.dart';
@@ -124,6 +125,13 @@ Future<void> openFriendChat(
   MaterialPageRoute(
     builder: (_) => FriendChatView(
       service: FriendChatService(client),
+      draftStore: client.auth.currentUser == null
+          ? null
+          : ChatDraftStore(
+              owner: client.auth.currentUser!.id,
+              namespace: client.rest.url,
+              peer: peer,
+            ),
       peer: peer,
       nickname: nickname,
       sync: sync,
@@ -138,9 +146,11 @@ class FriendChatView extends StatefulWidget {
     this.peer,
     this.nickname,
     this.sync,
+    this.draftStore,
   });
 
   /// 실시간 신호를 받으면 바로 다시 불러옵니다. 없으면 주기적으로만 확인합니다.
+  final ChatDraftStore? draftStore;
   final ChatSync? sync;
   final FriendChatService service;
   final String? peer;
@@ -157,6 +167,7 @@ class _FriendChatViewState extends State<FriendChatView>
   Timer? _poll;
   bool _loading = false;
   bool _sending = false;
+  bool _restoring = true;
   bool _older = true;
   bool _loaded = false;
   String? _loadError;
@@ -176,6 +187,41 @@ class _FriendChatViewState extends State<FriendChatView>
     _seenRevision = widget.sync?.revision;
     widget.sync?.addListener(_onSync);
     _resume();
+    _restoreDraft();
+  }
+
+  Future<void> _restoreDraft() async {
+    try {
+      final draft = await widget.draftStore?.read();
+      if (!mounted) return;
+      setState(() {
+        _pendingMessage = draft;
+        _restoring = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _sendError = '전송 대기를 복구하지 못했습니다. 대화를 다시 열어 주세요.';
+        });
+      }
+    }
+  }
+
+  Future<void> _cancelDraft(FriendChatDraft draft) async {
+    setState(() => _sending = true);
+    try {
+      await widget.draftStore?.remove(draft.id);
+      if (mounted) {
+        setState(() {
+          _pendingMessage = null;
+          _sendError = null;
+        });
+      }
+    } catch (_) {
+      _showError('전송 대기를 지우지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   int? _seenRevision;
@@ -335,7 +381,9 @@ class _FriendChatViewState extends State<FriendChatView>
       _pendingMessage = draft;
     });
     try {
+      await widget.draftStore?.save(draft);
       await widget.service.sendContent(peer, draft);
+      await widget.draftStore?.remove(draft.id);
       if (!mounted) return;
       setState(() {
         _pendingMessage = null;
@@ -595,16 +643,14 @@ class _FriendChatViewState extends State<FriendChatView>
                 ),
         ),
         if (_sendError case final error?) Text(error),
-        if (_pendingMessage case final draft?
-            when draft.body == null && !_sending)
+        if (_pendingMessage case final draft? when !_sending)
           ListTile(
-            title: const Text('보내지 못한 첨부'),
+            title: Text(
+              draft.body ?? (draft.photo != null ? '전송 대기 사진' : '전송 대기 기록'),
+            ),
             leading: IconButton(
-              tooltip: '첨부 취소',
-              onPressed: () => setState(() {
-                _pendingMessage = null;
-                _sendError = null;
-              }),
+              tooltip: '전송 취소',
+              onPressed: () => _cancelDraft(draft),
               icon: const Icon(Icons.close_rounded),
             ),
             trailing: TextButton(
@@ -631,9 +677,7 @@ class _FriendChatViewState extends State<FriendChatView>
         ChatComposer(
           controller: _input,
           sending: _sending,
-          canSend:
-              _loadError == null &&
-              (_pendingMessage == null || _pendingMessage!.body != null),
+          canSend: _loadError == null && !_restoring && _pendingMessage == null,
           onSend: _send,
           onAttach: _attach,
         ),

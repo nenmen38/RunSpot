@@ -12,12 +12,14 @@ plugins {
 }
 
 // 출시용 서명 정보는 저장소에 올리지 않는 android/key.properties에서 읽습니다.
-// 파일이 없으면 개발용 디버그 서명을 사용합니다.
+// 출시 빌드는 서명 정보가 필수이며 검증 APK는 명시적으로 개발 서명을 선택합니다.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+val qaSigning = providers.gradleProperty("runspotQaSigning").orNull == "true"
 
 android {
     namespace = "com.runspot.runquest"
@@ -58,8 +60,10 @@ android {
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
-            } else {
+            } else if (qaSigning) {
                 signingConfigs.getByName("debug")
+            } else {
+                null
             }
         }
     }
@@ -74,3 +78,20 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// 서명 누락 상태로 배포 파일을 생성하지 못하게 빌드 직전에 검사합니다.
+tasks.register("verifyRunspotReleaseSigning") {
+    doLast {
+        if (!keystorePropertiesFile.exists() && !qaSigning) {
+            throw GradleException("출시 서명 정보가 없습니다. android/key.properties를 설정해 주세요.")
+        }
+        if (qaSigning && gradle.startParameter.taskNames.any { it.contains("bundle", ignoreCase = true) }) {
+            throw GradleException("검증용 개발 서명으로 앱 번들을 배포할 수 없습니다.")
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn("verifyRunspotReleaseSigning")
+}
+
+dependencies { implementation("com.google.android.gms:play-services-wearable:20.0.1") }

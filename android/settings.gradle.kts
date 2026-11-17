@@ -28,3 +28,5 @@ plugins {
 }
 
 include(":app")
+
+include(":wear")

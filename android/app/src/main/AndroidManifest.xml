@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- 사용자가 요청한 러닝 시간대의 심박과 활동 칼로리만 읽습니다. -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
 
@@ -44,6 +48,7 @@
                 <data
                     android:scheme="runspot"
                     android:host="login-callback" />
+                <data android:scheme="runspot" android:host="friend" />
             </intent-filter>
         </activity>
         <activity android:name=".HealthPermissionRationaleActivity" android:exported="true">

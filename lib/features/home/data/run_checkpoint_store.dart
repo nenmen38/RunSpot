@@ -13,9 +13,14 @@ import '../models/run_motion_tracker.dart';
 import '../../run_history/models/run_split.dart';
 
 class RunCheckpoint {
-  const RunCheckpoint(this.summary, {required this.finished});
+  const RunCheckpoint(
+    this.summary, {
+    required this.finished,
+    this.discarded = false,
+  });
   final RunSummary summary;
   final bool finished;
+  final bool discarded;
 }
 
 abstract interface class RunCheckpointStore {
@@ -94,6 +99,7 @@ class SqliteRunCheckpointStore implements RunCheckpointStore {
         'route': summary.route.toJson(),
         'temperature': summary.temperature?.toJson(),
         'finished': checkpoint.finished,
+        'discarded': checkpoint.discarded,
         'motion_samples': summary.motionSamples,
         'analysis_data': summary.analysisData?.toJson(),
         'splits': summary.splits?.map((split) => split.toJson()).toList(),
@@ -141,7 +147,11 @@ class SqliteRunCheckpointStore implements RunCheckpointStore {
                 const Duration(seconds: 1)) {
       throw const FormatException('저장된 러닝 측정값을 확인해 주세요.');
     }
-    return RunCheckpoint(summary, finished: json['finished'] as bool);
+    return RunCheckpoint(
+      summary,
+      finished: json['finished'] as bool,
+      discarded: json['discarded'] == true,
+    );
   }
 
   @override

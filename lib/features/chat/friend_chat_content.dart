@@ -1,6 +1,7 @@
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -33,7 +34,7 @@ class FriendChatPhotoException implements Exception {
 }
 
 Future<Uint8List?> pickFriendChatPhoto(BuildContext context) async {
-  final Uint8List bytes;
+  Uint8List bytes;
   try {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
@@ -53,7 +54,7 @@ Future<Uint8List?> pickFriendChatPhoto(BuildContext context) async {
     throw const FriendChatPhotoException('사진을 불러올 수 없습니다. 사진 접근 권한을 확인해 주세요.');
   }
   if (bytes.length > 1024 * 1024) {
-    throw const FriendChatPhotoException('전송할 사진은 1MB 이하여야 합니다.');
+    bytes = await compute(_compressChatPhoto, bytes);
   }
   if (!context.mounted) return null;
   final confirmed = await showDialog<bool>(
@@ -74,6 +75,23 @@ Future<Uint8List?> pickFriendChatPhoto(BuildContext context) async {
     ),
   );
   return confirmed == true ? bytes : null;
+}
+
+// 메타데이터가 제거된 사진을 줄여 서버의 전송 한도에 맞춥니다.
+Uint8List _compressChatPhoto(Uint8List bytes) {
+  var image = img.decodeJpg(bytes);
+  if (image == null) throw const FriendChatPhotoException('사진을 읽을 수 없습니다.');
+  var result = bytes;
+  while (result.length > 1024 * 1024 &&
+      image!.width > 160 &&
+      image.height > 160) {
+    image = img.copyResize(image, width: (image.width * .8).round());
+    result = img.encodeJpg(image, quality: 78);
+  }
+  if (result.length > 1024 * 1024) {
+    throw const FriendChatPhotoException('사진을 압축하지 못했습니다. 다른 사진을 선택해 주세요.');
+  }
+  return result;
 }
 
 class FriendChatPhoto extends StatefulWidget {

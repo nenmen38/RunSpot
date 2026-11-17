@@ -1,37 +1,115 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../settings/appearance/app_appearance.dart';
 
-/// 이번 주에 달릴 목표 거리(km)입니다. 이 폰에 저장합니다. 정하지 않았으면 null입니다.
+/// 목표는 서버 계정별로 저장하고 같은 계정의 마지막 값을 기기에 보관합니다.
 class WeeklyGoal extends ChangeNotifier {
   WeeklyGoal({AppearanceStore? store}) : _given = store;
-
   static final instance = WeeklyGoal();
-  static const _key = 'run.weekly_goal_km';
   static const choices = [5, 10, 15, 20, 30, 40, 50];
-
   final AppearanceStore? _given;
   late final AppearanceStore _store = _given ?? DeviceAppearanceStore();
-
+  SupabaseClient? _client;
+  String? _owner;
+  int _generation = 0;
+  bool busy = false;
+  String? error;
   int? kilometers;
+  String get _key => _client == null
+      ? 'run.weekly_goal_km'
+      : 'run.weekly_goal.${_client!.rest.url}.$_owner';
 
-  Future<void> load() async {
-    try {
-      final value = int.tryParse(await _store.read(_key) ?? '');
-      kilometers = value != null && value > 0 && value <= 500 ? value : null;
-      notifyListeners();
-    } catch (_) {}
+  void bind(SupabaseClient client) {
+    _client = client;
+    _owner = client.auth.currentUser?.id;
+    _generation++;
+    kilometers = null;
+    error = null;
+    busy = false;
+    load();
   }
 
-  /// [value]가 null이면 목표를 지웁니다.
-  Future<void> set(int? value) async {
-    if (kilometers == value) return;
-    kilometers = value;
+  void unbind() {
+    _generation++;
+    _client = null;
+    _owner = null;
+    kilometers = null;
+    error = null;
+    busy = false;
+  }
+
+  Future<int?> _remote({bool update = false, int? value}) async {
+    final client = _client!;
+    final session = client.auth.currentSession;
+    if (session == null || session.user.id != _owner) {
+      throw const AuthException('계정이 변경되었습니다.');
+    }
+    final result = await client
+        .rpc(
+          'my_weekly_goal',
+          params: {'update_goal': update, 'kilometers': value},
+        )
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    if (client.auth.currentUser?.id != _owner) {
+      throw const AuthException('계정이 변경되었습니다.');
+    }
+    return (result as num?)?.toInt();
+  }
+
+  Future<void> load() async {
+    if (busy) return;
+    final generation = _generation;
+    final key = _key;
+    busy = true;
+    error = null;
     notifyListeners();
     try {
-      await _store.write(_key, value?.toString() ?? '');
-    } catch (_) {}
+      final cached = int.tryParse(await _store.read(key) ?? '');
+      if (generation != _generation) return;
+      kilometers = cached != null && cached > 0 && cached <= 500
+          ? cached
+          : null;
+      if (_client != null) {
+        final value = await _remote();
+        if (generation != _generation) return;
+        kilometers = value;
+        await _store.write(key, value?.toString() ?? '');
+      }
+    } catch (_) {
+      if (generation == _generation) error = '목표를 동기화하지 못했습니다. 다시 시도해 주세요.';
+    } finally {
+      if (generation == _generation) {
+        busy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> set(int? value) async {
+    if (busy || kilometers == value) return;
+    if (value != null && (value < 1 || value > 500)) {
+      throw ArgumentError('목표 범위가 올바르지 않습니다.');
+    }
+    final generation = _generation;
+    final key = _key;
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      if (_client != null) await _remote(update: true, value: value);
+      if (generation != _generation) return;
+      kilometers = value;
+      await _store.write(key, value?.toString() ?? '');
+    } catch (_) {
+      if (generation == _generation) error = '목표를 저장하지 못했습니다. 다시 시도해 주세요.';
+    } finally {
+      if (generation == _generation) {
+        busy = false;
+        notifyListeners();
+      }
+    }
   }
 }
 
@@ -83,7 +161,13 @@ class WeeklyGoalBar extends StatelessWidget {
         ),
       ),
     );
-    if (picked != null) await goal.set(picked == 0 ? null : picked);
+    if (picked != null) {
+      await goal.set(picked == 0 ? null : picked);
+      if (context.mounted && goal.error != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(goal.error!)));
+      }
+    }
   }
 
   @override
@@ -92,6 +176,10 @@ class WeeklyGoalBar extends StatelessWidget {
     return ListenableBuilder(
       listenable: goal,
       builder: (context, _) {
+        if (goal.busy) return const LinearProgressIndicator();
+        if (goal.error != null) {
+          return TextButton(onPressed: goal.load, child: Text(goal.error!));
+        }
         final text = Theme.of(context).textTheme;
         final done = weeklyDistanceMeters / 1000;
         final target = goal.kilometers;

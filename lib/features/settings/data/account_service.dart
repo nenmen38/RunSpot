@@ -1,3 +1,5 @@
+import '../../chat/chat_draft_store.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class AccountService {
@@ -46,6 +48,11 @@ class SupabaseAccountService implements AccountService {
     await client
         .rpc('delete_my_account')
         .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    await ChatDraftStore(
+      owner: session.user.id,
+      namespace: client.rest.url,
+      peer: '',
+    ).clearAccount();
   }
 
   @override

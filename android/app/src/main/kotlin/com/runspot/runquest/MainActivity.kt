@@ -9,8 +9,15 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
+    private var watchBridge: WatchBridge? = null
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        watchBridge?.close()
+        watchBridge = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        watchBridge = WatchBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "runspot/run_notification")
             .setMethodCallHandler { call, result ->
                 if (call.method == "update") {

@@ -76,8 +76,39 @@ void main() {
     await reopened.close();
   });
 
+  test('버리기 선택 후 종료된 복구본은 다음 실행에서 되살리지 않습니다', () async {
+    final dir = await Directory.systemTemp.createTemp('runspot-discard-');
+    addTearDown(() => dir.delete(recursive: true));
+    final store = SqliteRunCheckpointStore(
+      ownerId: 'owner',
+      namespace: 'server',
+      factory: databaseFactoryFfi,
+      databasePath: () async => '${dir.path}/active.sqlite',
+    );
+    await store.save(
+      RunCheckpoint(_summary(), finished: true, discarded: true),
+    );
+    final records = FakeRunRecordService();
+    final history = RunHistoryController(records, outbox: FakeRunOutbox());
+    final location = FakeLocationService();
+    final controller = LiveMapController(
+      locationService: location,
+      runnerService: FakeRunnerService(),
+      runHistory: history,
+      checkpointStore: store,
+    );
+    await controller.start();
+    expect(controller.runSession, isNull);
+    expect(records.records, isEmpty);
+    expect(await store.load(), isNull);
+    controller.dispose();
+    history.dispose();
+    await location.updates.close();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+  });
+
   for (final distance in [299.99, 300.0, 820.0]) {
-    test('$distance미터 복구 러닝은 최소 거리 판정 후 복구 원본을 제거합니다', () async {
+    test('$distance미터 복구 러닝은 저장 후 복구 원본을 제거합니다', () async {
       final dir = await Directory.systemTemp.createTemp('runspot-controller-');
       addTearDown(() => dir.delete(recursive: true));
       final store = SqliteRunCheckpointStore(
@@ -104,7 +135,7 @@ void main() {
       expect(controller.sharing, isFalse);
       final summary = await controller.finishRun();
       expect(summary!.distanceMeters, distance);
-      expect(records.records.length, distance >= 300 ? 1 : 0);
+      expect(records.records.length, 1);
       expect(await store.load(), isNull);
       controller.dispose();
       history.dispose();

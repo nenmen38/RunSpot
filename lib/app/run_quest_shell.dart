@@ -1,3 +1,9 @@
+import 'package:app_links/app_links.dart';
+
+import '../features/social/friend_invite_screen.dart';
+import '../features/watch/watch_bridge.dart';
+import '../features/profile/weekly_goal.dart';
+
 import 'dart:async';
 
 import '../features/notifications/data/push_service.dart';
@@ -83,6 +89,31 @@ class RunQuestShell extends StatefulWidget {
 
 class _RunQuestShellState extends State<RunQuestShell> {
   int _tab = 0;
+  WatchBridge? _watch;
+  StreamSubscription<Uri>? _inviteLinks;
+  Uri? _lastInvite;
+  void _openInvite(Uri uri) {
+    if (!mounted ||
+        uri.scheme != 'runspot' ||
+        uri.host != 'friend' ||
+        uri == _lastInvite) {
+      return;
+    }
+    _lastInvite = uri;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FriendInviteScreen(
+            client: Supabase.instance.client,
+            invite: uri.toString(),
+          ),
+        ),
+      );
+    });
+  }
+
   StreamSubscription<PushDestination>? _pushSubscription;
   StreamSubscription<PushDestination>? _pushMessages;
   int _socialRevision = 0;
@@ -123,6 +154,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _notifications = widget.notificationController;
     } else {
       final client = Supabase.instance.client;
+      WeeklyGoal.instance.bind(client);
       _blocks = SupabaseBlockService(client);
       _chat = ChatSync(FriendChatService(client))..start();
       _records = SupabasePersonalRecordsService(client);
@@ -175,6 +207,23 @@ class _RunQuestShellState extends State<RunQuestShell> {
       unawaited(_wallet!.refresh());
       _crew = CrewController(SupabaseCrewService(client));
       unawaited(_crew!.refresh());
+    }
+    if (widget.mapController == null) {
+      final links = AppLinks();
+      _inviteLinks = links.uriLinkStream.listen(
+        _openInvite,
+        onError: (Object _) {},
+      );
+      unawaited(
+        links
+            .getInitialLink()
+            .then((uri) {
+              if (uri != null) _openInvite(uri);
+            })
+            .catchError((Object _) {}),
+      );
+      _watch = WatchBridge(_map);
+      unawaited(_watch!.start());
     }
     _pushSubscription = PushService.instance.destinations.stream.listen(
       _openPush,
@@ -232,6 +281,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
 
   @override
   void dispose() {
+    _watch?.dispose();
+    _inviteLinks?.cancel();
+    if (widget.mapController == null) WeeklyGoal.instance.unbind();
     _pushSubscription?.cancel();
     _pushMessages?.cancel();
     _groups?.removeListener(_groupStateChanged);

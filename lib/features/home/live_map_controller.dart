@@ -54,7 +54,9 @@ class LiveMapController extends ChangeNotifier {
     try {
       final checkpoint = await checkpointStore!.load();
       if (_disposed || !runHistory.service.isCurrentOwner) return;
-      if (checkpoint != null && runSession == null) {
+      if (checkpoint?.discarded == true) {
+        await checkpointStore!.clear();
+      } else if (checkpoint != null && runSession == null) {
         runSession = RunSession.restore(
           checkpoint.summary,
           finished: checkpoint.finished,
@@ -69,7 +71,10 @@ class LiveMapController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> _saveCheckpoint({bool finishing = false}) async {
+  Future<void> _saveCheckpoint({
+    bool finishing = false,
+    bool discarded = false,
+  }) async {
     final session = runSession;
     if (checkpointStore == null ||
         session == null ||
@@ -82,6 +87,7 @@ class LiveMapController extends ChangeNotifier {
       final checkpoint = RunCheckpoint(
         session.checkpoint(),
         finished: session.isFinished,
+        discarded: discarded,
       );
       final write = _checkpointWrites.then(
         (_) => checkpointStore!.save(checkpoint),
@@ -616,6 +622,7 @@ class LiveMapController extends ChangeNotifier {
   }
 
   Future<RunSummary?> finishRun({
+    bool discard = false,
     RunTemperature? Function(DateTime)? temperatureAtEnd,
   }) async {
     final session = runSession;
@@ -638,9 +645,9 @@ class LiveMapController extends ChangeNotifier {
       }
       _notify();
       if (!identical(_persistedFinish, summary)) {
-        await _saveCheckpoint(finishing: true);
-        // 짧은 러닝은 종료만 처리하고 저장 대기 목록과 서버 기록에 넣지 않습니다.
-        if (summary.canSaveRecord) await runHistory.save(summary);
+        await _saveCheckpoint(finishing: true, discarded: discard);
+        // 짧은 기록도 개인 기록으로 보관하며 보상·랭킹 조건은 서버가 따로 검사합니다.
+        if (!discard && summary.canSaveRecord) await runHistory.save(summary);
         _persistedFinish = summary;
       }
       if (checkpointStore != null) {

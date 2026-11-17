@@ -1,3 +1,5 @@
+import '../run_transfer/external_runs_screen.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -62,6 +64,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           appBar: AppBar(
             title: Text(_showHidden ? '숨긴 기록' : '내 기록'),
             actions: [
+              if (widget.controller.service
+                  case final SupabaseRunRecordService service)
+                IconButton(
+                  tooltip: '외부 기록 보관함',
+                  icon: const Icon(Icons.sync_alt),
+                  onPressed: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ExternalRunsScreen(client: service.client),
+                    ),
+                  ),
+                ),
               IconButton(
                 tooltip: _showHidden ? '내 기록 보기' : '숨긴 기록 보기',
                 onPressed: () => setState(() => _showHidden = !_showHidden),
