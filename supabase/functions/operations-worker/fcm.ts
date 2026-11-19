@@ -82,7 +82,7 @@ export function payload(delivery: Delivery) {
   return {
     message: {
       token: delivery.token,
-      notification: { title: "런스팟", body },
+      notification: { title: "뜀터", body },
       data: {
         kind: delivery.kind,
         target_id: delivery.target_id,

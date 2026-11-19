@@ -23,7 +23,7 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener, MessageClien
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(24, 24, 24, 24) }
-        layout.addView(TextView(this).apply { text = "런스팟"; textSize = 20f; gravity = Gravity.CENTER })
+        layout.addView(TextView(this).apply { text = "뜀터"; textSize = 20f; gravity = Gravity.CENTER })
         metrics = TextView(this).apply { textSize = 18f; gravity = Gravity.CENTER }
         status = TextView(this).apply { text = "휴대전화에서 러닝을 시작해 주세요."; gravity = Gravity.CENTER }
         control = Button(this).apply { setOnClickListener { command() } }

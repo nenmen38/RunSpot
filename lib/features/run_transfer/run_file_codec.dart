@@ -23,7 +23,7 @@ class RunFileCodec {
       'gpx',
       attributes: {
         'version': '1.1',
-        'creator': 'RunSpot',
+        'creator': '뜀터',
         'xmlns': 'http://www.topografix.com/GPX/1/1',
       },
       nest: () {
@@ -39,7 +39,7 @@ class RunFileCodec {
         builder.element(
           'trk',
           nest: () {
-            builder.element('name', nest: '런스팟 러닝');
+            builder.element('name', nest: '뜀터 러닝');
             for (final segment in route.segments) {
               builder.element(
                 'trkseg',
@@ -71,7 +71,7 @@ class RunFileCodec {
     if (value is! Map ||
         value['format'] != 'runspot' ||
         value['version'] != 1) {
-      throw const FormatException('런스팟에서 내보낸 기록 파일을 선택해 주세요.');
+      throw const FormatException('뜀터에서 내보낸 기록 파일을 선택해 주세요.');
     }
     final start = DateTime.parse(value['started_at'] as String);
     final end = DateTime.parse(value['ended_at'] as String);

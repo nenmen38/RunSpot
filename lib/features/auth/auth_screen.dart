@@ -179,22 +179,19 @@ class _AuthScreenState extends State<AuthScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: AppColors.blue,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.directions_run,
-                  color: Colors.white,
-                  size: 30,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/branding/app_icon.png',
+                  width: 54,
+                  height: 54,
+                  cacheWidth: (54 * MediaQuery.devicePixelRatioOf(context))
+                      .round(),
                 ),
               ),
               const SizedBox(height: 18),
               Text(
-                'RunSpot',
+                '뜀터',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 6),

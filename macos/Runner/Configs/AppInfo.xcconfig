@@ -5,7 +5,8 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = runquest
+PRODUCT_NAME = 뜀터
+EXECUTABLE_NAME = runquest
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.example.runquest

@@ -1,11 +1,11 @@
 {
-    "name": "runquest",
-    "short_name": "runquest",
+    "name": "뜀터",
+    "short_name": "뜀터",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#3182F6",
+    "theme_color": "#3182F6",
+    "description": "러닝 기록을 남기고 동네 러너와 함께 달리는 뜀터입니다.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
