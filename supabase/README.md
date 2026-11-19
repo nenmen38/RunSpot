@@ -51,6 +51,7 @@
 34. `migrations/20261117000300_personal_records.sql`: `my_personal_records()`로 1km·5km·10km 개인 최고 기록을 돌려줍니다. 저장된 1km 구간 기록에서 이어 달린 구간의 가장 짧은 시간을 찾으며, 반려된 기록과 구간 기록이 없는 예전 기록은 빼고 계산합니다.
 35. `migrations/20261119000100_titles_and_cosmetics.sql`: 달성형 칭호(`my_titles`·`set_title`, 10K 클럽·하프 마라토너·새벽 러너·꾸준왕·크루 리더·함께 달리기)와 코인 꾸미기 아이템(`buy_cosmetic`·`equip_cosmetic`: 경로 색·칭호 모양·오라 효과·말풍선), 크루 정원 확장권(`expand_crew`, 30→50명)을 추가합니다. 칭호는 코인으로 살 수 없습니다. 다른 사람의 칭호·꾸미기는 `user_badges`·`post_author_badges`로 조회하며 차단한 사람은 뺍니다.
 36. `migrations/20261120000100_group_chat_rooms.sql`: 단톡(group)과 크루 대화방(crew)을 추가합니다. 단톡은 친구나 같은 크루 사람 1~49명과 만들고(`create_chat_room`) 나갈 수 있으며, 크루 대화방은 크루마다 하나이고 크루원이면 들어갑니다(`crew_chat_room`). 메시지마다 안 읽은 사람 수를 돌려주고(`chat_room_read`), 실시간 신호·휴대폰 알림(`room_message`, 본문 미포함)·안 읽은 수(`chat_rooms_unread_total`)를 1:1 대화와 같은 방식으로 지원합니다.
+37. `migrations/20261121000100_group_chat_photos.sql`: 단톡·크루 대화방에서 사진을 보냅니다(`chat_room_send_photo`, 1MB 이하 JPEG, 1분에 5장). 사진은 참여자만 받을 수 있고(`chat_room_photo`), 차단한 사람의 사진은 보이지 않습니다. `chat_room_read`가 메시지 종류(`kind`)를 함께 돌려줍니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

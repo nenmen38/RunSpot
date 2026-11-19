@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/chat/chat_rooms.dart';
+import 'package:runquest/features/chat/friend_chat_content.dart';
 import 'package:runquest/features/chat/new_chat_screen.dart';
 import 'package:runquest/features/crew/crew_controller.dart';
 import 'package:runquest/features/crew/models/crew.dart';
@@ -21,6 +24,15 @@ class _Rooms implements ChatRoomService {
       {'user_id': 'b', 'nickname': '러너B'},
     ],
     'messages': [
+      {
+        'id': 3,
+        'sender_id': 'b',
+        'nickname': '러너B',
+        'body': '사진',
+        'kind': 'photo',
+        'sent_at': DateTime.now().toUtc().toIso8601String(),
+        'unread': 0,
+      },
       {
         'id': 2,
         'sender_id': 'me',
@@ -55,6 +67,14 @@ class _Rooms implements ChatRoomService {
   Future<void> markRead(String roomId, int lastId) async => marked.add(lastId);
   @override
   Future<void> leave(String roomId) async {}
+
+  @override
+  Future<void> sendPhoto(String roomId, String jpeg, String requestId) async =>
+      sent.add('photo');
+
+  @override
+  Future<Uint8List> photo(String roomId, int messageId) async =>
+      Uint8List.fromList(const [0xff, 0xd8, 0xff, 0xd9]);
 }
 
 void main() {
@@ -70,7 +90,10 @@ void main() {
     expect(find.text('러너A'), findsOneWidget);
     // 내 메시지를 아직 두 명이 안 읽었습니다.
     expect(find.text('2'), findsOneWidget);
-    expect(rooms.marked, [2]);
+    expect(rooms.marked, [3]);
+    // 사진 메시지는 사진으로 보여주고, 사진 첨부 버튼이 있습니다.
+    expect(find.byType(FriendChatPhoto), findsOneWidget);
+    expect(find.byTooltip('첨부'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '좋아요');
     await tester.pump();
     await tester.tap(find.byTooltip('보내기'));
