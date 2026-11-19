@@ -7,6 +7,7 @@ import '../../../shared/formatters/run_format.dart';
 import '../../run_history/models/run_record.dart';
 import '../../run_history/widgets/run_record_details.dart';
 import '../models/share_route.dart';
+import '../models/share_edits.dart';
 import '../models/share_layout.dart';
 
 class ShareImageRenderer {
@@ -19,10 +20,50 @@ class ShareImageRenderer {
     Color? textColor,
     bool photoOverlay = false,
     ShareLayout layout = ShareLayout.centered,
+    ShareEdits? edits,
   }) async {
     if (!height.isFinite || height < 1512 || height > 3240) {
       throw const FormatException('공유 이미지 크기가 올바르지 않습니다.');
     }
+    final recorder = ui.PictureRecorder();
+    paint(
+      Canvas(recorder),
+      record,
+      height: height,
+      route: route,
+      background: background,
+      dark: dark,
+      textColor: textColor,
+      photoOverlay: photoOverlay,
+      layout: layout,
+      edits: edits,
+    );
+    final picture = recorder.endRecording();
+    ui.Image? image;
+    try {
+      image = await picture.toImage(1080, height.round());
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (bytes == null) throw StateError('공유 이미지를 만들지 못했습니다.');
+      return bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
+    } finally {
+      image?.dispose();
+      picture.dispose();
+    }
+  }
+
+  /// 편집 미리보기와 PNG에 같은 배치와 스타일을 그립니다.
+  void paint(
+    Canvas canvas,
+    RunRecord record, {
+    required double height,
+    ShareRoute? route,
+    ui.Image? background,
+    bool dark = false,
+    Color? textColor,
+    bool photoOverlay = false,
+    ShareLayout layout = ShareLayout.centered,
+    ShareEdits? edits,
+  }) {
     const width = 1080.0;
     const inset = 48.0;
     const contentWidth = width - inset * 2;
@@ -38,9 +79,7 @@ class ShareImageRenderer {
         : onDark
         ? const Color(0xFFE4E9ED)
         : const Color(0xFF646C73);
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final photo = background?.clone();
+    final photo = background;
     final scrim = lightInk ? const Color(0x8C000000) : const Color(0x8CFFFFFF);
     canvas.drawColor(
       onDark ? const Color(0xFF22282C) : const Color(0xFFF8FAFC),
@@ -106,10 +145,9 @@ class ShareImageRenderer {
       text.dispose();
     }
 
-    final composition = layout.compose(
-      height,
-      hasRoute: route != null && !route.isEmpty,
-    );
+    final composition =
+        edits?.compose(layout, height) ??
+        layout.compose(height, hasRoute: route != null && !route.isEmpty);
     if (composition.panel case final panel?) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(panel, const Radius.circular(32)),
@@ -119,7 +157,7 @@ class ShareImageRenderer {
               : const Color(0xDDF8FAFC),
       );
     }
-    if (composition.route case final bounds?) {
+    if (composition.route case final bounds? when route != null) {
       final side = bounds.shortestSide;
       final left = bounds.center.dx - side / 2;
       final top = bounds.center.dy - side / 2;
@@ -129,7 +167,7 @@ class ShareImageRenderer {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
-      for (final segment in route!.segments) {
+      for (final segment in route.segments) {
         final path = Path();
         for (var i = 0; i < segment.length; i++) {
           final point = Offset(
@@ -157,6 +195,10 @@ class ShareImageRenderer {
       ShareField.pace: formatRunPace(record),
       ShareField.temperatureLabel: '기온',
       ShareField.temperature: record.temperature?.label ?? '--',
+      ShareField.heartLabel: '평균 심박',
+      ShareField.heart: '${edits?.heartRate ?? '—'} bpm',
+      ShareField.cadenceLabel: '평균 케이던스',
+      ShareField.cadence: '${edits?.cadence ?? '—'} 걸음/분',
     };
     for (final slot in composition.texts) {
       label(
@@ -168,19 +210,6 @@ class ShareImageRenderer {
         weight: slot.bold ? FontWeight.w900 : FontWeight.w500,
         color: slot.isLabel ? secondary : foreground,
       );
-    }
-
-    final picture = recorder.endRecording();
-    ui.Image? image;
-    try {
-      image = await picture.toImage(width.toInt(), height.round());
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (bytes == null) throw StateError('공유 이미지를 만들지 못했습니다.');
-      return bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
-    } finally {
-      image?.dispose();
-      picture.dispose();
-      photo?.dispose();
     }
   }
 }

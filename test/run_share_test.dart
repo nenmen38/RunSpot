@@ -18,6 +18,7 @@ import 'package:runquest/features/run_share/run_share_screen.dart';
 import 'share_photo_test.dart' show photoBytes;
 
 import 'package:runquest/features/run_share/models/share_layout.dart';
+import 'package:runquest/features/run_share/models/share_edits.dart';
 
 final record = RunRecord(
   id: 'private-id',
@@ -35,6 +36,7 @@ final png = base64Decode(
 class Renderer extends ShareImageRenderer {
   final options = <({ShareRoute? route})>[];
   bool fail = false;
+  ShareEdits? edits;
   ui.Image? background;
   bool dark = false;
   double height = 0;
@@ -51,8 +53,10 @@ class Renderer extends ShareImageRenderer {
     Color? textColor,
     bool photoOverlay = false,
     ShareLayout layout = ShareLayout.centered,
+    ShareEdits? edits,
   }) async {
     options.add((route: route));
+    this.edits = edits;
     this.height = height;
     this.textColor = textColor;
     this.photoOverlay = photoOverlay;
@@ -201,6 +205,8 @@ void main() {
     Stream<Object?>? changes,
     Future<RunRoute> Function()? loadRoute,
     SharePhotoService? photos,
+    double? heartRate,
+    Future<int?> Function(bool Function())? loadCadence,
     bool settings = false,
   }) async {
     await tester.pumpWidget(
@@ -213,6 +219,8 @@ void main() {
           shareService: service,
           ownerChanges: changes,
           photoService: photos,
+          averageHeartRate: heartRate,
+          loadCadence: loadCadence,
         ),
       ),
     );
@@ -222,6 +230,101 @@ void main() {
       await tester.pumpAndSettle();
     }
   }
+
+  testWidgets('직접 수정 템플릿에서 지표를 켜고 끄며 끌어서 배치합니다', (tester) async {
+    final renderer = Renderer();
+    await show(
+      tester,
+      renderer,
+      heartRate: 153,
+      loadCadence: (canRead) async => canRead() ? 172 : null,
+      settings: true,
+    );
+    final custom = find.widgetWithText(ChoiceChip, '직접 수정');
+    Finder toggle(String name) => find.widgetWithText(FilterChip, name);
+    Future<void> toggleMetric(String name) async {
+      await tester.tap(toggle(name));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(custom);
+    await tester.pumpAndSettle();
+    final distance = find.bySemanticsLabel('거리 스티커');
+    await tester.drag(distance, const Offset(45, -65));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('작게'));
+    await tester.pumpAndSettle();
+    await toggleMetric('거리');
+    expect(distance, findsNothing);
+    await toggleMetric('거리');
+    expect(distance, findsOneWidget);
+    await toggleMetric('기온');
+    expect(tester.widget<FilterChip>(toggle('기온')).selected, isFalse);
+    expect(find.bySemanticsLabel('기온 스티커'), findsNothing);
+
+    for (final label in ['평균 심박', '평균 케이던스']) {
+      await toggleMetric(label);
+    }
+    await tester.tap(toggle('이동 경로'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('경로 포함'), findsOneWidget);
+    await tester.tap(find.text('포함'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('이동 경로 스티커'), findsOneWidget);
+    await tester.tap(find.text('적용'));
+    await tester.pumpAndSettle();
+    final edits = renderer.edits!;
+    expect(
+      edits.visible,
+      containsAll([
+        ShareSticker.heart,
+        ShareSticker.cadence,
+        ShareSticker.route,
+      ]),
+    );
+    expect(edits.visible, isNot(contains(ShareSticker.temperature)));
+    final distancePlacement = edits.placements[ShareSticker.distance]!;
+    final original = edits.originalBounds(
+      ShareSticker.distance,
+      ShareLayout.centered,
+      renderer.height,
+    );
+    expect(
+      distancePlacement.center.dy,
+      lessThan(original.center.dy / renderer.height),
+    );
+    expect(distancePlacement.center.dx, greaterThan(.5));
+    expect(distancePlacement.scale, lessThan(1));
+    expect(edits.heartRate, 153);
+    expect(edits.cadence, 172);
+    expect(renderer.options.last.route!.isEmpty, isFalse);
+    expect(
+      edits
+          .compose(ShareLayout.centered, renderer.height)
+          .texts
+          .map((item) => item.field),
+      isNot(contains(ShareField.temperature)),
+    );
+
+    await tester.tap(find.byTooltip('공유 설정'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(custom).selected, isTrue);
+    await tester.tap(find.widgetWithText(ChoiceChip, '포스터'));
+    await tester.pumpAndSettle();
+    expect(renderer.edits, isNull);
+
+    await tester.tap(custom);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(toggle('기온')).selected, isFalse);
+    expect(tester.widget<FilterChip>(toggle('이동 경로')).selected, isTrue);
+    await tester.tap(find.text('적용'));
+    await tester.pumpAndSettle();
+    expect(
+      renderer.edits!.placements[ShareSticker.distance],
+      distancePlacement,
+    );
+  });
 
   testWidgets('갤러리 배경 적용·기본 복원·취소·오류를 처리합니다', (tester) async {
     final renderer = Renderer();

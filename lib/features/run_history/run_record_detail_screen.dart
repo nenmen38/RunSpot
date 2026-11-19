@@ -165,6 +165,8 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                       MaterialPageRoute<void>(
                         builder: (_) => RunShareScreen(
                           record: _record,
+                          averageHeartRate:
+                              _selectedHealthSource?.averageHeartRate,
                           isCurrentOwner: () =>
                               widget.controller.service.isCurrentOwner,
                           loadRoute: () =>

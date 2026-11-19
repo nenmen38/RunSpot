@@ -10,6 +10,10 @@ enum ShareField {
   pace,
   temperatureLabel,
   temperature,
+  heartLabel,
+  heart,
+  cadenceLabel,
+  cadence,
 }
 
 class ShareTextSlot {
@@ -31,6 +35,8 @@ class ShareTextSlot {
     ShareField.durationLabel,
     ShareField.paceLabel,
     ShareField.temperatureLabel,
+    ShareField.heartLabel,
+    ShareField.cadenceLabel,
   ].contains(field);
 }
 

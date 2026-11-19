@@ -7,10 +7,12 @@ import 'package:flutter/services.dart';
 import '../run_history/models/run_record.dart';
 import '../run_history/models/run_route.dart';
 import 'data/run_share_service.dart';
+import 'data/share_cadence.dart';
 import 'data/share_image_renderer.dart';
 import 'data/share_photo_service.dart';
 import 'models/share_route.dart';
 import 'models/share_layout.dart';
+import 'widgets/share_sticker_editor.dart';
 import 'widgets/share_text_color_control.dart';
 
 class RunShareScreen extends StatefulWidget {
@@ -22,6 +24,8 @@ class RunShareScreen extends StatefulWidget {
     this.renderer,
     this.ownerChanges,
     this.photoService,
+    this.averageHeartRate,
+    this.loadCadence,
     super.key,
   });
   final RunRecord record;
@@ -31,6 +35,8 @@ class RunShareScreen extends StatefulWidget {
   final ShareImageRenderer? renderer;
   final Stream<Object?>? ownerChanges;
   final SharePhotoService? photoService;
+  final double? averageHeartRate;
+  final Future<int?> Function(bool Function())? loadCadence;
   @override
   State<RunShareScreen> createState() => _RunShareScreenState();
 }
@@ -44,6 +50,8 @@ class _RunShareScreenState extends State<RunShareScreen> {
   Color? _textColor;
   ShareLayout _layout = ShareLayout.centered;
   bool _includeRoute = false;
+  EditedShare? _customDraft;
+  bool _customSelected = false;
   bool _busy = false;
   bool _confirming = false;
   StreamSubscription<Object?>? _ownerSubscription;
@@ -68,6 +76,8 @@ class _RunShareScreenState extends State<RunShareScreen> {
         if (!widget.isCurrentOwner()) {
           _png = null;
           _route = null;
+          _customDraft = null;
+          _customSelected = false;
           _photo?.dispose();
           _photo = null;
         }
@@ -98,6 +108,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
   Future<void> _render() async {
     if (_busy || !widget.isCurrentOwner()) return;
     final height = _imageHeight;
+    final draft = _customSelected ? _customDraft : null;
     setState(() {
       _busy = true;
       _error = null;
@@ -106,13 +117,14 @@ class _RunShareScreenState extends State<RunShareScreen> {
     try {
       final bytes = await _renderer.render(
         widget.record,
-        route: _includeRoute ? _route : null,
+        route: draft == null ? (_includeRoute ? _route : null) : draft.route,
+        edits: draft?.edits,
         background: _photo,
         dark: _dark,
         height: height,
         textColor: _textColor,
         photoOverlay: _photoOverlay,
-        layout: _layout,
+        layout: draft == null ? _layout : ShareLayout.centered,
       );
       if (mounted && widget.isCurrentOwner() && height == _imageHeight) {
         setState(() => _png = bytes);
@@ -178,6 +190,77 @@ class _RunShareScreenState extends State<RunShareScreen> {
     await _render();
   }
 
+  Future<bool?> _confirmRoute(BuildContext context) => showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      scrollable: true,
+      title: const Text('경로 포함'),
+      content: const Text(
+        '지도·주소 없이 달린 경로의 선 모양만 표시합니다. 경로 모양에서도 위치를 유추할 수 있습니다.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('포함'),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> _edit() async {
+    if (_busy || !widget.isCurrentOwner()) return;
+    _scaffold.currentState?.closeEndDrawer();
+    final height = _imageHeight;
+    final photo = _photo?.clone();
+    final heart = widget.averageHeartRate;
+    final editor = MaterialPageRoute<EditedShare>(
+      builder: (_) => ShareStickerEditor(
+        layout: ShareLayout.centered,
+        imageHeight: height,
+        isOwner: widget.isCurrentOwner,
+        ownerChanges: widget.ownerChanges,
+        initial: _customDraft,
+        heartRate: heart != null && heart.isFinite && heart > 0
+            ? heart.round()
+            : null,
+        loadRoute: (context) async {
+          final consent = await _confirmRoute(context);
+          if (!context.mounted || consent != true || !widget.isCurrentOwner()) {
+            return null;
+          }
+          return _route ?? ShareRoute.shape(await widget.loadRoute());
+        },
+        loadCadence:
+            widget.loadCadence ??
+            (canRead) => readShareCadence(widget.record, canRead: canRead),
+        paint: (canvas, draft) => _renderer.paint(
+          canvas,
+          widget.record,
+          height: height,
+          route: draft.route,
+          edits: draft.edits,
+          background: photo,
+          dark: _dark,
+          textColor: _textColor,
+          photoOverlay: _photoOverlay,
+          layout: ShareLayout.centered,
+        ),
+      ),
+    );
+    unawaited(editor.completed.whenComplete(() => photo?.dispose()));
+    final result = await Navigator.of(context).push(editor);
+    if (!mounted || result == null || !widget.isCurrentOwner()) return;
+    setState(() {
+      _customDraft = result;
+      _customSelected = true;
+    });
+    await _render();
+  }
+
   Future<void> _selectRoute(bool selected) async {
     if (_busy || !widget.isCurrentOwner()) return;
     if (!selected) {
@@ -189,26 +272,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
       _busy = true;
       _confirming = true;
     });
-    final consent = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: const Text('경로 포함'),
-        content: const Text(
-          '지도·주소 없이 달린 경로의 선 모양만 표시합니다. 경로 모양에서도 위치를 유추할 수 있습니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('포함'),
-          ),
-        ],
-      ),
-    );
+    final consent = await _confirmRoute(context);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -454,34 +518,35 @@ class _RunShareScreenState extends State<RunShareScreen> {
         height: 160,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: ShareLayout.values.length,
+          itemCount: ShareLayout.values.length + 1,
           separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (context, index) {
-            final layout = ShareLayout.values[index];
-            return ChoiceChip(
-              label: SizedBox(
-                width: 108,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 64,
-                      height: 88,
-                      child: CustomPaint(painter: _TemplatePreview(layout)),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(layout.label),
-                  ],
+            if (index == 0) {
+              return _templateChoice(
+                label: '직접 수정',
+                description: '표시할 정보와 위치를 직접 선택합니다.',
+                preview: const Icon(
+                  Icons.dashboard_customize_outlined,
+                  size: 36,
                 ),
-              ),
-              tooltip: layout.description,
-              showCheckmark: false,
-              selected: _layout == layout,
+                selected: _customSelected,
+                onSelected: _busy ? null : (_) => _edit(),
+              );
+            }
+            final layout = ShareLayout.values[index - 1];
+            return _templateChoice(
+              label: layout.label,
+              description: layout.description,
+              preview: CustomPaint(painter: _TemplatePreview(layout)),
+              selected: !_customSelected && _layout == layout,
               onSelected: _busy
                   ? null
                   : (selected) async {
                       if (!selected || !widget.isCurrentOwner()) return;
-                      setState(() => _layout = layout);
+                      setState(() {
+                        _layout = layout;
+                        _customSelected = false;
+                      });
                       await _render();
                     },
             );
@@ -498,12 +563,13 @@ class _RunShareScreenState extends State<RunShareScreen> {
         onChanged: _selectTextColor,
       ),
       const SizedBox(height: 16),
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: const Text('경로 포함'),
-        value: _includeRoute,
-        onChanged: _busy ? null : _selectRoute,
-      ),
+      if (!_customSelected)
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('경로 포함'),
+          value: _includeRoute,
+          onChanged: _busy ? null : _selectRoute,
+        ),
       if (_error != null)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -519,6 +585,30 @@ class _RunShareScreenState extends State<RunShareScreen> {
           label: const Text('이미지 다시 만들기'),
         ),
     ],
+  );
+
+  Widget _templateChoice({
+    required String label,
+    required String description,
+    required Widget preview,
+    required bool selected,
+    required ValueChanged<bool>? onSelected,
+  }) => ChoiceChip(
+    label: SizedBox(
+      width: 108,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 64, height: 88, child: preview),
+          const SizedBox(height: 8),
+          Text(label),
+        ],
+      ),
+    ),
+    tooltip: description,
+    showCheckmark: false,
+    selected: selected,
+    onSelected: onSelected,
   );
 }
 

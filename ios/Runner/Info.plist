@@ -5,7 +5,7 @@
 	<key>FirebaseCrashlyticsCollectionEnabled</key>
 	<false/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>러닝의 심박수와 활동 칼로리를 기기에서 표시합니다. 외부 기록 가져오기를 선택하면 최근 30일의 달리기를 읽고, 고른 기록의 날짜·거리·시간만 본인 계정에 저장합니다.</string>
+	<string>러닝의 심박수와 활동 칼로리를 기기에서 표시합니다. 케이던스 스티커를 추가하면 러닝 구간의 걸음 수를 읽어 분당 평균을 계산합니다. 외부 기록 가져오기를 선택하면 최근 30일의 달리기를 읽고, 고른 기록의 날짜·거리·시간만 본인 계정에 저장합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>러닝 기록 공유 이미지의 배경과 게시판 글에 첨부할 사진을 고를 때 사용합니다. 게시판에 첨부한 사진만 촬영 위치 등 정보를 지운 뒤 서버에 올리며, 공유 이미지 배경 사진은 서버에 올리지 않습니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
