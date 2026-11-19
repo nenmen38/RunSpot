@@ -68,7 +68,7 @@ class _ExternalRunsScreenState extends State<ExternalRunsScreen> {
       final file = await openFile(
         acceptedTypeGroups: [
           const XTypeGroup(
-            label: '런스팟 기록',
+            label: '뜀터 기록',
             extensions: ['json'],
             uniformTypeIdentifiers: ['public.json'],
           ),

@@ -116,7 +116,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen> {
                           await SharePlus.instance.share(
                             ShareParams(
                               text:
-                                  '런스팟 친구 초대\n$link\n앱의 친구 초대 화면에 링크를 붙여 넣을 수도 있습니다.',
+                                  '뜀터 친구 초대\n$link\n앱의 친구 초대 화면에 링크를 붙여 넣을 수도 있습니다.',
                               sharePositionOrigin: box == null
                                   ? null
                                   : box.localToGlobal(Offset.zero) & box.size,

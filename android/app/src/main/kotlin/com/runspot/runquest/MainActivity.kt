@@ -54,7 +54,7 @@ class MainActivity : FlutterFragmentActivity() {
         val notification = Notification.Builder(this, RUN_CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(applicationInfo.icon)
+            .setSmallIcon(R.drawable.ic_stat_footprints)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(content)

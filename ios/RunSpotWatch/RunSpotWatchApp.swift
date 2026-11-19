@@ -42,7 +42,7 @@ struct RunView: View {
       let pace = link.state["pace"] as? Int ?? 0
       ScrollView {
         VStack(spacing: 8) {
-          Text("런스팟").font(.headline)
+          Text("뜀터").font(.headline)
           Text(fresh ? (running ? "달리는 중" : paused ? "일시정지" : "휴대전화에서 시작") : "연결 대기 중").foregroundStyle(.secondary)
           Text(String(format: "%.2f km", (link.state["distance"] as? Double ?? 0) / 1000)).font(.title2)
           Text(String(format: "%02d:%02d", seconds / 60, seconds % 60))

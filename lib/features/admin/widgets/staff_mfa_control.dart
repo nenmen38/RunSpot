@@ -39,14 +39,15 @@ class _StaffMfaControlState extends State<StaffMfaControl> {
         for (final factor in factors.all) {
           if (factor.factorType == FactorType.totp &&
               factor.status == FactorStatus.unverified &&
-              factor.friendlyName == '런스팟 관리 인증') {
+              (factor.friendlyName == '뜀터 관리 인증' ||
+                  factor.friendlyName == '런스팟 관리 인증')) {
             if (!mounted || !widget.isCurrentOwner()) return;
             await widget.client.auth.mfa.unenroll(factor.id);
           }
         }
         if (!mounted || !widget.isCurrentOwner()) return;
         final enrollment = await widget.client.auth.mfa.enroll(
-          friendlyName: '런스팟 관리 인증',
+          friendlyName: '뜀터 관리 인증',
         );
         if (!mounted || !widget.isCurrentOwner()) return;
         _factorId = enrollment.id;

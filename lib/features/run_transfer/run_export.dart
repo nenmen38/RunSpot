@@ -24,7 +24,7 @@ Future<void> exportRun(
         ),
         SimpleDialogOption(
           onPressed: () => Navigator.pop(context, 'json'),
-          child: const Text('런스팟 기록 파일'),
+          child: const Text('뜀터 기록 파일'),
         ),
         SimpleDialogOption(
           onPressed: () => Navigator.pop(context, 'gpx'),

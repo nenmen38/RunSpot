@@ -40,7 +40,7 @@ flutter build appbundle --release --dart-define-from-file=config/prod.json
 - 서비스 이용약관(게시판 운영 정책, 신고 처리, 이용 제한 포함)을 준비합니다.
 
 ### 4. 스토어 등록 정보
-- 앱 이름을 하나로 정합니다. 현재 Android 표시 이름은 `runquest`, iOS는 `Runquest`, 문서는 `런퀘스트`, 저장소는 `RunSpot`으로 서로 다릅니다.
+- 스토어에 표시되는 앱 이름을 뜀터로 맞춥니다.
 - 앱 아이콘이 Flutter 기본 아이콘인지 확인하고 교체합니다.
 - Google Play **데이터 보안** 양식과 App Store **개인정보 라벨**을 초안의 수집 항목과 같게 작성합니다.
 - 백그라운드 위치(러닝 측정 중)와 건강 데이터(심박수·칼로리) 사용 목적을 심사 양식에 적습니다. Google Play는 백그라운드 위치 사용 영상을 요구할 수 있습니다.
