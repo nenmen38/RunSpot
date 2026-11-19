@@ -262,46 +262,62 @@ class _SocialScreenState extends State<SocialScreen>
               ),
           ],
         ),
-        if (!_showChat && chat != null)
-          TextButton.icon(
-            onPressed: () => Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FriendInviteScreen(client: chat.client),
-              ),
-            ),
-            icon: const Icon(Icons.qr_code),
-            label: const Text('친구 초대'),
-          ),
-        if (!_showChat && chat != null && widget.groupController != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              icon: const Icon(Icons.event_available),
-              label: const Text('동네 러닝 모임'),
-              onPressed: () => Navigator.push<void>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MeetupScreen(
-                    service: AccountRpc(chat.client),
-                    onGroup: () async {
-                      await widget.groupController!.refresh();
-                      if (!context.mounted) return;
-                      await Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => GroupRunningScreen(
-                            controller: widget.groupController!,
-                            friends: _friends,
-                          ),
-                        ),
-                      );
-                    },
+        // 친구 초대와 동네 러닝 모임을 같은 모양의 카드 두 개로 나란히 둡니다.
+        if (!_showChat && chat != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _QuickAction(
+                  key: const ValueKey('quick-invite'),
+                  icon: Icons.qr_code_rounded,
+                  color: AppColors.blue,
+                  title: '친구 초대',
+                  subtitle: 'QR·링크로 초대',
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FriendInviteScreen(client: chat.client),
+                    ),
                   ),
                 ),
               ),
-            ),
+              if (widget.groupController != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickAction(
+                    key: const ValueKey('quick-meetup'),
+                    icon: Icons.event_available_rounded,
+                    color: AppColors.green,
+                    title: '동네 러닝 모임',
+                    subtitle: '근처 러너와 함께',
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MeetupScreen(
+                          service: AccountRpc(chat.client),
+                          onGroup: () async {
+                            await widget.groupController!.refresh();
+                            if (!context.mounted) return;
+                            await Navigator.push<void>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => GroupRunningScreen(
+                                  controller: widget.groupController!,
+                                  friends: _friends,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
+        ],
         const SizedBox(height: 8),
         Expanded(
           child: _showChat
@@ -435,4 +451,79 @@ class _SocialScreenState extends State<SocialScreen>
       ),
     ),
   );
+}
+
+/// 소셜 화면 위쪽의 바로가기 카드입니다. 아이콘·제목·설명을 같은 모양으로 맞춥니다.
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: .14),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Icon(icon, color: color, size: 21),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.gray,
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.bodySmall?.copyWith(color: AppColors.gray),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -1,3 +1,7 @@
+import 'friend_chat_content.dart';
+
+import 'dart:typed_data';
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -47,6 +51,7 @@ class RoomMessage {
       senderId = json['sender_id'] as String,
       nickname = json['nickname'] as String? ?? '알 수 없음',
       body = json['body'] as String,
+      kind = json['kind'] as String? ?? 'text',
       sentAt = DateTime.tryParse(json['sent_at'] as String? ?? '')?.toLocal(),
       unread = (json['unread'] as num?)?.toInt() ?? 0;
 
@@ -54,6 +59,9 @@ class RoomMessage {
   final String senderId;
   final String nickname;
   final String body;
+
+  /// text 또는 photo입니다. 사진은 [ChatRoomService.photo]로 따로 받습니다.
+  final String kind;
   final DateTime? sentAt;
 
   /// 이 메시지를 아직 안 읽은 사람 수입니다(보낸 사람 제외).
@@ -95,6 +103,12 @@ abstract interface class ChatRoomService {
   Future<String> crewRoom(String crewId);
   Future<RoomPage> read(String roomId, {int? before});
   Future<void> send(String roomId, String body, String requestId);
+
+  /// JPEG(base64)을 사진 메시지로 보냅니다.
+  Future<void> sendPhoto(String roomId, String jpeg, String requestId);
+
+  /// 사진 메시지의 사진입니다.
+  Future<Uint8List> photo(String roomId, int messageId);
   Future<void> markRead(String roomId, int lastId);
   Future<void> leave(String roomId);
 }
@@ -158,6 +172,25 @@ class SupabaseChatRoomService implements ChatRoomService {
   @override
   Future<void> markRead(String roomId, int lastId) async {
     await _call('chat_room_mark_read', {'target': roomId, 'last_id': lastId});
+  }
+
+  @override
+  Future<void> sendPhoto(String roomId, String jpeg, String requestId) async {
+    await _call('chat_room_send_photo', {
+      'target': roomId,
+      'jpeg': jpeg,
+      'request_id': requestId,
+    });
+  }
+
+  @override
+  Future<Uint8List> photo(String roomId, int messageId) async {
+    final encoded = await _call('chat_room_photo', {
+      'target': roomId,
+      'message_id': messageId,
+    }) as String?;
+    if (encoded == null) throw StateError('사진을 볼 수 없습니다.');
+    return base64Decode(encoded.replaceAll('\n', ''));
   }
 
   @override
@@ -300,6 +333,31 @@ class _ChatRoomViewState extends State<ChatRoomView>
       await _load();
     } catch (_) {
       if (mounted) setState(() => _sendError = '메시지를 보내지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  /// 갤러리에서 사진을 골라 대화방에 보냅니다. 1:1 대화와 같은 방식으로 줄여서 보냅니다.
+  Future<void> _sendPhoto() async {
+    if (_sending) return;
+    try {
+      final photo = await pickFriendChatPhoto(context);
+      if (photo == null || !mounted) return;
+      setState(() {
+        _sending = true;
+        _sendError = null;
+      });
+      await widget.service.sendPhoto(
+        widget.roomId,
+        base64Encode(photo),
+        const Uuid().v4(),
+      );
+      if (mounted) await _load();
+    } on FriendChatPhotoException catch (error) {
+      if (mounted) setState(() => _sendError = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _sendError = '사진을 보내지 못했습니다. 다시 시도해 주세요.');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -452,6 +510,14 @@ class _ChatRoomViewState extends State<ChatRoomView>
                             showTime: !_sameGroup(message, next),
                             unreadCount: message.unread,
                             showName: true,
+                            content: message.kind == 'photo'
+                                ? FriendChatPhoto(
+                                    load: () => widget.service.photo(
+                                      widget.roomId,
+                                      message.id,
+                                    ),
+                                  )
+                                : null,
                             bubble: BadgeDirectory.instance
                                 .user(message.senderId)
                                 ?.chatBubble,
@@ -473,6 +539,7 @@ class _ChatRoomViewState extends State<ChatRoomView>
               sending: _sending,
               canSend: page != null,
               onSend: _send,
+              onAttach: page == null ? null : _sendPhoto,
             ),
           ],
         ),
