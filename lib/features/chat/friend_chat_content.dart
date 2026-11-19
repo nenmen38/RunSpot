@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
@@ -175,9 +174,13 @@ class _FriendChatPhotoState extends State<FriendChatPhoto> {
 }
 
 String _runMetrics(int distance, int seconds) {
+  final metrics =
+      '${(distance / 1000).toStringAsFixed(2)} km · '
+      '${formatRunDuration(Duration(seconds: seconds))}';
+  if (distance <= 0 || seconds <= 0) return '$metrics · 평균 페이스 —';
+
   final pace = (seconds * 1000 / distance).round();
-  return '${(distance / 1000).toStringAsFixed(2)} km · '
-      '${formatRunDuration(Duration(seconds: seconds))} · '
+  return '$metrics · '
       '${pace ~/ 60}:${(pace % 60).toString().padLeft(2, '0')} /km';
 }
 

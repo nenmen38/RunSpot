@@ -77,6 +77,22 @@ Map<String, dynamic> message(int id, String sender, {bool read = true}) => {
 };
 
 void main() {
+  testWidgets('거리 0m인 공유 기록은 평균 페이스 없이 표시합니다', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: FriendChatRunCard(
+            summary: {'distance_m': 0, 'duration_sec': 42},
+            mine: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0.00 km · 00:42 · 평균 페이스 —'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('메시지에 답장하고 내 메시지를 두 사람의 대화에서 삭제합니다', (tester) async {
     final chat = _Chat()..room = [message(2, 'me'), message(1, 'friend')];
     await tester.pumpWidget(
