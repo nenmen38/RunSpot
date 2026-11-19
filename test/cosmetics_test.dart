@@ -4,6 +4,7 @@ import 'package:runquest/features/crew/crew_controller.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
 import 'package:runquest/features/monetization/cosmetic_shop.dart';
 import 'package:runquest/features/monetization/cosmetics.dart';
+import 'package:runquest/shared/maps/run_map.dart';
 
 import 'support/crew_fakes.dart';
 import 'support/wallet_fakes.dart';
@@ -115,5 +116,35 @@ void main() {
     expect(messages.last, '새벽런 정원을 50명으로 늘렸어요.');
     wallet.dispose();
     crew.dispose();
+  });
+
+  test('경로 색 아이템으로 지나온 길을 칠하고 무지개는 조각마다 색을 돌립니다', () {
+    final route = [List.generate(20, (i) => i)];
+    expect(skinRoute(route, null).colors, isNull);
+    final gold = skinRoute(route, CosmeticItem.routeGold);
+    expect(gold.segments, route);
+    expect(gold.colors, ['#d4a017']);
+    final rainbow = skinRoute(route, CosmeticItem.routeRainbow, chunk: 8);
+    expect(rainbow.segments.map((s) => s.first), [0, 8, 16]);
+    // 조각 끝점이 다음 조각 시작점과 겹쳐 선이 이어집니다.
+    expect(rainbow.segments.first.last, 8);
+    expect(rainbow.segments.last.last, 19);
+    expect(rainbow.colors, ['#ef4444', '#f97316', '#facc15']);
+  });
+
+  test('오라 효과는 오라 테두리일 때만 지도에 보냅니다', () {
+    expect(CosmeticItem.auraFlame.mapEffect, 'flame');
+    expect(
+      const RunMapFrame(aura: true, color: '#3182F6', effect: 'flame').toJson(),
+      {'style': 'aura', 'color': '#3182F6', 'effect': 'flame'},
+    );
+    expect(
+      const RunMapFrame(
+        aura: false,
+        color: '#3182F6',
+        effect: 'flame',
+      ).toJson().containsKey('effect'),
+      isFalse,
+    );
   });
 }

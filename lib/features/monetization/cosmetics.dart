@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// 꾸미기 아이템을 착용하는 칸입니다. 칸마다 하나만 착용합니다.
 enum CosmeticSlot {
-  route('route', '경로 색', '러닝 중 지도와 기록에 그려지는 내 경로 선 색'),
+  route('route', '경로 색', '러닝 중 지도에 그려지는 내 경로 선 색'),
   titleStyle('title_style', '칭호 모양', '닉네임 옆 칭호 배지의 색과 아이콘'),
   auraEffect('aura_effect', '오라 효과', '오라 테두리를 착용했을 때 더해지는 움직이는 효과'),
   chatBubble('chat_bubble', '말풍선', '친구와의 대화에서 내 말풍선 색');
@@ -192,4 +192,40 @@ BoxDecoration? bubbleDecoration(CosmeticItem? item) {
   return item.colors.length > 1
       ? BoxDecoration(gradient: LinearGradient(colors: item.colors))
       : BoxDecoration(color: item.colors.first);
+}
+
+/// 경로 색 아이템으로 경로를 칠합니다. 한 가지 색이면 모든 선을 그 색으로,
+/// 무지개처럼 여러 색이면 경로를 몇 점씩 나눠 색을 돌려 가며 칠합니다.
+/// 아이템이 없으면 색 없이(지도 기본 초록) 그대로 돌려줍니다.
+({List<List<T>> segments, List<String>? colors}) skinRoute<T>(
+  List<List<T>> segments,
+  CosmeticItem? item, {
+  int chunk = 8,
+}) {
+  if (item == null || item.slot != CosmeticSlot.route) {
+    return (segments: segments, colors: null);
+  }
+  String hex(Color color) =>
+      '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+  if (item.colors.length == 1) {
+    final color = hex(item.colors.first);
+    return (segments: segments, colors: [for (final _ in segments) color]);
+  }
+  final pieces = <List<T>>[];
+  final colors = <String>[];
+  var index = 0;
+  for (final segment in segments) {
+    if (segment.length < 2) {
+      pieces.add(segment);
+      colors.add(hex(item.colors[index++ % item.colors.length]));
+      continue;
+    }
+    // 조각끼리 끝점을 겹쳐 선이 끊겨 보이지 않게 합니다.
+    for (var start = 0; start < segment.length - 1; start += chunk) {
+      final end = (start + chunk).clamp(0, segment.length - 1);
+      pieces.add(segment.sublist(start, end + 1));
+      colors.add(hex(item.colors[index++ % item.colors.length]));
+    }
+  }
+  return (segments: pieces, colors: colors);
 }

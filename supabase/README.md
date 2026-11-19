@@ -49,6 +49,7 @@
 32. `migrations/20261117000100_friend_chat_read_receipts.sql`: 친구 대화 읽음 표시를 더합니다. 대화 상대별로 어디까지 읽었는지(`friend_chat_reads.last_read_id`)를 저장하고, `friend_chat_read`가 대화방 메시지에 상대가 읽었는지(`read`), 대화 목록에 안 읽은 수(`unread`)를 붙입니다. `friend_chat_mark_read(peer_id,last_id)`로 받은 메시지까지 읽음 처리하며 되돌리지 않습니다. 기존 대화는 모두 읽은 상태로 시작합니다.
 33. `migrations/20261117000200_friend_chat_live.sql`: 친구 대화 마무리입니다. `friend_chat_unread_total()`로 안 읽은 메시지 총 개수를 셉니다. 메시지·읽음이 바뀌면 당사자의 비공개 실시간 주제 `chat:사용자ID`로 내용 없는 신호를 보냅니다. 새 메시지는 휴대폰 알림(`friend_message`, 본문 미포함, 보낸 친구별로 묶음)을 보내며, 이미 읽었거나 친구가 아니거나 수신을 끈 경우는 보내지 않습니다. `my_push_preferences`에 `friend_message`를 더했습니다.
 34. `migrations/20261117000300_personal_records.sql`: `my_personal_records()`로 1km·5km·10km 개인 최고 기록을 돌려줍니다. 저장된 1km 구간 기록에서 이어 달린 구간의 가장 짧은 시간을 찾으며, 반려된 기록과 구간 기록이 없는 예전 기록은 빼고 계산합니다.
+35. `migrations/20261119000100_titles_and_cosmetics.sql`: 달성형 칭호(`my_titles`·`set_title`, 10K 클럽·하프 마라토너·새벽 러너·꾸준왕·크루 리더·함께 달리기)와 코인 꾸미기 아이템(`buy_cosmetic`·`equip_cosmetic`: 경로 색·칭호 모양·오라 효과·말풍선), 크루 정원 확장권(`expand_crew`, 30→50명)을 추가합니다. 칭호는 코인으로 살 수 없습니다. 다른 사람의 칭호·꾸미기는 `user_badges`·`post_author_badges`로 조회하며 차단한 사람은 뺍니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

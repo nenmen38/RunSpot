@@ -1,3 +1,5 @@
+import 'package:runquest/features/monetization/cosmetics.dart';
+
 import 'models/run_session.dart';
 
 import 'package:runquest/features/profile/widgets/personal_records_card.dart';
@@ -528,6 +530,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return RunMapFrame(aura: true, color: color ?? defaultCrewColor);
     }
 
+    // 경로 색 아이템을 착용했으면 지나온 길을 그 색으로 칠합니다.
+    final route = skinRoute(
+      state.runSession?.routeSegments
+              .map(
+                (s) => s.map((p) => LatLng(p.latitude, p.longitude)).toList(),
+              )
+              .toList() ??
+          const <List<LatLng>>[],
+      widget.wallet?.equippedIn(CosmeticSlot.route),
+    );
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
@@ -557,19 +569,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     final wallet? when wallet.equipped != null => RunMapFrame(
                       aura: wallet.equipped == FrameKind.aura,
                       color: wallet.wallet!.color,
+                      effect: wallet
+                          .equippedIn(CosmeticSlot.auraEffect)
+                          ?.mapEffect,
                     ),
                     _ => null,
                   },
                   aura: aura?.toJson(),
-                  segments:
-                      state.runSession?.routeSegments
-                          .map(
-                            (s) => s
-                                .map((p) => LatLng(p.latitude, p.longitude))
-                                .toList(),
-                          )
-                          .toList() ??
-                      const [],
+                  segments: route.segments,
+                  segmentColors: route.colors,
                   markers: clusters
                       .where(
                         (cluster) =>
