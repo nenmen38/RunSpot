@@ -175,6 +175,43 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('기록 지도는 튀는 점과 잔떨림을 제거하고 구간과 유턴을 유지합니다', (tester) async {
+    LatLng point(num x, num y) => LatLng(y / 111195, x / 111195);
+    final start = point(0, 0);
+    final end = point(60, 0);
+    final resumed = point(100, 0);
+    final turn = point(120, 0);
+    final finish = point(101, 0);
+    final route = RunRoute([
+      [
+        start,
+        point(10, 0),
+        point(20, 12),
+        point(30, 0),
+        point(40, 0),
+        point(50, -3),
+        end,
+      ],
+      [resumed, turn, finish],
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SavedRunMap(route: route, mapBridgeFactory: FakeMapBridge.new),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final map = tester.widget<RunMap>(find.byType(RunMap));
+    expect(map.segments, [
+      [start, end],
+      [resumed, turn, finish],
+    ]);
+    expect(route.segments.first, hasLength(7));
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('좌표 하나만 있는 정지 기록도 지도를 표시합니다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
 import '../../../shared/maps/run_map.dart';
+import '../models/display_route.dart';
 import '../models/pace_route.dart';
 import '../models/run_route.dart';
 import '../models/run_split.dart';
@@ -24,17 +25,31 @@ class SavedRunMap extends StatefulWidget {
 
 class _SavedRunMapState extends State<SavedRunMap> {
   final _map = RunMapController();
-  void _fit() => _map.fit(widget.route.segments.expand((s) => s));
+  late List<PaceRoutePiece> _pieces;
+
+  void _updateRoute() {
+    // 원본 거리로 페이스 색 경계를 정한 뒤 각 조각의 표시 좌표만 정리합니다.
+    _pieces = [
+      for (final piece in paceColoredRoute(widget.route, widget.splits))
+        PaceRoutePiece(cleanDisplayRoute(piece.points), piece.color),
+    ];
+    _fit();
+  }
+
+  void _fit() => _map.fit(_pieces.expand((piece) => piece.points));
+
   @override
   void initState() {
     super.initState();
-    _fit();
+    _updateRoute();
   }
 
   @override
   void didUpdateWidget(covariant SavedRunMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.route != widget.route) _fit();
+    if (oldWidget.route != widget.route || oldWidget.splits != widget.splits) {
+      _updateRoute();
+    }
   }
 
   @override
@@ -45,7 +60,7 @@ class _SavedRunMapState extends State<SavedRunMap> {
 
   @override
   Widget build(BuildContext context) {
-    final pieces = paceColoredRoute(widget.route, widget.splits);
+    final pieces = _pieces;
     final colored = pieces.map((piece) => piece.color).toSet().length > 1;
     return Column(
       children: [
