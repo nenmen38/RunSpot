@@ -1,3 +1,6 @@
+import '../crew/models/crew.dart';
+import '../chat/new_chat_screen.dart';
+import '../chat/chat_rooms.dart';
 import 'friend_invite_screen.dart';
 import '../../shared/data/account_rpc.dart';
 import '../meetups/meetup_screen.dart';
@@ -64,6 +67,7 @@ class _SocialScreenState extends State<SocialScreen>
   late final RankingService _ranking;
   late bool _showChat = widget.showChatOnStart;
   FriendChatService? _chat;
+  ChatRoomService? _rooms;
 
   Future<void> _invite(String userId) async {
     final message = await widget.groupController?.inviteAndStart(userId);
@@ -84,6 +88,7 @@ class _SocialScreenState extends State<SocialScreen>
     );
     if (_friends.service case final SupabaseFriendService service) {
       _chat = FriendChatService(service.client);
+      _rooms = SupabaseChatRoomService(service.client);
     }
     _friends.setActive(true);
     if (widget.openGroupOnStart && widget.groupController != null) {
@@ -99,6 +104,78 @@ class _SocialScreenState extends State<SocialScreen>
           ),
         );
       });
+    }
+  }
+
+  int _chatListRevision = 0;
+
+  /// 친구·크루원 중에서 골라 대화를 시작합니다. 친구 한 명이면 1:1 대화, 여러 명이면 단톡입니다.
+  Future<void> _newChat() async {
+    final rooms = _rooms, chat = _chat;
+    if (rooms == null || chat == null) return;
+    await _friends.refresh();
+    await widget.crewController?.refresh();
+    if (!mounted) return;
+    final selection = await Navigator.of(context).push<NewChatSelection>(
+      MaterialPageRoute(
+        builder: (_) => NewChatScreen(
+          friends: [
+            for (final friend in _friends.friends)
+              (id: friend.userId, nickname: friend.nickname),
+          ],
+          crews: widget.crewController?.crews ?? const [],
+          ownerId: rooms.ownerId,
+        ),
+      ),
+    );
+    if (selection == null || !mounted) return;
+    final friendIds = {for (final friend in _friends.friends) friend.userId};
+    if (selection.members.length == 1 &&
+        friendIds.contains(selection.members.keys.single)) {
+      final entry = selection.members.entries.single;
+      await openFriendChat(
+        context,
+        chat.client,
+        entry.key,
+        entry.value,
+        sync: widget.chatSync,
+      );
+    } else {
+      try {
+        final room = await rooms.create(
+          selection.members.keys.toList(),
+          name: selection.name,
+        );
+        if (!mounted) return;
+        await openChatRoom(context, rooms, room, sync: widget.chatSync);
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is PostgrestException
+                  ? error.message
+                  : '대화방을 만들지 못했습니다. 다시 시도해 주세요.',
+            ),
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _chatListRevision++);
+  }
+
+  /// 크루 단체 대화방으로 바로 들어갑니다.
+  Future<void> _openCrewChat(Crew crew) async {
+    final rooms = _rooms;
+    if (rooms == null) return;
+    try {
+      final room = await rooms.crewRoom(crew.id);
+      if (!mounted) return;
+      await openChatRoom(context, rooms, room, sync: widget.chatSync);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('크루 대화방에 들어가지 못했습니다.')));
     }
   }
 
@@ -165,6 +242,13 @@ class _SocialScreenState extends State<SocialScreen>
               showSelectedIcon: false,
             ),
             const Spacer(),
+            // 대화 화면에서는 오른쪽 위에서 새 대화(1:1·단톡)를 시작합니다.
+            if (_showChat && _rooms != null)
+              IconButton(
+                tooltip: '새 대화',
+                onPressed: _newChat,
+                icon: const Icon(Icons.add_comment_outlined),
+              ),
             if (!_showChat)
               ListenableBuilder(
                 listenable: _friends,
@@ -222,7 +306,12 @@ class _SocialScreenState extends State<SocialScreen>
         Expanded(
           child: _showChat
               ? chat != null
-                    ? FriendChatView(service: chat, sync: widget.chatSync)
+                    ? FriendChatView(
+                        key: ValueKey(_chatListRevision),
+                        service: chat,
+                        sync: widget.chatSync,
+                        rooms: _rooms,
+                      )
                     : const Center(child: Text('대화를 사용할 수 없습니다.'))
               : _social(),
         ),
@@ -325,7 +414,10 @@ class _SocialScreenState extends State<SocialScreen>
                       : (entry) => _invite(entry.userId),
                 ),
                 if (widget.crewController case final crew?)
-                  CrewTab(controller: crew),
+                  CrewTab(
+                    controller: crew,
+                    onOpenChat: _rooms == null ? null : _openCrewChat,
+                  ),
                 FriendList(
                   controller: _friends,
                   requests: true,

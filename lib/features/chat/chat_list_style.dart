@@ -10,6 +10,9 @@ class ChatConversationTile extends StatelessWidget {
   const ChatConversationTile({
     required this.nickname,
     this.peerId,
+    this.groupIcon,
+    this.groupColor,
+    this.memberCount,
     required this.preview,
     required this.sentAt,
     required this.onTap,
@@ -22,6 +25,13 @@ class ChatConversationTile extends StatelessWidget {
 
   /// 칭호를 보여줄 친구 ID입니다.
   final String? peerId;
+
+  /// 단톡·크루 대화방이면 프로필 대신 이 아이콘을 보여줍니다.
+  final IconData? groupIcon;
+  final Color? groupColor;
+
+  /// 단톡·크루 대화방 인원입니다. 이름 옆에 작게 보여줍니다.
+  final int? memberCount;
   final String nickname;
   final String preview;
   final DateTime? sentAt;
@@ -61,7 +71,16 @@ class ChatConversationTile extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              ChatAvatar(nickname: nickname, size: 46),
+              if (groupIcon case final icon?)
+                CircleAvatar(
+                  radius: 23,
+                  backgroundColor: (groupColor ?? AppColors.blue).withValues(
+                    alpha: .15,
+                  ),
+                  child: Icon(icon, color: groupColor ?? AppColors.blueText),
+                )
+              else
+                ChatAvatar(nickname: nickname, size: 46),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -79,6 +98,16 @@ class ChatConversationTile extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (memberCount case final count?)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Text(
+                              '$count',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                         if (peerId case final id?) UserTitle(userId: id),
                         const Spacer(),
                         if (time != null) ...[

@@ -25,6 +25,13 @@ Deno.test("잠금 화면 알림은 본문과 개인정보를 포함하지 않음
   assert(!("nickname" in value.message.data));
   assert(value.message.android.notification.tag === delivery.job_id);
 });
+Deno.test("단톡 알림은 본문 없이 대화방별로 하나로 묶음", () => {
+  const value = payload({ ...delivery, kind: "room_message", target_id: "방" });
+  assert(
+    value.message.notification.body === "단체 대화방에 새 메시지가 도착했어요.",
+  );
+  assert(value.message.android.notification.tag === "room-방");
+});
 Deno.test("친구 메시지 알림은 본문 없이 보낸 친구별로 하나로 묶음", () => {
   const value = payload({
     ...delivery,

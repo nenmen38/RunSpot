@@ -241,7 +241,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       }
       _notifications?.refreshCount();
       if (destination.kind == 'group_invite') unawaited(_groups?.refresh());
-      if (destination.kind == 'friend_message') {
+      if (destination.kind == 'friend_message' ||
+          destination.kind == 'room_message') {
         // 대화 화면은 실시간으로 바뀌므로 알림 대신 배지만 갱신합니다.
         unawaited(_chat?.refresh());
         return;
@@ -321,7 +322,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _socialInitialTab = destination.kind == 'friend_request' ? 1 : 0;
       _openGroupOnStart = destination.kind == 'group_invite';
       // 메시지 알림을 누르면 소셜 탭의 대화 목록을 엽니다.
-      _socialShowChat = destination.kind == 'friend_message';
+      _socialShowChat =
+          destination.kind == 'friend_message' ||
+          destination.kind == 'room_message';
       _tab = 1;
     });
   }

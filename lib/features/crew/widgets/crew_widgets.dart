@@ -209,9 +209,12 @@ class _CreateCrewSheetState extends State<CreateCrewSheet> {
 
 /// 소셜 탭의 크루 화면입니다. 내 크루와 크루원만 보여주고, 받은 초대에 응답합니다.
 class CrewTab extends StatelessWidget {
-  const CrewTab({required this.controller, super.key});
+  const CrewTab({required this.controller, this.onOpenChat, super.key});
 
   final CrewController controller;
+
+  /// 있으면 크루 설명 옆에 크루 단체 대화방 버튼을 보여줍니다.
+  final Future<void> Function(Crew crew)? onOpenChat;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -346,6 +349,13 @@ class CrewTab extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (onOpenChat case final open?)
+                      IconButton.filledTonal(
+                        key: const ValueKey('crew-chat'),
+                        tooltip: '크루 대화방',
+                        onPressed: () => open(crew),
+                        icon: const Icon(Icons.forum_outlined),
+                      ),
                   ],
                 ),
               ),

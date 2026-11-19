@@ -45,6 +45,8 @@ class ChatMessageBubble extends StatelessWidget {
     required this.sentAt,
     required this.showDay,
     this.unread = false,
+    this.unreadCount,
+    this.showName = false,
     this.replyPreview,
     this.content,
     this.onLongPress,
@@ -57,6 +59,12 @@ class ChatMessageBubble extends StatelessWidget {
 
   /// 내가 보낸 메시지를 상대가 아직 읽지 않았으면 true입니다.
   final bool unread;
+
+  /// 단톡에서 이 메시지를 아직 안 읽은 사람 수입니다. 있으면 [unread] 대신 씁니다.
+  final int? unreadCount;
+
+  /// 다른 사람 말풍선 위에 이름을 보여줄지 여부입니다(단톡).
+  final bool showName;
   final String? replyPreview;
   final Widget? content;
   final VoidCallback? onLongPress;
@@ -73,6 +81,12 @@ class ChatMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final time = sentAt;
+    // 안 읽은 사람 수입니다. 단톡은 숫자를, 1:1은 내 메시지에만 '1'을 붙입니다.
+    final unreadLabel = (unreadCount ?? 0) > 0
+        ? '$unreadCount'
+        : unreadCount == null && mine && unread
+        ? '1'
+        : null;
     final themed = bubbleDecoration(bubble);
     final foreground = mine || themed != null
         ? Colors.white
@@ -127,27 +141,23 @@ class ChatMessageBubble extends StatelessWidget {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
+                    // 단톡에서는 다른 사람 말풍선 위에 이름을 붙입니다.
+                    if (showName && !mine && showAvatar)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2, bottom: 3),
+                        child: Text(
+                          nickname,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        if (mine && unread)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 4, bottom: 2),
-                            child: Semantics(
-                              label: '읽지 않음',
-                              child: const ExcludeSemantics(
-                                child: Text(
-                                  '1',
-                                  style: TextStyle(
-                                    color: AppColors.unreadMark,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                        if (mine && unreadLabel != null)
+                          _UnreadMark(unreadLabel, right: true),
                         Flexible(
                           child: GestureDetector(
                             onLongPress: onLongPress,
@@ -212,6 +222,8 @@ class ChatMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (!mine && unreadLabel != null)
+                          _UnreadMark(unreadLabel, right: false),
                       ],
                     ),
                     if (showTime && time != null)
@@ -334,4 +346,34 @@ class ChatComposer extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 카카오톡처럼 말풍선 옆에 붙는 안 읽은 사람 수입니다.
+class _UnreadMark extends StatelessWidget {
+  const _UnreadMark(this.label, {required this.right});
+
+  final String label;
+  final bool right;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(
+      right: right ? 4 : 0,
+      left: right ? 0 : 4,
+      bottom: 2,
+    ),
+    child: Semantics(
+      label: '$label명 읽지 않음',
+      child: ExcludeSemantics(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.unreadMark,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    ),
+  );
 }

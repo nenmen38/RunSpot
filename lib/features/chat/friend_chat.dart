@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'chat_rooms.dart';
 import 'chat_list_style.dart';
 import 'friend_chat_content.dart';
 import 'chat_sync.dart';
@@ -70,8 +71,17 @@ class FriendChatService {
   }
 
   /// 안 읽은 메시지 총 개수입니다.
-  Future<int> unreadTotal() async =>
-      ((await _call('friend_chat_unread_total', const {})) as num).toInt();
+  Future<int> unreadTotal() async {
+    final friends = ((await _call('friend_chat_unread_total', const {})) as num)
+        .toInt();
+    // 단톡·크루 대화방의 안 읽은 메시지도 함께 셉니다. 서버가 아직 지원하지 않으면 1:1만 셉니다.
+    try {
+      return friends +
+          ((await _call('chat_rooms_unread_total', const {})) as num).toInt();
+    } catch (_) {
+      return friends;
+    }
+  }
 
   /// 내 대화에 새 메시지나 읽음 변경이 생기면 [onChanged]를 부릅니다.
   /// 신호에는 내용이 없고, 받은 뒤 권한을 다시 검사하는 조회로 새로 불러옵니다.
@@ -148,7 +158,11 @@ class FriendChatView extends StatefulWidget {
     this.nickname,
     this.sync,
     this.draftStore,
+    this.rooms,
   });
+
+  /// 있으면 대화 목록에 단톡·크루 대화방도 함께 보여줍니다.
+  final ChatRoomService? rooms;
 
   /// 실시간 신호를 받으면 바로 다시 불러옵니다. 없으면 주기적으로만 확인합니다.
   final ChatDraftStore? draftStore;
@@ -165,6 +179,8 @@ class _FriendChatViewState extends State<FriendChatView>
     with WidgetsBindingObserver {
   final _input = TextEditingController();
   List<Map<String, dynamic>> _rows = [];
+  List<ChatRoomSummary> _roomList = [];
+  bool _loadingRooms = false;
   Timer? _poll;
   bool _loading = false;
   bool _sending = false;
@@ -268,8 +284,23 @@ class _FriendChatViewState extends State<FriendChatView>
     }
   }
 
+  /// 대화 목록에 함께 보여줄 단톡·크루 대화방을 불러옵니다. 실패하면 1:1 대화만 보여줍니다.
+  Future<void> _loadRooms() async {
+    final rooms = widget.rooms;
+    if (rooms == null || _loadingRooms || !mounted) return;
+    _loadingRooms = true;
+    try {
+      final list = await rooms.rooms();
+      if (mounted) setState(() => _roomList = list);
+    } catch (_) {
+    } finally {
+      _loadingRooms = false;
+    }
+  }
+
   Future<void> _load({bool older = false}) async {
     if (!mounted) return;
+    if (widget.peer == null && !older) unawaited(_loadRooms());
     if (_loading) {
       if (!older) _reloadQueued = true;
       return;
@@ -722,18 +753,55 @@ class _FriendChatViewState extends State<FriendChatView>
     if (_loadError case final error?) {
       return ChatListPlaceholder(message: error, onRetry: _load);
     }
-    if (_rows.isEmpty) {
-      return const ChatListPlaceholder(message: '친구를 눌러 대화를 시작해 보세요.');
+    if (_rows.isEmpty && _roomList.isEmpty) {
+      return const ChatListPlaceholder(
+        message: '오른쪽 위 버튼으로 친구나 크루원과 대화를 시작해 보세요.',
+      );
     }
+    // 1:1 대화와 단톡·크루 대화방을 최근 메시지 순으로 섞어 보여줍니다.
+    final entries = <Object>[..._rows, ..._roomList]
+      ..sort((a, b) {
+        DateTime? at(Object item) => item is ChatRoomSummary
+            ? item.lastAt
+            : _sentAt(item as Map<String, dynamic>);
+        final x = at(a), y = at(b);
+        if (x == null || y == null) return x == null ? 1 : -1;
+        return y.compareTo(x);
+      });
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.only(top: 4, bottom: 12),
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _rows.length,
+        itemCount: entries.length,
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
-          final row = _rows[index];
+          final entry = entries[index];
+          if (entry is ChatRoomSummary) {
+            return ChatConversationTile(
+              key: ValueKey('room-${entry.roomId}'),
+              nickname: entry.title,
+              memberCount: entry.memberCount,
+              groupIcon: entry.isCrew
+                  ? entry.crewIcon?.icon ?? Icons.groups
+                  : Icons.forum_outlined,
+              groupColor: entry.crewIcon?.color,
+              preview: entry.lastBody ?? '대화방이 만들어졌어요.',
+              sentAt: entry.lastAt,
+              unread: entry.unread,
+              onTap: () async {
+                await openChatRoom(
+                  context,
+                  widget.rooms!,
+                  entry.roomId,
+                  sync: widget.sync,
+                );
+                if (mounted) unawaited(_load());
+                unawaited(widget.sync?.refresh());
+              },
+            );
+          }
+          final row = entry as Map<String, dynamic>;
           final nickname = row['nickname'] as String;
           final peer = row['peer_id'] as String;
           return ChatConversationTile(
