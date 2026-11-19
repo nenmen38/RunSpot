@@ -1,3 +1,5 @@
+import 'package:runquest/features/titles/badge_directory.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -299,26 +301,35 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
       const SizedBox(height: 6),
       InkWell(
         onTap: post.isMine ? null : () => _openUser(),
-        child: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: post.nickname),
-              if (post.crew case final crew?)
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: BoardCrewBadge(crew: crew),
+        child: ListenableBuilder(
+          listenable: BadgeDirectory.instance,
+          builder: (context, _) => Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: post.nickname),
+                // 칭호가 있을 때만 이름 옆에 붙입니다.
+                if (BadgeDirectory.instance.post(post.id)?.title != null)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: PostAuthorTitle(postId: post.id),
+                  ),
+                if (post.crew case final crew?)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: BoardCrewBadge(crew: crew),
+                  ),
+                TextSpan(
+                  text: [
+                    '',
+                    if (post.region != null) post.region!,
+                    formatBoardDateTime(post.createdAt),
+                    if (post.isEdited) '수정됨',
+                  ].join(' · '),
                 ),
-              TextSpan(
-                text: [
-                  '',
-                  if (post.region != null) post.region!,
-                  formatBoardDateTime(post.createdAt),
-                  if (post.isEdited) '수정됨',
-                ].join(' · '),
-              ),
-            ],
+              ],
+            ),
+            style: BoardStyle.meta,
           ),
-          style: BoardStyle.meta,
         ),
       ),
       if (raceDate != null) ...[

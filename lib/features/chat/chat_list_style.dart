@@ -1,3 +1,5 @@
+import '../titles/badge_directory.dart';
+
 import 'package:runquest/shared/widgets/status_view.dart';
 import 'package:flutter/material.dart';
 
@@ -7,6 +9,7 @@ import 'chat_room_style.dart';
 class ChatConversationTile extends StatelessWidget {
   const ChatConversationTile({
     required this.nickname,
+    this.peerId,
     required this.preview,
     required this.sentAt,
     required this.onTap,
@@ -17,6 +20,8 @@ class ChatConversationTile extends StatelessWidget {
   /// 상대가 보냈지만 내가 아직 읽지 않은 메시지 수입니다.
   final int unread;
 
+  /// 칭호를 보여줄 친구 ID입니다.
+  final String? peerId;
   final String nickname;
   final String preview;
   final DateTime? sentAt;
@@ -64,7 +69,7 @@ class ChatConversationTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
                             nickname,
                             maxLines: 1,
@@ -74,6 +79,8 @@ class ChatConversationTile extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (peerId case final id?) UserTitle(userId: id),
+                        const Spacer(),
                         if (time != null) ...[
                           const SizedBox(width: 8),
                           Flexible(

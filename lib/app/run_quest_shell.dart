@@ -1,3 +1,5 @@
+import 'package:runquest/features/titles/title_service.dart';
+import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
 import '../features/social/friend_invite_screen.dart';
@@ -138,6 +140,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   /// 친구 대화의 안 읽은 수와 실시간 신호입니다. 소셜 탭 배지와 대화 화면이 함께 씁니다.
   ChatSync? _chat;
   PersonalRecordsService? _records;
+  TitleService? _titles;
   bool _socialShowChat = false;
 
   @override
@@ -158,6 +161,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _blocks = SupabaseBlockService(client);
       _chat = ChatSync(FriendChatService(client))..start();
       _records = SupabasePersonalRecordsService(client);
+      _titles = SupabaseTitleService(client);
+      BadgeDirectory.instance.bind(_titles!);
       _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
       _reviews = SupabaseReviewService(client);
@@ -284,6 +289,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     _watch?.dispose();
     _inviteLinks?.cancel();
     if (widget.mapController == null) WeeklyGoal.instance.unbind();
+    if (_titles != null) BadgeDirectory.instance.unbind();
     _pushSubscription?.cancel();
     _pushMessages?.cancel();
     _groups?.removeListener(_groupStateChanged);
@@ -383,6 +389,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
         ),
         progressService: _progress,
         personalRecordsService: _records,
+        titleService: _titles,
+        wallet: _wallet,
         statisticsService: _statistics,
         mapController: _map,
         achievementService: _achievements,

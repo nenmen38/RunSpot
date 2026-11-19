@@ -1,3 +1,5 @@
+import '../monetization/cosmetics.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
@@ -46,8 +48,12 @@ class ChatMessageBubble extends StatelessWidget {
     this.replyPreview,
     this.content,
     this.onLongPress,
+    this.bubble,
     super.key,
   });
+
+  /// 보낸 사람이 착용한 말풍선 아이템입니다. 있으면 그 색으로 그립니다.
+  final CosmeticItem? bubble;
 
   /// 내가 보낸 메시지를 상대가 아직 읽지 않았으면 true입니다.
   final bool unread;
@@ -67,7 +73,10 @@ class ChatMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final time = sentAt;
-    final foreground = mine ? Colors.white : theme.colorScheme.onSurface;
+    final themed = bubbleDecoration(bubble);
+    final foreground = mine || themed != null
+        ? Colors.white
+        : theme.colorScheme.onSurface;
     const corner = Radius.circular(18);
     const groupedCorner = Radius.circular(6);
 
@@ -144,10 +153,13 @@ class ChatMessageBubble extends StatelessWidget {
                             onLongPress: onLongPress,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: mine
+                                color: themed != null
+                                    ? themed.color
+                                    : mine
                                     ? AppColors.blueDark
                                     : theme.colorScheme.surface,
-                                border: mine
+                                gradient: themed?.gradient,
+                                border: mine || themed != null
                                     ? null
                                     : Border.all(
                                         color: theme.colorScheme.outlineVariant,

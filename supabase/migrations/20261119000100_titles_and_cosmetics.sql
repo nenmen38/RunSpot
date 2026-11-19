@@ -267,6 +267,24 @@ begin
 end;
 $$;
 
+-- 게시판은 글쓴이 ID를 앱에 주지 않으므로 글 ID로 글쓴이의 칭호·모양을 돌려줍니다.
+create function runspot_private.post_author_badges(post_ids uuid[])
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare viewer uuid := runspot_private.require_board_viewer();
+begin
+  if post_ids is null or cardinality(post_ids) > 100 then
+    raise exception '글은 한 번에 100개까지 조회할 수 있어요.' using errcode='22023';
+  end if;
+  return (select coalesce(jsonb_object_agg(p.id,jsonb_build_object(
+      'title',(select c.title from runspot_private.title_choices c
+        where c.user_id=p.author_id and runspot_private.title_earned(p.author_id,c.title)),
+      'title_style',(select e.item from runspot_private.equipped_cosmetics e
+        where e.user_id=p.author_id and e.slot='title_style'))),'{}'::jsonb)
+    from runspot_private.board_posts p
+    where p.id=any(post_ids) and runspot_private.board_post_visible(p.id,viewer));
+end;
+$$;
+
 -- 6) 크루 정원을 크루별로 계산합니다(기존 함수에서 정원 계산만 바꿉니다) --------
 create or replace function runspot_private.crew_item_json(crew runspot_private.crews,viewer uuid)
 returns jsonb language sql stable security definer set search_path = '' as $$
@@ -370,14 +388,18 @@ create function public.expand_crew(requested_crew uuid) returns jsonb language s
 as $$ select runspot_private.expand_crew(requested_crew); $$;
 create function public.user_badges(user_ids uuid[]) returns jsonb language sql stable security invoker set search_path=''
 as $$ select runspot_private.user_badges(user_ids); $$;
+create function public.post_author_badges(post_ids uuid[]) returns jsonb language sql stable security invoker set search_path=''
+as $$ select runspot_private.post_author_badges(post_ids); $$;
 revoke all on function runspot_private.cosmetic_slot(text),runspot_private.cosmetic_price(text),
   runspot_private.crew_expansion_price(),runspot_private.crew_size_limit(uuid),
   runspot_private.my_titles(),runspot_private.set_title(text),runspot_private.buy_cosmetic(text),
   runspot_private.equip_cosmetic(text,text),runspot_private.expand_crew(uuid),runspot_private.user_badges(uuid[]),
+  runspot_private.post_author_badges(uuid[]),public.post_author_badges(uuid[]),
   public.my_titles(),public.set_title(text),public.buy_cosmetic(text),public.equip_cosmetic(text,text),
   public.expand_crew(uuid),public.user_badges(uuid[]) from public,anon,authenticated;
 grant execute on function runspot_private.my_titles(),runspot_private.set_title(text),runspot_private.buy_cosmetic(text),
   runspot_private.equip_cosmetic(text,text),runspot_private.expand_crew(uuid),runspot_private.user_badges(uuid[]),
+  runspot_private.post_author_badges(uuid[]),public.post_author_badges(uuid[]),
   public.my_titles(),public.set_title(text),public.buy_cosmetic(text),public.equip_cosmetic(text,text),
   public.expand_crew(uuid),public.user_badges(uuid[]) to authenticated;
 notify pgrst,'reload schema';

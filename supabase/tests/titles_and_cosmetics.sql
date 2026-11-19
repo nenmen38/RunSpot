@@ -52,6 +52,13 @@ select pg_temp.check_item(:'badges'::jsonb->'00000000-0000-0000-0000-00000000030
   and :'badges'::jsonb->'00000000-0000-0000-0000-000000000301'->>'chat_bubble'='bubble_mint','다른 사람에게 보임');
 select pg_temp.check_item(pg_temp.fails('select public.buy_cosmetic(''aura_flame'')','P0001'),'코인 부족');
 reset role;
+insert into runspot_private.board_posts(author_id,client_post_id,board,topic,title,body)
+ values('00000000-0000-0000-0000-000000000301',gen_random_uuid(),'national','free','칭호 글','내용');
+select id as post from runspot_private.board_posts where title='칭호 글' \gset
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000302',true);
+select pg_temp.check_item(public.post_author_badges(array[:'post'::uuid])->:'post'->>'title'='ten_k','게시글 글쓴이 칭호');
+reset role;
 insert into runspot_private.blocks(blocker_id,blocked_id) values
  ('00000000-0000-0000-0000-000000000301','00000000-0000-0000-0000-000000000302');
 set local role authenticated;

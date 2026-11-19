@@ -1,3 +1,4 @@
+import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
@@ -158,24 +159,36 @@ class BoardPostTile extends StatelessWidget {
                         Expanded(
                           child: InkWell(
                             onTap: post.isMine ? null : onAuthorTap,
-                            child: Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(text: post.nickname),
-                                  if (post.crew case final crew?)
-                                    WidgetSpan(
-                                      alignment: PlaceholderAlignment.middle,
-                                      child: BoardCrewBadge(crew: crew),
+                            child: ListenableBuilder(
+                              listenable: BadgeDirectory.instance,
+                              builder: (context, _) => Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(text: post.nickname),
+                                    // 칭호가 있을 때만 이름 옆에 붙입니다.
+                                    if (BadgeDirectory.instance
+                                            .post(post.id)
+                                            ?.title !=
+                                        null)
+                                      WidgetSpan(
+                                        alignment: PlaceholderAlignment.middle,
+                                        child: PostAuthorTitle(postId: post.id),
+                                      ),
+                                    if (post.crew case final crew?)
+                                      WidgetSpan(
+                                        alignment: PlaceholderAlignment.middle,
+                                        child: BoardCrewBadge(crew: crew),
+                                      ),
+                                    TextSpan(
+                                      text:
+                                          ' · ${formatBoardDateTime(post.createdAt)}',
                                     ),
-                                  TextSpan(
-                                    text:
-                                        ' · ${formatBoardDateTime(post.createdAt)}',
-                                  ),
-                                ],
+                                  ],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _metaStyle,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _metaStyle,
                             ),
                           ),
                         ),

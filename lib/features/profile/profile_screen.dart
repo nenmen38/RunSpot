@@ -1,3 +1,8 @@
+import 'package:runquest/features/monetization/cosmetics.dart';
+import 'package:runquest/features/monetization/coin_frames.dart';
+import 'package:runquest/features/titles/titles_card.dart';
+import 'package:runquest/features/titles/title_service.dart';
+
 import '../training/training_screen.dart';
 
 import 'package:runquest/features/profile/widgets/personal_records_card.dart';
@@ -31,6 +36,8 @@ class ProfileScreen extends StatelessWidget {
     this.onSettingsTap,
     this.progressService,
     this.personalRecordsService,
+    this.titleService,
+    this.wallet,
     this.statisticsService,
     this.mapController,
     this.achievementService,
@@ -43,6 +50,12 @@ class ProfileScreen extends StatelessWidget {
 
   /// 있으면 1km·5km·10km 개인 최고 기록을 보여줍니다.
   final PersonalRecordsService? personalRecordsService;
+
+  /// 있으면 달려서 얻은 칭호 카드를 보여줍니다.
+  final TitleService? titleService;
+
+  /// 칭호 모양 미리보기에 씁니다.
+  final WalletController? wallet;
   final StatisticsService? statisticsService;
   final LiveMapController? mapController;
   final AchievementService? achievementService;
@@ -107,6 +120,16 @@ class ProfileScreen extends StatelessWidget {
             if (personalRecordsService case final records?) ...[
               const SizedBox(height: 12),
               PersonalRecordsCard(service: records),
+            ],
+            if (titleService case final titles?) ...[
+              const SizedBox(height: 12),
+              ListenableBuilder(
+                listenable: wallet ?? ValueNotifier(0),
+                builder: (context, _) => TitlesCard(
+                  service: titles,
+                  titleStyle: wallet?.equippedIn(CosmeticSlot.titleStyle),
+                ),
+              ),
             ],
             const SizedBox(height: 20),
             if (mapController != null)

@@ -1,3 +1,4 @@
+import '../titles/badge_directory.dart';
 import 'chat_draft_store.dart';
 import '../moderation/moderation_screen.dart';
 
@@ -607,37 +608,45 @@ class _FriendChatViewState extends State<FriendChatView>
                         ? _rows[index + 1]
                         : null;
                     final next = index > 0 ? _rows[index - 1] : null;
-                    return ChatMessageBubble(
-                      key: ValueKey(row['id']),
-                      body: row['body'] as String,
-                      replyPreview: row['reply_preview'] as String?,
-                      onLongPress: row['kind'] == 'deleted'
-                          ? null
-                          : () => _messageActions(row),
-                      content: switch (row['kind']) {
-                        'photo' => FriendChatPhoto(
-                          load: () => widget.service.photo(
-                            widget.peer!,
-                            row['id'] as int,
+                    // 보낸 사람이 착용한 말풍선 색을 씁니다(내 것도 서버에서 받아 씁니다).
+                    final sender = row['sender_id'] as String?;
+                    return ListenableBuilder(
+                      listenable: BadgeDirectory.instance,
+                      builder: (context, _) => ChatMessageBubble(
+                        bubble: sender == null
+                            ? null
+                            : BadgeDirectory.instance.user(sender)?.chatBubble,
+                        key: ValueKey(row['id']),
+                        body: row['body'] as String,
+                        replyPreview: row['reply_preview'] as String?,
+                        onLongPress: row['kind'] == 'deleted'
+                            ? null
+                            : () => _messageActions(row),
+                        content: switch (row['kind']) {
+                          'photo' => FriendChatPhoto(
+                            load: () => widget.service.photo(
+                              widget.peer!,
+                              row['id'] as int,
+                            ),
                           ),
-                        ),
-                        'run' => FriendChatRunCard(
-                          summary: row['run_summary'] as Map,
-                          mine: row['sender_id'] == widget.service.ownerId,
-                        ),
-                        _ => null,
-                      },
-                      nickname: widget.nickname ?? '',
-                      mine: row['sender_id'] == widget.service.ownerId,
-                      sentAt: time,
-                      showDay:
-                          time != null &&
-                          (previous == null ||
-                              !_sameDay(time, _sentAt(previous))),
-                      showAvatar: !_sameGroup(row, previous),
-                      showTime: !_sameGroup(row, next),
-                      // 상대가 아직 읽지 않은 내 메시지에는 카카오톡처럼 '1'을 붙입니다.
-                      unread: row['read'] == false,
+                          'run' => FriendChatRunCard(
+                            summary: row['run_summary'] as Map,
+                            mine: row['sender_id'] == widget.service.ownerId,
+                          ),
+                          _ => null,
+                        },
+                        nickname: widget.nickname ?? '',
+                        mine: row['sender_id'] == widget.service.ownerId,
+                        sentAt: time,
+                        showDay:
+                            time != null &&
+                            (previous == null ||
+                                !_sameDay(time, _sentAt(previous))),
+                        showAvatar: !_sameGroup(row, previous),
+                        showTime: !_sameGroup(row, next),
+                        // 상대가 아직 읽지 않은 내 메시지에는 카카오톡처럼 '1'을 붙입니다.
+                        unread: row['read'] == false,
+                      ),
                     );
                   },
                 ),
@@ -700,6 +709,7 @@ class _FriendChatViewState extends State<FriendChatView>
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
+            if (widget.peer case final peer?) UserTitle(userId: peer),
           ],
         ),
       ),
@@ -728,6 +738,7 @@ class _FriendChatViewState extends State<FriendChatView>
           final peer = row['peer_id'] as String;
           return ChatConversationTile(
             key: ValueKey(peer),
+            peerId: peer,
             nickname: nickname,
             preview: row['body'] as String,
             sentAt: _sentAt(row),

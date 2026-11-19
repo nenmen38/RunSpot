@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../crew/crew_controller.dart';
+import '../titles/badge_directory.dart';
 import 'coin_frames.dart';
 import 'cosmetics.dart';
 
@@ -160,7 +161,12 @@ class CosmeticInventory extends StatelessWidget {
         return const SizedBox.shrink();
       }
       Future<void> run(Future<String?> action) async {
-        if (await action case final message?) onMessage(message);
+        if (await action case final message?) {
+          onMessage(message);
+        } else {
+          // 칭호 모양·말풍선은 다른 화면에서도 바로 바뀌게 합니다.
+          BadgeDirectory.instance.refreshAll();
+        }
       }
 
       return Column(

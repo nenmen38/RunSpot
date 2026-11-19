@@ -1,3 +1,4 @@
+import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:flutter/material.dart';
 
 import '../../crew/crew_controller.dart';
@@ -279,13 +280,15 @@ class FriendRow extends StatelessWidget {
                       child: Icon(Icons.person_outline, size: 20),
                     ),
                     const SizedBox(width: 10),
-                    Expanded(
+                    Flexible(
                       child: Text(
                         entry.nickname,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    UserTitle(userId: entry.userId),
+                    const Spacer(),
                     if (onProfileTap != null)
                       const Icon(Icons.chevron_right, size: 20),
                   ],
