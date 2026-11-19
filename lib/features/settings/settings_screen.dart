@@ -12,6 +12,8 @@ import '../profile/privacy_controls.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'appearance/app_appearance.dart';
+import '../run_history/models/run_calories.dart';
+import 'body_weight.dart';
 import 'run_voice_settings.dart';
 import 'appearance/appearance_settings_screen.dart';
 import 'data/account_service.dart';
@@ -117,6 +119,23 @@ class SettingsScreen extends StatelessWidget {
           onTap: () => Navigator.of(context).push<void>(
             MaterialPageRoute(builder: (_) => const PushSettingsScreen()),
           ),
+        ),
+        ListenableBuilder(
+          listenable: BodyWeight.instance,
+          builder: (context, _) {
+            final kg = BodyWeight.instance.kg;
+            return ListTile(
+              leading: const Icon(Icons.monitor_weight_outlined),
+              title: const Text('체중'),
+              subtitle: Text(
+                kg == null
+                    ? '칼로리 계산에 기본 ${defaultBodyWeightKg.round()}kg을 써요'
+                    : '${kg.toStringAsFixed(kg % 1 == 0 ? 0 : 1)}kg · 칼로리 계산에 써요',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showBodyWeightDialog(context, BodyWeight.instance),
+            );
+          },
         ),
         ListenableBuilder(
           listenable: RunVoiceSettings.instance,

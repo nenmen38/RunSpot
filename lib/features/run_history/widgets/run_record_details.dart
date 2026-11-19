@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../shared/formatters/run_format.dart';
 import '../../../shared/widgets/metric_values.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../settings/body_weight.dart';
+import '../models/run_calories.dart';
 import '../models/run_record.dart';
 import 'run_record_theme.dart';
 
@@ -20,8 +22,11 @@ String formatRunPace(RunRecord record) {
 }
 
 class RunRecordDetails extends StatelessWidget {
-  const RunRecordDetails({required this.record, super.key});
+  const RunRecordDetails({required this.record, this.weight, super.key});
   final RunRecord record;
+
+  /// 칼로리 계산에 쓰는 체중 설정입니다. 없으면 앱 공용 설정을 씁니다.
+  final BodyWeight? weight;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -73,7 +78,38 @@ class RunRecordDetails extends StatelessWidget {
           Expanded(
             child: MetricValue(label: '평균 페이스', value: formatRunPace(record)),
           ),
+          // 러닝을 마치면 페이스로 추정한 칼로리를 바로 보여줍니다.
+          Expanded(
+            child: ListenableBuilder(
+              listenable: weight ?? BodyWeight.instance,
+              builder: (context, _) {
+                final kcal = estimateRunCalories(
+                  distanceMeters: record.distanceMeters.toDouble(),
+                  durationSeconds: record.durationSeconds,
+                  splits: record.splits,
+                  weightKg: (weight ?? BodyWeight.instance).effectiveKg,
+                );
+                return MetricValue(
+                  label: '칼로리',
+                  value: kcal == null ? '--' : '$kcal kcal',
+                );
+              },
+            ),
+          ),
         ],
+      ),
+      const SizedBox(height: 6),
+      ListenableBuilder(
+        listenable: weight ?? BodyWeight.instance,
+        builder: (context, _) {
+          final setWeight = (weight ?? BodyWeight.instance).kg;
+          return Text(
+            setWeight == null
+                ? '칼로리는 체중 ${defaultBodyWeightKg.round()}kg 기준 추정값이에요. 설정에서 체중을 바꿀 수 있어요.'
+                : '칼로리는 체중 ${setWeight.toStringAsFixed(setWeight % 1 == 0 ? 0 : 1)}kg과 페이스로 계산한 추정값이에요.',
+            style: TextStyle(color: RunRecordColors.label, fontSize: 12),
+          );
+        },
       ),
       if (record.temperature != null) ...[
         const SizedBox(height: 16),
