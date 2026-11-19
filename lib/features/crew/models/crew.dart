@@ -37,6 +37,7 @@ class Crew {
       icon = CrewIcon.fromCode(json['icon']),
       isOwner = json['is_owner'] as bool,
       sizeLimit = json['size_limit'] as int? ?? 30,
+      expanded = json['expanded'] as bool? ?? false,
       members = List.unmodifiable([
         for (final row in json['members'] as List? ?? const [])
           CrewMember.fromJson(Map<String, dynamic>.from(row as Map)),
@@ -53,6 +54,9 @@ class Crew {
   /// 내가 이 크루를 만든 크루장인지 여부입니다. 크루장만 초대할 수 있습니다.
   final bool isOwner;
   final int sizeLimit;
+
+  /// 크루 정원 확장권을 쓴 크루인지 여부입니다.
+  final bool expanded;
   final List<CrewMember> members;
 
   /// 크루장이 보낸, 아직 응답하지 않은 초대의 사용자 ID입니다.

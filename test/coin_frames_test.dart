@@ -119,8 +119,20 @@ void main() {
 
     await tester.tap(find.text('상점 보기'));
     await tester.pumpAndSettle();
-    expect(find.text('300코인'), findsOneWidget);
-    expect(find.text('1,400코인'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('shop-basic')),
+        matching: find.text('300코인'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('shop-aura')),
+        matching: find.text('1,400코인'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('shop-basic')),

@@ -1,4 +1,5 @@
 import 'package:runquest/features/monetization/coin_frames.dart';
+import 'package:runquest/features/monetization/cosmetics.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 서버 규칙(가격·잔액·소유 확인)을 흉내 내는 지갑입니다.
@@ -24,7 +25,62 @@ class FakeWalletService implements WalletService {
     'color': color,
     'crew_tickets': crewTickets,
     'in_crew': inCrew,
+    'cosmetics': {
+      'owned': [for (final item in cosmetics) item.code],
+      'equipped': {
+        for (final entry in equippedCosmetics.entries)
+          entry.key.code: entry.value.code,
+      },
+    },
   });
+
+  final cosmetics = <CosmeticItem>{};
+  final equippedCosmetics = <CosmeticSlot, CosmeticItem>{};
+  final expandedCrews = <String>{};
+
+  @override
+  Future<Wallet> buyCosmetic(CosmeticItem item) async {
+    calls.add('buy:${item.code}');
+    if (!cosmetics.contains(item)) {
+      if (coins < item.defaultPrice) {
+        throw const PostgrestException(message: '코인이 부족합니다.', code: 'P0001');
+      }
+      coins -= item.defaultPrice;
+      cosmetics.add(item);
+    }
+    return _wallet;
+  }
+
+  @override
+  Future<Wallet> equipCosmetic(CosmeticSlot slot, CosmeticItem? item) async {
+    calls.add('equip:${slot.code}:${item?.code}');
+    if (item == null) {
+      equippedCosmetics.remove(slot);
+    } else {
+      if (!cosmetics.contains(item)) {
+        throw const PostgrestException(
+          message: '가진 아이템만 착용할 수 있습니다.',
+          code: 'P0001',
+        );
+      }
+      equippedCosmetics[slot] = item;
+    }
+    return _wallet;
+  }
+
+  @override
+  Future<Wallet> expandCrew(String crewId) async {
+    calls.add('expand:$crewId');
+    if (expandedCrews.contains(crewId)) {
+      throw const PostgrestException(message: '이미 정원을 늘린 크루예요.', code: 'P0001');
+    }
+    if (coins < 1000) {
+      throw const PostgrestException(message: '코인이 부족합니다.', code: 'P0001');
+    }
+    coins -= 1000;
+    expandedCrews.add(crewId);
+    return _wallet;
+  }
 
   @override
   bool get isCurrentOwner => true;

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/errors/server_error.dart';
 import '../../shared/theme/app_colors.dart';
+import 'cosmetics.dart';
 
 /// 코인으로 사는 테두리입니다. 가격은 서버가 정하며 여기 값은 서버 응답이 없을 때만 씁니다.
 enum FrameKind {
@@ -96,7 +97,22 @@ class Wallet {
           (json['prices'] as Map?)?['crew_ticket'] as int? ??
           crewTicketDefaultPrice,
       crewTickets = json['crew_tickets'] as int? ?? 0,
-      inCrew = json['in_crew'] as bool? ?? false;
+      inCrew = json['in_crew'] as bool? ?? false,
+      crewExpansionPrice =
+          (json['prices'] as Map?)?['crew_expansion'] as int? ?? 1000,
+      cosmetics = {
+        for (final code
+            in (json['cosmetics'] as Map?)?['owned'] as List? ?? const [])
+          ?CosmeticItem.fromCode(code),
+      },
+      equippedCosmetics = {
+        for (final entry
+            in ((json['cosmetics'] as Map?)?['equipped'] as Map? ?? const {})
+                .entries)
+          ?CosmeticSlot.fromCode(entry.key): ?CosmeticItem.fromCode(
+            entry.value,
+          ),
+      };
 
   /// 크루 생성권 가격입니다. 1,100원 = 100코인 기준으로 약 7,040원입니다.
   static const crewTicketDefaultPrice = 640;
@@ -117,6 +133,13 @@ class Wallet {
 
   /// 크루에 하나 이상 속해 있는지 여부입니다.
   final bool inCrew;
+
+  /// 크루 정원 확장권 가격입니다(30명 → 50명).
+  final int crewExpansionPrice;
+
+  /// 가진 꾸미기 아이템과 칸마다 착용한 아이템입니다.
+  final Set<CosmeticItem> cosmetics;
+  final Map<CosmeticSlot, CosmeticItem> equippedCosmetics;
 }
 
 abstract interface class WalletService {
@@ -127,6 +150,14 @@ abstract interface class WalletService {
 
   /// [kind]가 null이면 테두리를 해제합니다. 색은 그대로 저장합니다.
   Future<Wallet> setFrame(FrameKind? kind, String color);
+
+  Future<Wallet> buyCosmetic(CosmeticItem item);
+
+  /// [item]이 null이면 그 칸을 비웁니다.
+  Future<Wallet> equipCosmetic(CosmeticSlot slot, CosmeticItem? item);
+
+  /// 크루장이 자기 크루 정원을 30명에서 50명으로 늘립니다.
+  Future<Wallet> expandCrew(String crewId);
 }
 
 class SupabaseWalletService implements WalletService {
@@ -163,6 +194,20 @@ class SupabaseWalletService implements WalletService {
     'requested_frame': kind?.code,
     'requested_color': color,
   });
+
+  @override
+  Future<Wallet> buyCosmetic(CosmeticItem item) =>
+      _rpc('buy_cosmetic', {'requested_item': item.code});
+
+  @override
+  Future<Wallet> equipCosmetic(CosmeticSlot slot, CosmeticItem? item) => _rpc(
+    'equip_cosmetic',
+    {'requested_slot': slot.code, 'requested_item': item?.code},
+  );
+
+  @override
+  Future<Wallet> expandCrew(String crewId) =>
+      _rpc('expand_crew', {'requested_crew': crewId});
 }
 
 /// 코인 잔액과 테두리 구매·착용을 관리합니다. 모든 결과는 서버가 돌려준 지갑으로 바꿉니다.
@@ -248,6 +293,19 @@ class WalletController extends ChangeNotifier {
     () => service.setFrame(wallet?.equipped, colorHex(color)),
     '테두리 색을 바꾸지 못했습니다.',
   );
+
+  Future<String?> buyCosmetic(CosmeticItem item) =>
+      _change(() => service.buyCosmetic(item), '아이템을 사지 못했습니다.');
+
+  Future<String?> equipCosmetic(CosmeticSlot slot, CosmeticItem? item) =>
+      _change(() => service.equipCosmetic(slot, item), '아이템을 바꾸지 못했습니다.');
+
+  Future<String?> expandCrew(String crewId) =>
+      _change(() => service.expandCrew(crewId), '크루 정원을 늘리지 못했습니다.');
+
+  /// [slot]에 착용한 꾸미기 아이템입니다.
+  CosmeticItem? equippedIn(CosmeticSlot slot) =>
+      wallet?.equippedCosmetics[slot];
 
   /// 결제 후 서버가 웹훅으로 코인을 기록할 때까지 잠시 다시 확인합니다.
   Future<bool> waitForCoins(int before, {int attempts = 5}) async {

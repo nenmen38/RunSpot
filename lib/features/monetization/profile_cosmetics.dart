@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'item_inventory.dart';
 import '../crew/crew_controller.dart';
 import '../crew/widgets/crew_widgets.dart';
+import 'cosmetic_shop.dart';
 import 'coin_frames.dart';
 import 'store_catalog.dart';
 
@@ -277,10 +278,27 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         switch (widget.wallet) {
-          final wallet? => FrameShop(
-            controller: wallet,
-            onCharge: _openCoins,
-            onMessage: _showMessage,
+          final wallet? => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FrameShop(
+                controller: wallet,
+                onCharge: _openCoins,
+                onMessage: _showMessage,
+              ),
+              CosmeticShop(
+                controller: wallet,
+                onCharge: _openCoins,
+                onMessage: _showMessage,
+              ),
+              if (widget.crew case final crew?)
+                CrewExpansionShop(
+                  controller: wallet,
+                  crew: crew,
+                  onCharge: _openCoins,
+                  onMessage: _showMessage,
+                ),
+            ],
           ),
           null => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
@@ -299,11 +317,17 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       busy: _busy,
       message: _message,
       header: switch (widget.wallet) {
-        final wallet? => FrameInventory(
-          controller: wallet,
-          onShop: () => setState(() => _section = 1),
-          onMessage: _showMessage,
-          onUseCrewTicket: widget.crew == null ? null : _useCrewTicket,
+        final wallet? => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FrameInventory(
+              controller: wallet,
+              onShop: () => setState(() => _section = 1),
+              onMessage: _showMessage,
+              onUseCrewTicket: widget.crew == null ? null : _useCrewTicket,
+            ),
+            CosmeticInventory(controller: wallet, onMessage: _showMessage),
+          ],
         ),
         null => null,
       },
