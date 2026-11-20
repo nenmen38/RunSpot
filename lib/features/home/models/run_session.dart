@@ -33,7 +33,7 @@ class RunSummary {
 
   bool get canSaveRecord =>
       distanceMeters.isFinite &&
-      distanceMeters >= 0 &&
+      distanceMeters >= minimumRecordDistanceMeters &&
       endedAt.isAfter(startedAt);
 
   final String clientRunId;

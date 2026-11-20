@@ -79,13 +79,14 @@ void main() {
   }
 
   for (final distance in [0.0, 100.0, 299.49, 299.99, 300.0, 300.01]) {
-    test('$distance미터 종료 시 개인 기록을 저장합니다', () async {
+    test('$distance미터 종료 시 최소 거리 기준을 적용합니다', () async {
       restoreDistance(distance);
       final summary = await controller.finishRun();
-      expect(summary!.canSaveRecord, true);
-      expect(historyService.attempts.length, 1);
+      final recordable = distance >= 300;
+      expect(summary!.canSaveRecord, recordable);
+      expect(historyService.attempts.length, recordable ? 1 : 0);
       expect(outbox.rows, isEmpty);
-      expect(history.visibleRecords.length, 1);
+      expect(history.visibleRecords.length, recordable ? 1 : 0);
       expect(controller.runSession, isNull);
       await controller.startRun();
       expect(controller.runSession!.isRunning, isTrue);
@@ -280,7 +281,7 @@ void main() {
     expect(controller.sharing, isFalse);
     expect(controller.runSession, isNull);
     expect(service.actions, ['publish', 'stop']);
-    expect(historyService.records, hasLength(1));
+    expect(historyService.records, isEmpty);
   });
 
   test('종료 복구본 저장이 지연돼도 위치 공유와 백그라운드 측정은 먼저 중단합니다', () async {

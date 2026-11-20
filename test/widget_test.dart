@@ -518,27 +518,48 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('300m 미만 종료에서 버리기를 선택하면 기록을 만들지 않습니다', (tester) async {
-    final controller = await showApp(tester, const Size(390, 844));
-    await tester.tap(find.text('러닝 시작'));
-    await tester.pump();
-    await tester.tap(find.text('러닝 종료'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('버리고 종료'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('러닝 완료'), findsNothing);
-    expect(find.text('기기에 저장됨'), findsNothing);
-    expect(controller.runSession, isNull);
-    expect(controller.runHistory.visibleRecords, isEmpty);
-    expect((controller.runHistory.outbox as FakeRunOutbox).rows, isEmpty);
-    expect(
-      (controller.runHistory.service as FakeRunRecordService).attempts,
-      isEmpty,
-    );
-    await tester.pumpWidget(const SizedBox());
-  });
+  for (final (size, scale) in [
+    (const Size(320, 568), 1.0),
+    (const Size(393, 852), 1.0),
+    (const Size(430, 932), 1.0),
+    (const Size(320, 568), 2.0),
+  ]) {
+    testWidgets('종료 창은 ${size.width} 너비와 ${scale}배 글자에서 동작합니다', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final controller = await showApp(tester, size);
+      await tester.ensureVisible(find.text('러닝 시작'));
+      await tester.tap(find.text('러닝 시작'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('러닝 종료'));
+      await tester.tap(find.text('러닝 종료'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('300m 미만 러닝은 저장되지 않습니다.'), findsOneWidget);
+      expect(find.text('저장하고 종료'), findsNothing);
+      final cancel = find.widgetWithText(TextButton, '취소');
+      final finish = find.widgetWithText(FilledButton, '종료');
+      expect(cancel.hitTestable(), findsOneWidget);
+      expect(finish.hitTestable(), findsOneWidget);
+      if (scale == 1.0) {
+        expect(tester.getCenter(cancel).dy, tester.getCenter(finish).dy);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.tap(finish);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('러닝 완료'), findsNothing);
+      expect(find.text('기기에 저장됨'), findsNothing);
+      expect(controller.runSession, isNull);
+      expect(controller.runHistory.visibleRecords, isEmpty);
+      expect((controller.runHistory.outbox as FakeRunOutbox).rows, isEmpty);
+      expect(
+        (controller.runHistory.service as FakeRunRecordService).attempts,
+        isEmpty,
+      );
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   testWidgets('오프라인으로 종료해도 기기 저장 결과를 표시하고 다시 시작합니다', (tester) async {
     final controller = await showApp(tester, const Size(320, 568));

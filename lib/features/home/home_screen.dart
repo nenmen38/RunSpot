@@ -271,42 +271,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final shortRun =
           (widget.controller.runSession?.distanceMeters ?? 0) <
           RunSummary.minimumRecordDistanceMeters;
-      final decision = widget.controller.runSession?.isFinished == true
-          ? 'save'
-          : await showDialog<String>(
+      final confirmed = widget.controller.runSession?.isFinished == true
+          ? true
+          : await showDialog<bool>(
               context: context,
               builder: (dialogContext) => AlertDialog(
+                scrollable: true,
+                actionsOverflowAlignment: OverflowBarAlignment.end,
+                actionsOverflowButtonSpacing: 8,
                 title: const Text('러닝을 종료할까요?'),
-                content: shortRun
-                    ? const Text(
-                        '300m 미만 기록도 개인 기록으로 저장할 수 있습니다. 경험치와 랭킹에는 반영되지 않습니다.',
-                      )
-                    : null,
+                content: shortRun ? const Text('300m 미만 러닝은 저장되지 않습니다.') : null,
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(dialogContext),
                     child: const Text('취소'),
                   ),
-                  if (shortRun)
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, 'discard'),
-                      child: const Text('버리고 종료'),
-                    ),
                   FilledButton(
-                    onPressed: () => Navigator.pop(dialogContext, 'save'),
-                    child: Text(shortRun ? '저장하고 종료' : '종료'),
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('종료'),
                   ),
                 ],
               ),
             );
-      if (decision == null || !mounted) return;
+      if (confirmed != true || !mounted) return;
       final summary = await widget.controller.finishRun(
-        discard: decision == 'discard',
         temperatureAtEnd: (endedAt) => widget.conditionsController
             ?.temperatureAt(widget.controller.position, endedAt),
       );
       if (!mounted || summary == null) return;
-      if (decision == 'discard' || !summary.canSaveRecord) return;
+      if (!summary.canSaveRecord) return;
       final history = widget.controller.runHistory;
       RunRecord currentRecord() =>
           history.visibleRecords
@@ -540,7 +533,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const <List<LatLng>>[],
       widget.wallet?.equippedIn(CosmeticSlot.route),
     );
-    return Listener(
+    Widget buildBody(double height) => Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
         _touchPointers.add(event.pointer);
@@ -815,82 +808,101 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
           // 넓은 화면에서는 지도는 끝까지 보여주고 아래 정보와 버튼만 읽기 좋은 폭으로 둡니다.
-          if (widget.conditionsController != null)
-            ColoredBox(
-              color: AppColors.surface,
-              child: ReadableWidth(
-                child: ConditionsPanel(
-                  controller: widget.conditionsController!,
-                ),
-              ),
-            ),
-          Material(
-            color: AppColors.surface,
-            child: ReadableWidth(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '주변 러너',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Text(
-                                '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
-                              ),
-                            ],
-                          ),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: height * 0.8),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.conditionsController != null)
+                    ColoredBox(
+                      color: AppColors.surface,
+                      child: ReadableWidth(
+                        child: ConditionsPanel(
+                          controller: widget.conditionsController!,
                         ),
-                        if (state.changingSharing)
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                      ],
+                      ),
                     ),
-                    if (state.canViewNearby && !state.connected)
-                      const Text('실시간 연결 중'),
-                    if (state.nearbyError != null)
-                      Text(
-                        state.nearbyError!,
-                        style: const TextStyle(color: Colors.red),
+                  Material(
+                    color: AppColors.surface,
+                    child: ReadableWidth(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        '주변 러너',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      Text(
+                                        '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (state.changingSharing)
+                                  const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (state.canViewNearby && !state.connected)
+                              const Text('실시간 연결 중'),
+                            if (state.nearbyError != null)
+                              Text(
+                                state.nearbyError!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            if (state.sharingError != null)
+                              Text(
+                                state.sharingError!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            if (groups?.error case final error?)
+                              Text(
+                                error,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            if (state.recoveredRun)
+                              Text(
+                                state.runSession?.isFinished == true
+                                    ? '종료한 러닝을 복구했습니다. 저장을 다시 시도해 주세요.'
+                                    : '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
+                              ),
+                            RunControls(
+                              controller: state,
+                              busy: _endingRun,
+                              onFinish: _finishRun,
+                            ),
+                          ],
+                        ),
                       ),
-                    if (state.sharingError != null)
-                      Text(
-                        state.sharingError!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    if (groups?.error case final error?)
-                      Text(error, style: const TextStyle(color: Colors.red)),
-                    if (state.recoveredRun)
-                      Text(
-                        state.runSession?.isFinished == true
-                            ? '종료한 러닝을 복구했습니다. 저장을 다시 시도해 주세요.'
-                            : '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
-                      ),
-                    RunControls(
-                      controller: state,
-                      busy: _endingRun,
-                      onFinish: _finishRun,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => buildBody(constraints.maxHeight),
     );
   }
 

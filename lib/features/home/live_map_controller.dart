@@ -622,7 +622,6 @@ class LiveMapController extends ChangeNotifier {
   }
 
   Future<RunSummary?> finishRun({
-    bool discard = false,
     RunTemperature? Function(DateTime)? temperatureAtEnd,
   }) async {
     final session = runSession;
@@ -645,9 +644,11 @@ class LiveMapController extends ChangeNotifier {
       }
       _notify();
       if (!identical(_persistedFinish, summary)) {
-        await _saveCheckpoint(finishing: true, discarded: discard);
-        // 짧은 기록도 개인 기록으로 보관하며 보상·랭킹 조건은 서버가 따로 검사합니다.
-        if (!discard && summary.canSaveRecord) await runHistory.save(summary);
+        await _saveCheckpoint(
+          finishing: true,
+          discarded: !summary.canSaveRecord,
+        );
+        if (summary.canSaveRecord) await runHistory.save(summary);
         _persistedFinish = summary;
       }
       if (checkpointStore != null) {
