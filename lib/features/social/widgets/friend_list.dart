@@ -280,15 +280,20 @@ class FriendRow extends StatelessWidget {
                       child: Icon(Icons.person_outline, size: 20),
                     ),
                     const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        entry.nickname,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              entry.nickname,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          UserTitle(userId: entry.userId),
+                        ],
                       ),
                     ),
-                    UserTitle(userId: entry.userId),
-                    const Spacer(),
                     if (onProfileTap != null)
                       const Icon(Icons.chevron_right, size: 20),
                   ],
@@ -297,7 +302,7 @@ class FriendRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          if (busy)
+          if (busy && entry.relation != FriendRelation.friend)
             const SizedBox(
               width: 24,
               height: 24,
@@ -342,6 +347,13 @@ class FriendRow extends StatelessWidget {
             },
           if (entry.relation == FriendRelation.friend || blockService != null)
             PopupMenuButton<String>(
+              icon: busy && entry.relation == FriendRelation.friend
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
               tooltip: entry.relation == FriendRelation.friend
                   ? '친구 관리'
                   : '사용자 메뉴',
