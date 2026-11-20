@@ -5,8 +5,15 @@ import 'data/email_verification_service.dart';
 import 'email_verification.dart';
 
 class KakaoEmailGate extends StatefulWidget {
-  const KakaoEmailGate({required this.child, super.key});
+  const KakaoEmailGate({
+    required this.child,
+    this.initialLoading,
+    this.onInitialFormShown,
+    super.key,
+  });
   final Widget child;
+  final Widget? initialLoading;
+  final Future<void> Function()? onInitialFormShown;
 
   @override
   State<KakaoEmailGate> createState() => _KakaoEmailGateState();
@@ -38,6 +45,8 @@ class _KakaoEmailGateState extends State<KakaoEmailGate> {
         Expanded(
           child: EmailVerificationScreen(
             service: SupabaseEmailVerification(client),
+            initialLoading: widget.initialLoading,
+            onInitialFormShown: widget.onInitialFormShown,
             onSignOut: _signOut,
             onVerified: () async {
               if (mounted) setState(() => _verified = true);

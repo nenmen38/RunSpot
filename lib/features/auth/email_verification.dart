@@ -11,10 +11,14 @@ class EmailVerificationScreen extends StatefulWidget {
     required this.onVerified,
     this.now = DateTime.now,
     this.onSignOut,
+    this.initialLoading,
+    this.onInitialFormShown,
     super.key,
   });
 
   final EmailVerificationService service;
+  final Widget? initialLoading;
+  final Future<void> Function()? onInitialFormShown;
   final Future<void> Function() onVerified;
   final DateTime Function() now;
   final Future<void> Function()? onSignOut;
@@ -30,6 +34,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
   EmailVerificationState? _state;
   bool _busy = false;
   bool _completed = false;
+  bool _initialCheck = true;
   String? _message;
   DateTime? _nextSend;
   Timer? _timer;
@@ -86,7 +91,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
     } catch (_) {
       if (mounted) setState(() => _message = '이메일 인증 상태를 확인하지 못했습니다.');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && _initialCheck && !_completed) {
+        await widget.onInitialFormShown?.call();
+      }
+      if (mounted)
+        setState(() {
+          _initialCheck = false;
+          _busy = false;
+        });
     }
   }
 
@@ -135,63 +147,68 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('이메일 인증'),
-      actions: [
-        if (widget.onSignOut != null)
-          TextButton(
-            onPressed: _busy ? null : widget.onSignOut,
-            child: const Text('로그아웃'),
-          ),
-      ],
-    ),
-    body: SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_busy) const LinearProgressIndicator(),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _email,
-              enabled: !_busy && _state != null && !_completed,
-              readOnly: _state?.confirmationEmail != null,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(
-                labelText: '이메일',
-                prefixIcon: Icon(Icons.mail_outline),
-                border: OutlineInputBorder(),
-              ),
+  Widget build(BuildContext context) {
+    if (_initialCheck && widget.initialLoading != null)
+      return widget.initialLoading!;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('이메일 인증'),
+        actions: [
+          if (widget.onSignOut != null)
+            TextButton(
+              onPressed: _busy ? null : widget.onSignOut,
+              child: const Text('로그아웃'),
             ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: _busy || _remaining > 0 || _state == null || _completed
-                  ? null
-                  : _send,
-              child: Text(
-                _remaining > 0
-                    ? '재전송 ($_remaining초)'
-                    : _state?.confirmationEmail == null
-                    ? '인증 메일 보내기'
-                    : '인증 메일 재전송',
-              ),
-            ),
-            FilledButton(
-              onPressed: _busy || _completed
-                  ? null
-                  : () => _check(manual: true),
-              child: const Text('인증 상태 확인'),
-            ),
-            if (_message != null) ...[
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_busy) const LinearProgressIndicator(),
               const SizedBox(height: 16),
-              Text(_message!),
+              TextField(
+                controller: _email,
+                enabled: !_busy && _state != null && !_completed,
+                readOnly: _state?.confirmationEmail != null,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                decoration: const InputDecoration(
+                  labelText: '이메일',
+                  prefixIcon: Icon(Icons.mail_outline),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed:
+                    _busy || _remaining > 0 || _state == null || _completed
+                    ? null
+                    : _send,
+                child: Text(
+                  _remaining > 0
+                      ? '재전송 ($_remaining초)'
+                      : _state?.confirmationEmail == null
+                      ? '인증 메일 보내기'
+                      : '인증 메일 재전송',
+                ),
+              ),
+              FilledButton(
+                onPressed: _busy || _completed
+                    ? null
+                    : () => _check(manual: true),
+                child: const Text('인증 상태 확인'),
+              ),
+              if (_message != null) ...[
+                const SizedBox(height: 16),
+                Text(_message!),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

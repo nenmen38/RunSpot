@@ -3,9 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RegistrationGate extends StatefulWidget {
-  const RegistrationGate({required this.child, super.key});
+  const RegistrationGate({
+    required this.child,
+    required this.loading,
+    required this.finishLoading,
+    super.key,
+  });
 
   final Widget child;
+  final Widget loading;
+  final Future<void> Function() finishLoading;
 
   @override
   State<RegistrationGate> createState() => _RegistrationGateState();
@@ -37,6 +44,7 @@ class _RegistrationGateState extends State<RegistrationGate> {
             await Supabase.instance.client.rpc('my_registration_complete') ==
             true;
       }
+      if (mounted && complete) await widget.finishLoading();
       if (mounted) {
         setState(() {
           _complete = complete;
@@ -67,6 +75,9 @@ class _RegistrationGateState extends State<RegistrationGate> {
   @override
   Widget build(BuildContext context) {
     if (_complete == true) return widget.child;
+    if (_busy) {
+      return widget.loading;
+    }
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -78,7 +89,6 @@ class _RegistrationGateState extends State<RegistrationGate> {
               children: [
                 Text('가입 처리 중', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 14),
-                if (_busy) const LinearProgressIndicator(),
                 if (_error != null) ...[
                   Text(
                     _error!,
