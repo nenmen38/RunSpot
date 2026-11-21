@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../run_history/models/run_calories.dart';
 import 'appearance/app_appearance.dart';
 
 /// 칼로리 계산에 쓰는 체중(kg)입니다. 이 폰에만 저장하고 서버로 보내지 않습니다.
@@ -18,9 +17,6 @@ class BodyWeight extends ChangeNotifier {
   /// 사용자가 정한 체중입니다. 정하지 않았으면 null입니다.
   double? kg;
 
-  /// 계산에 쓰는 체중입니다. 정하지 않았으면 기본 65kg입니다.
-  double get effectiveKg => kg ?? defaultBodyWeightKg;
-
   static bool valid(double value) =>
       value.isFinite && value >= minKg && value <= maxKg;
 
@@ -32,7 +28,7 @@ class BodyWeight extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// [value]가 null이면 기본값으로 되돌립니다.
+  /// [value]가 null이면 체중 설정을 지웁니다.
   Future<void> set(double? value) async {
     if (value != null && !valid(value)) return;
     if (kg == value) return;
@@ -74,7 +70,6 @@ Future<bool> showBodyWeightDialog(
               ),
               decoration: InputDecoration(
                 suffixText: 'kg',
-                hintText: '${defaultBodyWeightKg.round()}',
                 errorText: error,
                 border: const OutlineInputBorder(),
               ),
@@ -88,7 +83,7 @@ Future<bool> showBodyWeightDialog(
                 await weight.set(null);
                 if (context.mounted) Navigator.pop(context, true);
               },
-              child: const Text('기본값으로'),
+              child: const Text('설정 지우기'),
             ),
           TextButton(
             onPressed: () => Navigator.pop(context, false),

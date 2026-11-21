@@ -12,11 +12,18 @@ class PaceRoutePiece {
   final Color color;
 }
 
-/// 빠른 구간은 초록, 보통은 노랑, 느린 구간은 빨강입니다.
 const paceFast = Color(0xFF16A34A);
-const paceMiddle = Color(0xFFF59E0B);
 const paceSlow = Color(0xFFDC2626);
 const paceDefault = Color(0xFF16836F);
+
+/// 이번 러닝에서 빠른 구간부터 느린 구간까지의 색입니다.
+const paceBands = [
+  (label: '매우 빠름', color: paceFast),
+  (label: '빠름', color: Color(0xFF84A818)),
+  (label: '보통', color: Color(0xFFF59E0B)),
+  (label: '느림', color: Color(0xFFEA580C)),
+  (label: '매우 느림', color: paceSlow),
+];
 
 /// 1km 구간 기록으로 경로를 구간별 색으로 나눕니다.
 /// 경로를 따라 거리를 재며 몇 번째 km인지 정하고, 그 구간 페이스가 이번 러닝에서
@@ -24,22 +31,22 @@ const paceDefault = Color(0xFF16836F);
 List<PaceRoutePiece> paceColoredRoute(RunRoute route, List<RunSplit>? splits) {
   final paces = [
     for (final split in splits ?? const <RunSplit>[])
-      if (split.pace case final pace?) pace.inMicroseconds.toDouble(),
+      split.pace?.inMicroseconds,
   ];
-  if (paces.length < 2) {
+  final measured = paces.whereType<int>();
+  if (measured.length < 2) {
     return [
       for (final segment in route.segments)
         PaceRoutePiece(segment, paceDefault),
     ];
   }
-  final fastest = paces.reduce((a, b) => a < b ? a : b);
-  final slowest = paces.reduce((a, b) => a > b ? a : b);
+  final fastest = measured.reduce((a, b) => a < b ? a : b);
+  final slowest = measured.reduce((a, b) => a > b ? a : b);
   Color colorOf(int index) {
-    if (slowest - fastest < 1) return paceDefault;
-    final t = (paces[index] - fastest) / (slowest - fastest);
-    return t <= .5
-        ? Color.lerp(paceFast, paceMiddle, t * 2)!
-        : Color.lerp(paceMiddle, paceSlow, (t - .5) * 2)!;
+    final pace = paces[index];
+    if (pace == null || slowest == fastest) return paceDefault;
+    final fraction = (pace - fastest) / (slowest - fastest);
+    return paceBands[(fraction * (paceBands.length - 1)).round()].color;
   }
 
   const distance = Distance();

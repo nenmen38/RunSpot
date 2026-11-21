@@ -18,7 +18,7 @@ String formatRunPace(RunRecord record) {
   final pace = record.paceSeconds;
   return pace == null
       ? '--'
-      : '${pace ~/ 60}:${(pace % 60).toString().padLeft(2, '0')} /km';
+      : '${formatPaceDuration(Duration(seconds: pace))} /km';
 }
 
 class RunRecordDetails extends StatelessWidget {
@@ -87,7 +87,7 @@ class RunRecordDetails extends StatelessWidget {
                   distanceMeters: record.distanceMeters.toDouble(),
                   durationSeconds: record.durationSeconds,
                   splits: record.splits,
-                  weightKg: (weight ?? BodyWeight.instance).effectiveKg,
+                  weightKg: (weight ?? BodyWeight.instance).kg,
                 );
                 return MetricValue(
                   label: '칼로리',
@@ -97,19 +97,6 @@ class RunRecordDetails extends StatelessWidget {
             ),
           ),
         ],
-      ),
-      const SizedBox(height: 6),
-      ListenableBuilder(
-        listenable: weight ?? BodyWeight.instance,
-        builder: (context, _) {
-          final setWeight = (weight ?? BodyWeight.instance).kg;
-          return Text(
-            setWeight == null
-                ? '칼로리는 체중 ${defaultBodyWeightKg.round()}kg 기준 추정값이에요. 설정에서 체중을 바꿀 수 있어요.'
-                : '칼로리는 체중 ${setWeight.toStringAsFixed(setWeight % 1 == 0 ? 0 : 1)}kg과 페이스로 계산한 추정값이에요.',
-            style: TextStyle(color: RunRecordColors.label, fontSize: 12),
-          );
-        },
       ),
       if (record.temperature != null) ...[
         const SizedBox(height: 16),

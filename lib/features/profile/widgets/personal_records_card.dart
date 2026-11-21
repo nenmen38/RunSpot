@@ -92,9 +92,7 @@ class _RecordTile extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            record == null
-                ? '기록 없음'
-                : "${formatPaceDuration(record.pace).replaceFirst(':', "'")}\"/km",
+            record == null ? '기록 없음' : '${formatPaceDuration(record.pace)}/km',
             style: text.bodySmall?.copyWith(color: AppColors.gray),
           ),
           if (record != null && record.isRecent(now)) ...[

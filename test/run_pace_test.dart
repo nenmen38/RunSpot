@@ -21,10 +21,10 @@ void main() {
   });
 
   test('페이스를 분과 초로 표시하고 측정 전에는 대시를 표시합니다', () {
-    expect(formatPaceDuration(const Duration(minutes: 6, seconds: 5)), '6:05');
+    expect(formatPaceDuration(const Duration(minutes: 6, seconds: 5)), '6’05”');
     expect(
       formatPaceDuration(const Duration(minutes: 65, seconds: 1)),
-      '65:01',
+      '65’01”',
     );
     expect(formatPaceDuration(null), '--:--');
     expect(formatPaceDuration(Duration.zero), '--:--');

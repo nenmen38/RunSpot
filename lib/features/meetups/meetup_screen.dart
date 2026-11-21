@@ -1,4 +1,5 @@
 import '../../shared/data/account_rpc.dart';
+import '../../shared/formatters/run_format.dart';
 
 import 'dart:convert';
 
@@ -259,7 +260,9 @@ class _MeetupScreenState extends State<MeetupScreen> {
                         for (final pace in [240, 300, 360, 420, 480, 540])
                           DropdownMenuItem(
                             value: pace,
-                            child: Text('${pace ~/ 60}분/km 전후 30초'),
+                            child: Text(
+                              '${formatPaceDuration(Duration(seconds: pace))}/km 전후 30초',
+                            ),
                           ),
                       ],
                       onChanged: _busy
@@ -315,7 +318,7 @@ class _MeetupScreenState extends State<MeetupScreen> {
                               .substring(0, 16),
                         ),
                         Text(
-                          '${row['distance_km']}km · ${(row['pace_seconds'] as int) ~/ 60}:${((row['pace_seconds'] as int) % 60).toString().padLeft(2, '0')}/km · ${row['member_count']}/${row['capacity']}명',
+                          '${row['distance_km']}km · ${formatPaceDuration(Duration(seconds: row['pace_seconds'] as int))}/km · ${row['member_count']}/${row['capacity']}명',
                         ),
                         Text('주최 ${row['host_name']}'),
                         if (row['is_host'] != true)
@@ -536,7 +539,7 @@ class _CreateMeetupState extends State<_CreateMeetup> {
                 DropdownMenuItem(
                   value: value,
                   child: Text(
-                    '${value ~/ 60}:${(value % 60).toString().padLeft(2, '0')}/km',
+                    '${formatPaceDuration(Duration(seconds: value))}/km',
                   ),
                 ),
             ],

@@ -70,7 +70,7 @@ void main() {
     await tester.tap(find.text('다시 시도'));
     await tester.pumpAndSettle();
     expect(find.text('12.0km'), findsOneWidget);
-    expect(find.text('6:15'), findsOneWidget);
+    expect(find.text('6’15”'), findsOneWidget);
     expect(find.text('23회'), findsOneWidget);
     service.result = RunStatistics.fromJson({
       ...statisticsJson,

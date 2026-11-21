@@ -148,6 +148,7 @@ Deno.test("Gemini 요청은 숫자 요약만 전송하고 도구·자동 재시�
         body.generationConfig.maxOutputTokens === 768 &&
           body.generationConfig.candidateCount === 1 && !body.tools,
       );
+      assert(body.systemInstruction.parts[0].text.includes("4’50”/km"));
       const data = JSON.parse(body.contents[0].parts[0].text);
       assert(!data.email && !data.current.latitude && !data.user_id);
       return Response.json({

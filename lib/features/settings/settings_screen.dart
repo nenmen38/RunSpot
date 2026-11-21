@@ -12,7 +12,6 @@ import '../profile/privacy_controls.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'appearance/app_appearance.dart';
-import '../run_history/models/run_calories.dart';
 import 'body_weight.dart';
 import 'run_voice_settings.dart';
 import 'appearance/appearance_settings_screen.dart';
@@ -129,7 +128,7 @@ class SettingsScreen extends StatelessWidget {
               title: const Text('체중'),
               subtitle: Text(
                 kg == null
-                    ? '칼로리 계산에 기본 ${defaultBodyWeightKg.round()}kg을 써요'
+                    ? '미설정'
                     : '${kg.toStringAsFixed(kg % 1 == 0 ? 0 : 1)}kg · 칼로리 계산에 써요',
               ),
               trailing: const Icon(Icons.chevron_right),

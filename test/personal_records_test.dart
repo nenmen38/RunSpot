@@ -41,7 +41,7 @@ void main() {
     expect(find.text('개인 최고 기록'), findsOneWidget);
     expect(find.text('04:40'), findsOneWidget);
     expect(find.text('25:00'), findsOneWidget);
-    expect(find.text("5'00\"/km"), findsOneWidget);
+    expect(find.text('5’00”/km'), findsOneWidget);
     // 10km는 아직 기록이 없습니다.
     expect(find.text('기록 없음'), findsOneWidget);
     // 최근 7일 안의 1km 기록에만 '신기록'을 붙입니다.

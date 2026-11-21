@@ -20,7 +20,7 @@ RunRecord record(int index, {int distance = 5000, int seconds = 1500}) =>
 void main() {
   test('평균 페이스와 이동하지 않은 기록을 표시합니다', () {
     expect(record(0).paceSeconds, 300);
-    expect(formatRunPace(record(0)), '5:00 /km');
+    expect(formatRunPace(record(0)), '5’00” /km');
     expect(formatRunPace(record(0, distance: 0)), '--');
     expect(formatRunPace(record(0, seconds: 0)), '--');
   });
@@ -81,7 +81,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('5.00 km'), findsOneWidget);
     expect(find.text('25:00'), findsOneWidget);
-    expect(find.text('5:00 /km'), findsOneWidget);
+    expect(find.text('5’00” /km'), findsOneWidget);
     await tester.tap(find.text('5.00 km'));
     await tester.pumpAndSettle();
     expect(find.text('러닝 기록'), findsOneWidget);

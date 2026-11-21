@@ -123,19 +123,16 @@ class RunGuide {
     }
   }
 
-  /// 알림에 보여줄 한 줄입니다. 예: "3.24km · 18:32 · 평균 5'43"/km"
+  /// 알림에 보여줄 한 줄입니다. 예: "3.24km · 18:32 · 평균 5’43”/km"
   static String progressText(RunSession session) {
     final km = (session.distanceMeters / 1000).toStringAsFixed(2);
     final pace = session.averagePace;
     return [
       '${km}km',
       formatRunDuration(session.duration),
-      if (pace != null) '평균 ${_paceMark(pace)}/km',
+      if (pace != null) '평균 ${formatPaceDuration(pace)}/km',
     ].join(' · ');
   }
-
-  static String _paceMark(Duration pace) =>
-      '${pace.inMinutes}\'${pace.inSeconds.remainder(60).toString().padLeft(2, '0')}"';
 
   /// 1km마다 읽어 줄 문장입니다. 예: "3킬로미터. 이번 구간 5분 40초. 총 시간 17분 2초. 평균 페이스 5분 41초."
   static String kilometerAnnouncement({

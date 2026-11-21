@@ -29,8 +29,7 @@ void main() {
     expect(pieces[2].points.first, pieces[1].points.last);
     expect(pieces.last.points.last, points.last);
     // 이 러닝의 가장 빠른·느린 구간 사이 페이스는 중간색 쪽입니다.
-    expect(pieces[2].color, isNot(paceFast));
-    expect(pieces[2].color, isNot(paceSlow));
+    expect(pieces[2].color, paceBands[2].color);
   });
 
   test('구간 기록이 없거나 하나뿐이면 기본색 한 가지로 그립니다', () {

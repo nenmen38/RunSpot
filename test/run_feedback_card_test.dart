@@ -59,7 +59,7 @@ void main() {
         }
         expect(find.text('5.00 km'), findsOneWidget);
         expect(find.text('30:00'), findsOneWidget);
-        expect(find.text('6:00 /km'), findsOneWidget);
+        expect(find.text('6’00” /km'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }

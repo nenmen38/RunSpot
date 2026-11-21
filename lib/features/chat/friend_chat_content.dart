@@ -180,8 +180,7 @@ String _runMetrics(int distance, int seconds) {
   if (distance <= 0 || seconds <= 0) return '$metrics · 평균 페이스 —';
 
   final pace = (seconds * 1000 / distance).round();
-  return '$metrics · '
-      '${pace ~/ 60}:${(pace % 60).toString().padLeft(2, '0')} /km';
+  return '$metrics · ${formatPaceDuration(Duration(seconds: pace))} /km';
 }
 
 class FriendChatRunCard extends StatelessWidget {

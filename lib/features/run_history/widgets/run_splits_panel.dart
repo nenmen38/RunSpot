@@ -73,12 +73,8 @@ class RunSplitsPanel extends StatelessWidget {
     ],
   );
 
-  String _pace(RunSplit split) {
-    final seconds = split.pace?.inSeconds;
-    return seconds == null
-        ? '--'
-        : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-  }
+  String _pace(RunSplit split) =>
+      split.pace == null ? '--' : formatPaceDuration(split.pace);
 }
 
 class _SplitRow extends StatelessWidget {

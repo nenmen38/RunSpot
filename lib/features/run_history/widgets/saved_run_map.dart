@@ -61,7 +61,7 @@ class _SavedRunMapState extends State<SavedRunMap> {
   @override
   Widget build(BuildContext context) {
     final pieces = _pieces;
-    final colored = pieces.map((piece) => piece.color).toSet().length > 1;
+    final colored = pieces.any((piece) => piece.color != paceDefault);
     return Column(
       children: [
         SizedBox(
@@ -103,27 +103,33 @@ class _SavedRunMapState extends State<SavedRunMap> {
               const Icon(Icons.flag, size: 16, color: Color(0xFFC13647)),
               const SizedBox(width: 4),
               const Text('도착'),
-              if (colored) ...[
-                const Spacer(),
-                // 경로 색이 무엇을 뜻하는지 보여줍니다.
-                const Text('빠름', style: TextStyle(fontSize: 12)),
-                const SizedBox(width: 4),
-                Container(
-                  width: 56,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
-                    gradient: const LinearGradient(
-                      colors: [paceFast, paceMiddle, paceSlow],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Text('느림', style: TextStyle(fontSize: 12)),
-              ],
             ],
           ),
         ),
+        if (colored)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                const Text('이번 러닝 기준', style: TextStyle(fontSize: 12)),
+                for (final band in paceBands)
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '● ',
+                          style: TextStyle(color: band.color),
+                        ),
+                        TextSpan(text: band.label),
+                      ],
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
       ],
     );
   }

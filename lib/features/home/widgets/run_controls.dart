@@ -6,8 +6,9 @@ import 'package:flutter/services.dart';
 import '../../../shared/formatters/run_format.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../live_map_controller.dart';
+import '../models/run_session.dart';
 
-class RunControls extends StatelessWidget {
+class RunControls extends StatefulWidget {
   const RunControls({
     required this.controller,
     required this.onFinish,
@@ -22,25 +23,35 @@ class RunControls extends StatelessWidget {
   /// 새 러닝을 시작하기 전 3·2·1을 세는 초입니다. 0이면 바로 시작합니다.
   static int countdownSeconds = 3;
 
+  @override
+  State<RunControls> createState() => _RunControlsState();
+}
+
+class _RunControlsState extends State<RunControls> {
+  RunSession? _lockedSession;
+
   Future<void> _start(BuildContext context) async {
-    if (countdownSeconds > 0) {
+    if (RunControls.countdownSeconds > 0) {
       final go = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => RunStartCountdown(seconds: countdownSeconds),
+        builder: (_) =>
+            RunStartCountdown(seconds: RunControls.countdownSeconds),
       );
       if (go != true || !context.mounted) return;
     }
     unawaited(HapticFeedback.heavyImpact());
-    await controller.startRun();
+    await widget.controller.startRun();
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     final session = controller.runSession;
     final running = session?.isRunning == true;
+    final locked = running && identical(session, _lockedSession);
     final waiting =
-        busy ||
+        widget.busy ||
         controller.startingRun ||
         controller.savingRun ||
         controller.groupPreparing ||
@@ -61,19 +72,37 @@ class RunControls extends StatelessWidget {
           ),
         if (session != null) ...[
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              finished
-                  ? '저장 대기'
-                  : running
-                  ? '러닝 중'
-                  : '일시 정지',
-              style: TextStyle(
-                color: running ? const Color(0xFF16836F) : Colors.grey,
-                fontWeight: FontWeight.w700,
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (running)
+                locked
+                    ? OutlinedButton(
+                        onPressed: null,
+                        onLongPress: () =>
+                            setState(() => _lockedSession = null),
+                        child: const Text('길게 눌러 조작 잠금 해제'),
+                      )
+                    : TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _lockedSession = session),
+                        icon: const Icon(Icons.lock_outline),
+                        label: const Text('조작 잠금'),
+                      ),
+              if (running) const SizedBox(width: 8),
+              Text(
+                finished
+                    ? '저장 대기'
+                    : running
+                    ? '러닝 중'
+                    : '일시 정지',
+                style: TextStyle(
+                  color: running ? const Color(0xFF16836F) : Colors.grey,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 4),
           Row(
@@ -128,17 +157,19 @@ class RunControls extends StatelessWidget {
                   minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                onPressed: waiting || controller.locating || finished
+                onPressed: locked || waiting || controller.locating || finished
                     ? null
                     : () {
                         if (running) {
                           unawaited(HapticFeedback.mediumImpact());
+                          _lockedSession = null;
                           controller.pauseRun();
                         } else if (session == null) {
                           unawaited(_start(context));
                         } else {
                           // 일시 정지 뒤 다시 달릴 때는 세지 않고 바로 이어갑니다.
                           unawaited(HapticFeedback.heavyImpact());
+                          _lockedSession = null;
                           controller.startRun();
                         }
                       },
@@ -165,11 +196,11 @@ class RunControls extends StatelessWidget {
                   minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                onPressed: session == null || waiting
+                onPressed: locked || session == null || waiting
                     ? null
                     : () {
                         unawaited(HapticFeedback.mediumImpact());
-                        onFinish();
+                        widget.onFinish();
                       },
                 icon: const Icon(Icons.stop),
                 label: Text(finished ? '저장 재시도' : '러닝 종료'),

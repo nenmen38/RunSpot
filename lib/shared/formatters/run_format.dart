@@ -8,5 +8,5 @@ String formatRunDuration(Duration duration) {
 String formatPaceDuration(Duration? pace) {
   if (pace == null || pace.inSeconds <= 0) return '--:--';
   final seconds = pace.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '${pace.inMinutes}:$seconds';
+  return '${pace.inMinutes}’$seconds”';
 }

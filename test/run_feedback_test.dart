@@ -250,12 +250,12 @@ void main() {
     await show(tester, service);
     service.state = RunFeedbackState(
       status: FeedbackStatus.ready,
-      message: '저장된 피드백',
+      message: '평균 페이스는 4분 50초/km였다.',
       createdAt: DateTime.utc(2026),
     );
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
-    expect(find.text('저장된 피드백'), findsOneWidget);
+    expect(find.text('평균 페이스는 4’50”/km였다.'), findsOneWidget);
     expect(service.generations, 0);
     await tester.pumpWidget(const SizedBox());
   });

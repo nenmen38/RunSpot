@@ -142,7 +142,7 @@ void main() {
     await tester.pump();
     expect(find.text('달리기 기록'), findsOneWidget);
     expect(find.textContaining('5.00 km'), findsOneWidget);
-    expect(find.textContaining('5:00 /km'), findsOneWidget);
+    expect(find.textContaining('5’00” /km'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

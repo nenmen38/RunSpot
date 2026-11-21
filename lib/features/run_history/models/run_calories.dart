@@ -1,8 +1,5 @@
 import 'run_split.dart';
 
-/// 체중을 정하지 않았을 때 계산에 쓰는 기본 체중(kg)입니다.
-const defaultBodyWeightKg = 65.0;
-
 /// 페이스(속도)로 소모 칼로리(kcal)를 추정합니다.
 ///
 /// 미국스포츠의학회(ACSM)의 산소 소비량 식을 씁니다.
@@ -11,16 +8,17 @@ const defaultBodyWeightKg = 65.0;
 /// - 산소 1L ≈ 5kcal
 ///
 /// 1km 구간 기록이 있으면 구간마다 따로 계산해 더하므로 중간에 페이스가 달라져도 반영됩니다.
-/// 일시 정지한 시간은 빼고 계산합니다. 거리나 시간이 없으면 null입니다.
+/// 일시 정지한 시간은 빼고 계산합니다. 거리, 시간, 체중 중 하나라도 없으면 null입니다.
 int? estimateRunCalories({
   required double distanceMeters,
   required int durationSeconds,
   List<RunSplit>? splits,
-  double weightKg = defaultBodyWeightKg,
+  required double? weightKg,
 }) {
   if (!distanceMeters.isFinite ||
       distanceMeters <= 0 ||
       durationSeconds <= 0 ||
+      weightKg == null ||
       !weightKg.isFinite ||
       weightKg <= 0) {
     return null;
