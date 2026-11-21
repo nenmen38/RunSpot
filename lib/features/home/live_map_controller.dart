@@ -481,10 +481,14 @@ class LiveMapController extends ChangeNotifier {
     runSession?.accept(fix);
     // 화면이 꺼져 있어도 위치가 들어올 때마다 알림과 음성 안내를 갱신합니다.
     if (runSession case final session?) runGuide?.update(session);
-    if ((sharing || runSession?.isRunning == true) && !fix.isUsable) {
-      unawaited(
-        _locationLost(const LocationFailure(LocationProblem.unavailable)),
-      );
+    if (!fix.isUsable) {
+      // 부정확한 위치는 제외하되 측정 스트림은 유지합니다.
+      position = null;
+      if (sharing || changingSharing) unawaited(setSharing(false));
+      if (_active) {
+        unawaited(_syncNearby());
+        _notify();
+      }
       return;
     }
     position = fix;
@@ -499,6 +503,11 @@ class LiveMapController extends ChangeNotifier {
 
   Future<void> _tick() async {
     if (_disposed || !_active || locating) return;
+    if (_tracker.isRecording) {
+      // 측정 중에는 별도의 현재 위치 요청 실패가 정상 스트림을 중단하지 않게 합니다.
+      await refresh();
+      return;
+    }
     final generation = _activityGeneration;
     try {
       final fix = await locationService.current();

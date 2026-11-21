@@ -414,6 +414,10 @@ void main() {
     await controller.setActive(false);
     expect(controller.sharing, isFalse);
     expect(location.activeWatches, 1);
+    location.updates.add(testFix(accuracy: 500));
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.runSession!.isRunning, isTrue);
+    expect(location.activeWatches, 1);
     location.updates.add(testFix(latitude: 37.568));
     await Future<void>.delayed(Duration.zero);
     expect(controller.runSession!.distanceMeters, greaterThan(100));
@@ -638,6 +642,7 @@ void main() {
     expect(controller.sharing, isFalse);
     expect(service.actions.last, 'stop');
     expect(controller.position, isNull);
+    expect(controller.runSession!.isRunning, isTrue);
   });
 
   test('실시간 변경 신호로 갱신하고 연결 중단 시 이전 위치를 숨깁니다', () async {
