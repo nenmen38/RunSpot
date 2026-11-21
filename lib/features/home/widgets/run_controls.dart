@@ -72,37 +72,19 @@ class _RunControlsState extends State<RunControls> {
           ),
         if (session != null) ...[
           const SizedBox(height: 8),
-          Wrap(
-            alignment: WrapAlignment.end,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (running)
-                locked
-                    ? OutlinedButton(
-                        onPressed: null,
-                        onLongPress: () =>
-                            setState(() => _lockedSession = null),
-                        child: const Text('길게 눌러 조작 잠금 해제'),
-                      )
-                    : TextButton.icon(
-                        onPressed: () =>
-                            setState(() => _lockedSession = session),
-                        icon: const Icon(Icons.lock_outline),
-                        label: const Text('조작 잠금'),
-                      ),
-              if (running) const SizedBox(width: 8),
-              Text(
-                finished
-                    ? '저장 대기'
-                    : running
-                    ? '러닝 중'
-                    : '일시 정지',
-                style: TextStyle(
-                  color: running ? const Color(0xFF16836F) : Colors.grey,
-                  fontWeight: FontWeight.w700,
-                ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              finished
+                  ? '저장 대기'
+                  : running
+                  ? '러닝 중'
+                  : '일시 정지',
+              style: TextStyle(
+                color: running ? const Color(0xFF16836F) : AppColors.gray,
+                fontWeight: FontWeight.w700,
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 4),
           Row(
@@ -149,65 +131,97 @@ class _RunControlsState extends State<RunControls> {
           Text(controller.runError!, style: const TextStyle(color: Colors.red)),
         ],
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+        if (locked)
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+            onPressed: null,
+            onLongPress: () {
+              unawaited(HapticFeedback.selectionClick());
+              setState(() => _lockedSession = null);
+            },
+            icon: const Icon(Icons.lock),
+            label: const Text('길게 눌러 조작 잠금 해제'),
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: waiting || controller.locating || finished
+                      ? null
+                      : () {
+                          if (running) {
+                            unawaited(HapticFeedback.mediumImpact());
+                            _lockedSession = null;
+                            controller.pauseRun();
+                          } else if (session == null) {
+                            unawaited(_start(context));
+                          } else {
+                            // 일시 정지 뒤 다시 달릴 때는 세지 않고 바로 이어갑니다.
+                            unawaited(HapticFeedback.heavyImpact());
+                            _lockedSession = null;
+                            controller.startRun();
+                          }
+                        },
+                  icon: waiting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(running ? Icons.pause : Icons.play_arrow),
+                  label: Text(
+                    running
+                        ? '일시 정지'
+                        : session == null
+                        ? '러닝 시작'
+                        : '러닝 계속',
+                  ),
                 ),
-                onPressed: locked || waiting || controller.locating || finished
-                    ? null
-                    : () {
-                        if (running) {
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: session == null || waiting
+                      ? null
+                      : () {
                           unawaited(HapticFeedback.mediumImpact());
-                          _lockedSession = null;
-                          controller.pauseRun();
-                        } else if (session == null) {
-                          unawaited(_start(context));
-                        } else {
-                          // 일시 정지 뒤 다시 달릴 때는 세지 않고 바로 이어갑니다.
-                          unawaited(HapticFeedback.heavyImpact());
-                          _lockedSession = null;
-                          controller.startRun();
-                        }
-                      },
-                icon: waiting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(running ? Icons.pause : Icons.play_arrow),
-                label: Text(
-                  running
-                      ? '일시 정지'
-                      : session == null
-                      ? '러닝 시작'
-                      : '러닝 계속',
+                          widget.onFinish();
+                        },
+                  icon: const Icon(Icons.stop),
+                  label: Text(finished ? '저장 재시도' : '러닝 종료'),
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+              if (running) ...[
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: '조작 잠금',
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      padding: EdgeInsets.zero,
+                      foregroundColor: AppColors.blueText,
+                    ),
+                    onPressed: waiting
+                        ? null
+                        : () {
+                            unawaited(HapticFeedback.selectionClick());
+                            setState(() => _lockedSession = session);
+                          },
+                    child: const Icon(Icons.lock_outline),
+                  ),
                 ),
-                onPressed: locked || session == null || waiting
-                    ? null
-                    : () {
-                        unawaited(HapticFeedback.mediumImpact());
-                        widget.onFinish();
-                      },
-                icon: const Icon(Icons.stop),
-                label: Text(finished ? '저장 재시도' : '러닝 종료'),
-              ),
-            ),
-          ],
-        ),
+              ],
+            ],
+          ),
       ],
     );
   }

@@ -204,15 +204,25 @@ void main() {
     expect(find.text('현재 페이스'), findsOneWidget);
     expect(find.text('평균 페이스'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.ensureVisible(find.text('조작 잠금'));
-    await tester.tap(find.text('조작 잠금'));
-    await tester.pump();
+    final lockButton = find.byTooltip('조작 잠금');
     final pauseButton = find.widgetWithText(FilledButton, '일시 정지');
     final finishButton = find.widgetWithText(OutlinedButton, '러닝 종료');
-    expect(tester.widget<FilledButton>(pauseButton).onPressed, isNull);
-    expect(tester.widget<OutlinedButton>(finishButton).onPressed, isNull);
+    await tester.ensureVisible(lockButton);
+    expect(tester.getCenter(lockButton).dy, tester.getCenter(pauseButton).dy);
+    expect(
+      tester.getCenter(lockButton).dx,
+      greaterThan(tester.getCenter(finishButton).dx),
+    );
+    await tester.tap(lockButton);
+    await tester.pump();
+    expect(pauseButton, findsNothing);
+    expect(finishButton, findsNothing);
     final unlockButton = find.text('길게 눌러 조작 잠금 해제');
     await tester.ensureVisible(unlockButton);
+    await tester.tap(unlockButton);
+    await tester.pump();
+    expect(unlockButton, findsOneWidget);
+    expect(controller.runSession!.isRunning, isTrue);
     await tester.longPress(unlockButton);
     await tester.pump();
     await tester.ensureVisible(pauseButton);
