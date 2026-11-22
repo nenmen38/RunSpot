@@ -206,3 +206,14 @@ test('함께 달리기 덩어리는 신청한 사람의 오라 색 동그라미 
   d.markers=[{...d.markers[0],memberCount:9,nickname:'함께 달리기 9명'}];f.update(d);
   assert.equal(bubble.style.values.width,'78px');
 });
+test('다크 모드는 지도 그림(타일)만 어둡게 뒤집고 경로·표시는 그대로 둡니다',()=>{
+  const html=fs.readFileSync('assets/maps/kakao_map.html','utf8');
+  const css=html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  assert.match(css,/html\.dark #map img:not\(\[src\*="m_bi"\]\) \{ filter: invert\(1\) hue-rotate\(180deg\)/);
+  // 지도 전체를 흐리게 하던 방식은 경로와 내 위치까지 어둡게 만들어 쓰지 않습니다.
+  assert.doesNotMatch(css,/html\.dark #map \{ filter/);
+  const f=documentFixture();f.update({...data(),dark:true});
+  assert.ok(f.root.classes.has('dark'));
+  f.update({...data(),dark:false});
+  assert.ok(!f.root.classes.has('dark'));
+});
