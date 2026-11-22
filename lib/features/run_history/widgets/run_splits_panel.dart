@@ -42,33 +42,47 @@ class RunSplitsPanel extends StatelessWidget {
       if (splits == null || splits!.isEmpty)
         Text('기록 없음', style: TextStyle(color: RunRecordColors.label))
       else ...[
-        const _SplitRow(values: ['km', '시간', '페이스', 'km/h'], heading: true),
-        const SizedBox(height: 8),
-        for (var i = 0; i < splits!.length; i++) ...[
-          _SplitRow(
-            flagged:
-                !reviewResolved &&
-                motionEvidence == null &&
-                RunIntegrity.suspicious(splits![i]),
-            values: [
-              (splits!
-                          .take(i + 1)
-                          .fold<double>(
-                            0,
-                            (sum, split) => sum + split.distanceMeters,
-                          ) /
-                      1000)
-                  .toStringAsFixed(2),
-              formatRunDuration(splits![i].duration),
-              _pace(splits![i]),
-              splits![i].pace == null
-                  ? '--'
-                  : splits![i].speedKmh.toStringAsFixed(1),
-            ],
-          ),
-          if (i < splits!.length - 1)
-            Divider(height: 16, color: AppColors.line),
-        ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact =
+                MediaQuery.textScalerOf(context).scale(14) * 20 >
+                constraints.maxWidth;
+            return Column(
+              children: [
+                if (!compact) ...[
+                  const _SplitRow(values: _SplitRow.labels, heading: true),
+                  const SizedBox(height: 8),
+                ],
+                for (var i = 0; i < splits!.length; i++) ...[
+                  _SplitRow(
+                    compact: compact,
+                    flagged:
+                        !reviewResolved &&
+                        motionEvidence == null &&
+                        RunIntegrity.suspicious(splits![i]),
+                    values: [
+                      (splits!
+                                  .take(i + 1)
+                                  .fold<double>(
+                                    0,
+                                    (sum, split) => sum + split.distanceMeters,
+                                  ) /
+                              1000)
+                          .toStringAsFixed(2),
+                      formatRunDuration(splits![i].duration),
+                      _pace(splits![i]),
+                      splits![i].pace == null
+                          ? '--'
+                          : splits![i].speedKmh.toStringAsFixed(1),
+                    ],
+                  ),
+                  if (i < splits!.length - 1)
+                    Divider(height: 16, color: AppColors.line),
+                ],
+              ],
+            );
+          },
+        ),
       ],
     ],
   );
@@ -82,10 +96,14 @@ class _SplitRow extends StatelessWidget {
     required this.values,
     this.heading = false,
     this.flagged = false,
+    this.compact = false,
   });
   final List<String> values;
   final bool heading;
   final bool flagged;
+  final bool compact;
+  static const labels = ['구간 끝(km)', '시간', '페이스', 'km/h'];
+
   @override
   Widget build(BuildContext context) => Container(
     padding: EdgeInsets.symmetric(vertical: heading ? 10 : 6, horizontal: 8),
@@ -95,25 +113,57 @@ class _SplitRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           )
         : null,
-    child: Row(
-      children: [
-        for (var i = 0; i < values.length; i++)
-          Expanded(
-            child: Text(
-              values[i],
-              textAlign: i == 0 ? TextAlign.left : TextAlign.right,
-              style: TextStyle(
-                fontSize: heading ? 12 : 14,
-                color: flagged
-                    ? RunRecordColors.warning
-                    : heading
-                    ? RunRecordColors.label
-                    : AppColors.ink,
-                fontWeight: heading ? FontWeight.w600 : FontWeight.w700,
-              ),
-            ),
+    child: compact
+        ? Column(
+            children: [
+              for (final offset in [0, 2])
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = offset; i < offset + 2; i++)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8, bottom: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                labels[i],
+                                style: TextStyle(color: RunRecordColors.label),
+                              ),
+                              _value(i),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          )
+        : Row(
+            children: [
+              for (var i = 0; i < values.length; i++)
+                Expanded(
+                  child: _value(
+                    i,
+                    align: i == 0 ? TextAlign.left : TextAlign.right,
+                  ),
+                ),
+            ],
           ),
-      ],
+  );
+
+  Widget _value(int index, {TextAlign? align}) => Text(
+    values[index],
+    textAlign: align,
+    style: TextStyle(
+      fontSize: heading ? 12 : 14,
+      color: flagged
+          ? RunRecordColors.warning
+          : heading
+          ? RunRecordColors.label
+          : AppColors.ink,
+      fontWeight: heading ? FontWeight.w600 : FontWeight.w700,
     ),
   );
 }

@@ -95,30 +95,7 @@ class SettingsScreen extends StatelessWidget {
     appBar: AppBar(title: const Text('설정')),
     body: ListView(
       children: [
-        ListTile(
-          leading: const Icon(Icons.policy_outlined),
-          title: const Text('이용 제한·이의신청'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            if (!isCurrentOwner()) return;
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ModerationScreen(
-                  service: ModerationService(Supabase.instance.client),
-                ),
-              ),
-            );
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.notifications_outlined),
-          title: const Text('알림 설정'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (_) => const PushSettingsScreen()),
-          ),
-        ),
+        const _SettingsSection('러닝'),
         ListenableBuilder(
           listenable: BodyWeight.instance,
           builder: (context, _) {
@@ -146,6 +123,29 @@ class SettingsScreen extends StatelessWidget {
             onChanged: RunVoiceSettings.instance.setEnabled,
           ),
         ),
+        ListTile(
+          leading: const Icon(Icons.favorite_border),
+          title: const Text('건강 데이터 연동'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(
+              builder: (_) => HealthSettingsScreen(
+                service: DeviceRunHealthService(),
+                isCurrentOwner: isCurrentOwner,
+              ),
+            ),
+          ),
+        ),
+        const Divider(),
+        const _SettingsSection('알림·화면'),
+        ListTile(
+          leading: const Icon(Icons.notifications_outlined),
+          title: const Text('알림 설정'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(builder: (_) => const PushSettingsScreen()),
+          ),
+        ),
         ListenableBuilder(
           listenable: AppAppearance.instance,
           builder: (context, _) => ListTile(
@@ -160,6 +160,8 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ),
+        const Divider(),
+        const _SettingsSection('계정·지원'),
         ListTile(
           leading: const Icon(Icons.privacy_tip_outlined),
           title: const Text('계정·공개 설정'),
@@ -189,17 +191,35 @@ class SettingsScreen extends StatelessWidget {
             onTap: onBlockedUsersTap,
           ),
         ListTile(
-          leading: const Icon(Icons.favorite_border),
-          title: const Text('건강 데이터 연동'),
+          leading: const Icon(Icons.lock_outline),
+          title: const Text('비밀번호 변경'),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(
-              builder: (_) => HealthSettingsScreen(
-                service: DeviceRunHealthService(),
-                isCurrentOwner: isCurrentOwner,
+          onTap: () {
+            if (!isCurrentOwner()) return;
+            Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => PasswordChangeScreen(
+                  service: PasswordService(Supabase.instance.client),
+                ),
               ),
-            ),
-          ),
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.policy_outlined),
+          title: const Text('이용 제한·이의신청'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            if (!isCurrentOwner()) return;
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ModerationScreen(
+                  service: ModerationService(Supabase.instance.client),
+                ),
+              ),
+            );
+          },
         ),
         FutureBuilder<bool>(
           future: managementAccess,
@@ -257,21 +277,6 @@ class SettingsScreen extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => showLicensePage(context: context),
         ),
-        ListTile(
-          leading: const Icon(Icons.lock_outline),
-          title: const Text('비밀번호 변경'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            if (!isCurrentOwner()) return;
-            Navigator.of(context).push<void>(
-              MaterialPageRoute(
-                builder: (_) => PasswordChangeScreen(
-                  service: PasswordService(Supabase.instance.client),
-                ),
-              ),
-            );
-          },
-        ),
         const Divider(),
         ListTile(
           leading: const Icon(Icons.logout),
@@ -314,6 +319,21 @@ class SettingsScreen extends StatelessWidget {
           onTap: () => _deleteAccount(context),
         ),
       ],
+    ),
+  );
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+    child: Semantics(
+      header: true,
+      child: Text(title, style: Theme.of(context).textTheme.titleSmall),
     ),
   );
 }

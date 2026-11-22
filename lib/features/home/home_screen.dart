@@ -846,7 +846,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                         ),
                                       ),
                                       Text(
-                                        '주변 ${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}',
+                                        state.canViewNearby &&
+                                                state.nearbyLoaded
+                                            ? '${state.runners.length}명 · 내 위치 ${state.sharing ? '공유 중' : '비공개'}'
+                                            : '내 위치 ${state.sharing ? '공유 중' : '비공개'}',
                                       ),
                                     ],
                                   ),
@@ -861,8 +864,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   ),
                               ],
                             ),
-                            if (state.canViewNearby && !state.connected)
-                              const Text('실시간 연결 중'),
+                            if (state.canViewNearby &&
+                                !state.nearbyLoaded &&
+                                state.nearbyError == null)
+                              const Text('주변 러너 확인 중'),
                             if (state.nearbyError != null)
                               Text(
                                 state.nearbyError!,

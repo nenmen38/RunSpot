@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/data/account_rpc.dart';
+import '../../shared/formatters/run_format.dart';
+import '../../shared/layout/readable_width.dart';
+import '../../shared/widgets/status_view.dart';
+import '../run_history/widgets/run_record_details.dart';
+import 'widgets/training_plan_cards.dart';
 import '../run_history/data/run_record_service.dart';
 import '../run_history/models/run_record.dart';
 
@@ -45,11 +50,13 @@ class _TrainingScreenState extends State<TrainingScreen> {
   }
 
   Future<void> _start(String kind) async {
+    final today = DateUtils.dateOnly(DateTime.now());
     final day = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 89)),
+      helpText: '훈련 시작일 선택',
+      initialDate: today,
+      firstDate: today,
+      lastDate: DateTime(today.year, today.month, today.day + 89),
     );
     if (day == null || !mounted) return;
     await _call({
@@ -78,7 +85,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
       final run = await showDialog<RunRecord>(
         context: context,
         builder: (context) => SimpleDialog(
-          title: const Text('실제로 수행한 기록 연결'),
+          title: const Text('러닝 기록 연결'),
           children: [
             if (choices.isEmpty)
               const Padding(
@@ -88,8 +95,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
             for (final run in choices)
               SimpleDialogOption(
                 onPressed: () => Navigator.pop(context, run),
-                child: Text(
-                  '${run.startedAt.toLocal().toString().substring(0, 16)} · ${(run.distanceMeters / 1000).toStringAsFixed(2)}km · ${run.durationSeconds ~/ 60}분',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    '${(run.distanceMeters / 1000).toStringAsFixed(2)}km · ${formatRunDuration(Duration(seconds: run.durationSeconds))}',
+                  ),
+                  subtitle: Text(formatRunDate(run.startedAt)),
                 ),
               ),
           ],
@@ -109,123 +120,101 @@ class _TrainingScreenState extends State<TrainingScreen> {
     }
   }
 
+  Future<void> _stop() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('훈련 계획을 종료할까요?'),
+        content: const Text('러닝 기록은 유지되며 이 계획의 일정과 연결만 삭제됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('계획 종료'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _call({'operation': 'stop'});
+  }
+
   @override
   Widget build(BuildContext context) {
     final plan = _plan;
-    final completed = {
-      if (plan != null)
-        for (final row in plan['completed'] as List) row['index'],
-    };
+    final kind = TrainingPlanKind.values
+        .where((kind) => kind.id == plan?['kind'])
+        .firstOrNull;
     return Scaffold(
       appBar: AppBar(
         title: const Text('나의 훈련 계획'),
         actions: [
           IconButton(
+            tooltip: '훈련 계획 새로고침',
             onPressed: _busy ? null : _call,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          if (_busy) const LinearProgressIndicator(),
-          if (_error != null) Text(_error!),
-          const Text(
-            '주 3회, 4주 일정 · 달리는 날 사이에는 휴식일을 두세요. 목표는 걷기를 섞어 조절할 수 있으며 실제 수행한 기록을 직접 연결합니다.',
-          ),
-          const SizedBox(height: 16),
-          if (plan == null && !_busy && _error == null) ...[
-            for (final kind in ['habit', '5k', '10k'])
-              Card(
-                child: ListTile(
-                  title: Text(
-                    kind == 'habit'
-                        ? '처음 시작하는 러닝 습관'
-                        : kind == '5k'
-                        ? '5km 목표 일정'
-                        : '10km 목표 일정',
-                  ),
-                  subtitle: Text(
-                    kind == 'habit'
-                        ? '10~25분 걷기·달리기'
-                        : '현재 체력에 맞춰 목표 거리를 조절하세요.',
-                  ),
-                  onTap: () => _start(kind),
-                ),
-              ),
-          ],
-          if (plan != null) ...[
-            Text(
-              '완료 ${completed.length}/12회',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            for (var i = 0; i < 12; i++)
-              Builder(
-                builder: (context) {
-                  final week = i ~/ 3;
-                  final date = DateTime.parse(plan['start_day'] as String)
-                      .add(Duration(days: week * 7 + (i % 3) * 2));
-                  final target = plan['kind'] == 'habit'
-                      ? '${10 + week * 5}분 걷기·달리기'
-                      : plan['kind'] == '5k'
-                      ? '${[2, 3, 4, 5][week]}km 편안하게'
-                      : '${[5, 6, 8, 10][week]}km 편안하게';
-                  return Card(
-                    child: ListTile(
-                      title: Text('${week + 1}주 ${i % 3 + 1}회 · $target'),
-                      subtitle: Text('${date.month}/${date.day} 예정'),
-                      leading: Icon(
-                        completed.contains(i)
-                            ? Icons.check_circle
-                            : Icons.directions_run,
-                      ),
-                      trailing: TextButton(
-                        onPressed: _busy
+      body: SafeArea(
+        top: false,
+        child: ReadableWidth(
+          child: plan == null && _busy
+              ? const StatusView.loading(message: '훈련 계획을 불러오는 중입니다.')
+              : plan == null && _error != null
+              ? StatusView.error(message: _error!, onRetry: _call)
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  children: [
+                    if (_busy) const LinearProgressIndicator(),
+                    if (_error != null) InlineError(message: _error!),
+                    if (plan == null)
+                      TrainingPlanChoices(onSelect: (kind) => _start(kind.id))
+                    else if (kind != null) ...[
+                      TrainingPlanSchedule(
+                        kind: kind,
+                        start: DateTime.parse(plan['start_day'] as String),
+                        completed: {
+                          for (final row in plan['completed'] as List)
+                            row['index'] as int,
+                        },
+                        onSessionTap: _busy
                             ? null
-                            : () => completed.contains(i)
-                                  ? _call({
-                                      'operation': 'undo',
-                                      'session_index': i,
-                                    })
-                                  : _complete(i),
-                        child: Text(completed.contains(i) ? '연결 해제' : '기록 연결'),
+                            : (index) {
+                                final linked = (plan['completed'] as List).any(
+                                  (row) => row['index'] == index,
+                                );
+                                if (linked) {
+                                  _call({
+                                    'operation': 'undo',
+                                    'session_index': index,
+                                  });
+                                } else {
+                                  _complete(index);
+                                }
+                              },
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _busy ? null : _stop,
+                          child: const Text('계획 종료'),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      '달리는 날 사이에는 쉬는 날을 두세요. 목표는 걷기를 섞어 조절하고, 실제 러닝 기록을 일정에 연결할 수 있습니다.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  );
-                },
-              ),
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      final yes = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('훈련 계획을 종료할까요?'),
-                          content: const Text(
-                            '러닝 기록은 유지되며 이 계획의 일정과 연결만 삭제됩니다.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('취소'),
-                            ),
-                            FilledButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('계획 종료'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (yes == true && mounted) {
-                        await _call({'operation': 'stop'});
-                      }
-                    },
-              child: const Text('계획 종료'),
-            ),
-          ],
-        ],
+                  ],
+                ),
+        ),
       ),
     );
   }

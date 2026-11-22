@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:runquest/app/mobile_app_viewport.dart';
+import 'package:runquest/app/run_quest_app.dart';
+import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/home/home_screen.dart';
@@ -25,6 +27,7 @@ import 'support/run_history_fakes.dart';
 import 'support/friend_fakes.dart';
 import 'support/conditions_fakes.dart';
 import 'support/progress_fakes.dart';
+import 'support/statistics_fakes.dart';
 
 import 'package:runquest/features/progress/models/run_progress.dart';
 
@@ -136,7 +139,11 @@ void main() {
     Size size, {
     FakeRunRecordService? recordService,
     FakeProgressService? progressService,
+    FakeStatisticsService? statisticsService,
+    bool dark = false,
   }) async {
+    AppColors.dark = dark;
+    addTearDown(() => AppColors.dark = false);
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final location = FakeLocationService();
@@ -153,7 +160,7 @@ void main() {
     addTearDown(conditions.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(useMaterial3: true),
+        theme: buildAppTheme(dark: dark),
         home: MobileAppViewport(
           child: RunQuestShell(
             mapController: controller,
@@ -161,6 +168,7 @@ void main() {
             friendService: FakeFriendService(),
             conditionsController: conditions,
             progressService: progressService,
+            statisticsService: statisticsService,
           ),
         ),
       ),
@@ -172,6 +180,11 @@ void main() {
   testWidgets('홈은 현재 위치 지도이며 코스 만들기 탭이 없습니다', (tester) async {
     await showApp(tester, const Size(390, 844));
     expect(find.byType(RunMap), findsOneWidget);
+    expect(find.text('러닝 종료'), findsNothing);
+    expect(
+      tester.getSize(find.widgetWithText(FilledButton, '러닝 시작')).width,
+      greaterThan(300),
+    );
     expect(
       tester.widget<RunMap>(find.byType(RunMap)).controller.camera.zoom,
       15.5,
@@ -184,7 +197,6 @@ void main() {
     expect(find.text('주변 러너'), findsOneWidget);
     expect(find.text('양호'), findsOneWidget);
     expect(find.text('러닝 시작'), findsOneWidget);
-    expect(find.text('러닝 종료'), findsOneWidget);
     expect(find.text('코스'), findsNothing);
     expect(find.text('코스 만들기'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -217,7 +229,8 @@ void main() {
     await tester.pump();
     expect(pauseButton, findsNothing);
     expect(finishButton, findsNothing);
-    final unlockButton = find.text('길게 눌러 조작 잠금 해제');
+    expect(find.text('러닝 중 · 조작 잠김'), findsOneWidget);
+    final unlockButton = find.text('길게 눌러 해제');
     await tester.ensureVisible(unlockButton);
     await tester.tap(unlockButton);
     await tester.pump();
@@ -549,11 +562,28 @@ void main() {
     testWidgets('종료 창은 ${size.width} 너비와 ${scale}배 글자에서 동작합니다', (tester) async {
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      final controller = await showApp(tester, size);
+      final controller = await showApp(tester, size, dark: scale == 2.0);
       await tester.ensureVisible(find.text('러닝 시작'));
       await tester.tap(find.text('러닝 시작'));
       await tester.pump();
       await tester.ensureVisible(find.text('러닝 종료'));
+      if (scale == 2.0) {
+        final pause = find.widgetWithText(FilledButton, '일시 정지');
+        final finish = find.widgetWithText(OutlinedButton, '러닝 종료');
+        expect(
+          tester.getBottomLeft(pause).dy,
+          lessThan(tester.getTopLeft(finish).dy),
+        );
+        final lock = find.byTooltip('조작 잠금');
+        await tester.ensureVisible(lock);
+        await tester.tap(lock);
+        await tester.pump();
+        final unlock = find.text('길게 눌러 해제');
+        await tester.ensureVisible(unlock);
+        await tester.longPress(unlock);
+        await tester.pump();
+        await tester.ensureVisible(finish);
+      }
       await tester.tap(find.text('러닝 종료'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -731,6 +761,47 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   }
+
+  testWidgets('프로필에 최신 러닝만 표시하고 상세 통계는 별도로 엽니다', (tester) async {
+    final records = FakeRunRecordService();
+    for (final (id, distance, day) in [
+      ('recent', 2000, 20),
+      ('older', 6400, 19),
+    ]) {
+      records.records.add(
+        RunRecord(
+          id: id,
+          clientRunId: id,
+          startedAt: DateTime.utc(2026, 11, day, 7),
+          endedAt: DateTime.utc(2026, 11, day, 7, 20),
+          distanceMeters: distance,
+          durationSeconds: 1200,
+        ),
+      );
+    }
+    await showApp(
+      tester,
+      const Size(320, 568),
+      recordService: records,
+      statisticsService: FakeStatisticsService(),
+    );
+    await tester.tap(find.text('프로필').last);
+    await tester.pumpAndSettle();
+    expect(find.text('내 기록').hitTestable(), findsOneWidget);
+    expect(find.text('주간 목표'), findsOneWidget);
+    expect(find.text('2.00 km'), findsOneWidget);
+    expect(find.text('6.40 km'), findsNothing);
+    expect(find.text('누적 페이스'), findsNothing);
+    final stats = find.text('러닝 통계');
+    await tester.ensureVisible(stats);
+    await tester.pumpAndSettle();
+    await tester.tap(stats);
+    await tester.pumpAndSettle();
+    expect(find.text('누적 페이스'), findsOneWidget);
+    expect(find.text('23회'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
     testWidgets('프로필에서 내 기록을 열고 돌아옵니다: ${size.width}', (tester) async {

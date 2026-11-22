@@ -66,16 +66,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             actions: [
               if (widget.controller.service
                   case final SupabaseRunRecordService service)
-                IconButton(
-                  tooltip: '외부 기록 보관함',
-                  icon: const Icon(Icons.sync_alt),
-                  onPressed: () => Navigator.push<void>(
+                PopupMenuButton<String>(
+                  tooltip: '기록 옵션',
+                  onSelected: (_) => Navigator.push<void>(
                     context,
                     MaterialPageRoute(
                       builder: (_) =>
                           ExternalRunsScreen(client: service.client),
                     ),
                   ),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'external', child: Text('외부 기록 보관함')),
+                  ],
                 ),
               IconButton(
                 tooltip: _showHidden ? '내 기록 보기' : '숨긴 기록 보기',

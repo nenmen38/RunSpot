@@ -213,6 +213,7 @@ class LiveMapController extends ChangeNotifier {
   int _nearbyGeneration = 0;
   Future<void> _nearbyWork = Future.value();
   String? nearbyError;
+  bool nearbyLoaded = false;
   bool get canViewNearby =>
       !_disposed &&
       _active &&
@@ -235,6 +236,7 @@ class LiveMapController extends ChangeNotifier {
       _refreshTimer?.cancel();
       runners = [];
       connected = false;
+      nearbyLoaded = false;
       nearbyError = null;
       if (wasSubscribed) {
         final work = _nearbyWork.then((_) => runnerService.disconnect());
@@ -253,7 +255,10 @@ class LiveMapController extends ChangeNotifier {
       await runnerService.connect(_scheduleRefresh, (value) {
         if (!canViewNearby || generation != _nearbyGeneration) return;
         connected = value;
-        if (!value) runners = [];
+        if (!value) {
+          runners = [];
+          nearbyLoaded = false;
+        }
         _notify();
         if (value) _scheduleRefresh();
       });
@@ -835,6 +840,7 @@ class LiveMapController extends ChangeNotifier {
           radius == radiusMeters &&
           revision == _runnerRevision) {
         runners = result;
+        nearbyLoaded = true;
         nearbyError = null;
         _notify();
       }
@@ -842,6 +848,7 @@ class LiveMapController extends ChangeNotifier {
       ErrorReporter.report('run_tracking', stack);
       if (canViewNearby && generation == _nearbyGeneration) {
         runners = [];
+        nearbyLoaded = false;
         nearbyError = _message(error);
         _notify();
       }
@@ -857,6 +864,7 @@ class LiveMapController extends ChangeNotifier {
     if (![500, 1000, 3000, 5000].contains(radius)) return;
     radiusMeters = radius;
     runners = [];
+    nearbyLoaded = false;
     _notify();
     _scheduleRefresh();
   }

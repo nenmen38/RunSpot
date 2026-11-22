@@ -194,14 +194,6 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                     padding: const EdgeInsets.all(16),
                     child: RunRecordDetails(record: _record),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: RunSplitsPanel(
-                      motionEvidence: _record.motionEvidence,
-                      reviewResolved: _record.integrityStatus != 'pending',
-                      splits: _record.splits,
-                    ),
-                  ),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: Row(
@@ -254,6 +246,14 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                       splits: _record.splits,
                       mapBridgeFactory: widget.mapBridgeFactory,
                     ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    child: RunSplitsPanel(
+                      motionEvidence: _record.motionEvidence,
+                      reviewResolved: _record.integrityStatus != 'pending',
+                      splits: _record.splits,
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     child: RunHealthPanel(

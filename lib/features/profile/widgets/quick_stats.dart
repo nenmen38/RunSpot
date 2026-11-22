@@ -9,11 +9,8 @@ import '../weekly_goal.dart';
 import 'run_growth_panel.dart';
 
 class QuickStats extends StatelessWidget {
-  const QuickStats({required this.service, this.goal, super.key});
+  const QuickStats({required this.service, super.key});
   final StatisticsService service;
-
-  /// 주간 목표입니다. 없으면 앱 공용 설정을 씁니다.
-  final WeeklyGoal? goal;
 
   @override
   Widget build(BuildContext context) => AccountQueryPanel<RunStatistics>(
@@ -24,11 +21,6 @@ class QuickStats extends StatelessWidget {
     builder: (context, stats) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        WeeklyGoalBar(
-          weeklyDistanceMeters: stats.weeklyDistanceMeters,
-          goal: goal,
-        ),
-        const SizedBox(height: 12),
         RunStatCards(stats: stats),
         const SizedBox(height: 20),
         if (stats.growth case final growth?)
@@ -36,6 +28,24 @@ class QuickStats extends StatelessWidget {
         else
           const Text('성장 추이를 보려면 서버 업데이트가 필요합니다.'),
       ],
+    ),
+  );
+}
+
+class WeeklyGoalSummary extends StatelessWidget {
+  const WeeklyGoalSummary({required this.service, super.key});
+  final StatisticsService service;
+
+  @override
+  Widget build(BuildContext context) => AccountQueryPanel<RunStatistics>(
+    source: service,
+    load: service.load,
+    isCurrentOwner: () => service.isCurrentOwner,
+    errorMessage: '이번 주 거리를 불러오지 못했습니다.',
+    showRefresh: false,
+    builder: (context, stats) => WeeklyGoalBar(
+      weeklyDistanceMeters: stats.weeklyDistanceMeters,
+      compact: true,
     ),
   );
 }

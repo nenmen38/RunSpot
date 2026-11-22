@@ -4,6 +4,8 @@ import 'package:runquest/features/run_history/models/run_record.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/run_history/run_history_screen.dart';
 import 'package:runquest/features/run_history/widgets/run_record_details.dart';
+import 'package:runquest/features/run_history/widgets/run_splits_panel.dart';
+import 'package:runquest/features/run_history/models/run_split.dart';
 
 import 'support/run_history_fakes.dart';
 
@@ -87,8 +89,44 @@ void main() {
     expect(find.text('러닝 기록'), findsOneWidget);
     expect(find.text('평균 페이스'), findsOneWidget);
     expect(find.text('저장된 경로가 없습니다.'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('이동 경로')).dy,
+      lessThan(tester.getTopLeft(find.text('구간별 기록')).dy),
+    );
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('좁은 다크 화면에서 큰 글자로 구간 기록을 읽을 수 있습니다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: const Scaffold(
+          body: Padding(
+            padding: EdgeInsets.all(16),
+            child: RunSplitsPanel(
+              splits: [
+                RunSplit(
+                  distanceMeters: 1000,
+                  duration: Duration(seconds: 290),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('구간 끝(km)'), findsOneWidget);
+    expect(find.text('4’50”'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('페이스')).dy,
+      greaterThan(tester.getTopLeft(find.text('구간 끝(km)')).dy),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('기록이 없으면 빈 목록을 표시합니다', (tester) async {

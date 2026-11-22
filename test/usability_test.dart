@@ -144,6 +144,9 @@ void main() {
   });
 
   testWidgets('관리 메뉴는 역할 확인 후에만 표시하고 실패하면 숨깁니다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 950));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     Future<void> show(Future<bool> access) async {
       await tester.pumpWidget(
         MaterialApp(

@@ -13,6 +13,7 @@ class AccountQueryPanel<T> extends StatefulWidget {
     required this.builder,
     required this.errorMessage,
     this.revision = 0,
+    this.showRefresh = true,
     super.key,
   });
 
@@ -22,6 +23,7 @@ class AccountQueryPanel<T> extends StatefulWidget {
   final Widget Function(BuildContext, T) builder;
   final String errorMessage;
   final int revision;
+  final bool showRefresh;
 
   @override
   State<AccountQueryPanel<T>> createState() => _AccountQueryPanelState<T>();
@@ -134,14 +136,15 @@ class _AccountQueryPanelState<T> extends State<AccountQueryPanel<T>>
           InlineError(message: widget.errorMessage)
         else if (value != null)
           widget.builder(context, value),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: Text(_failed ? '다시 시도' : '새로고침'),
+        if (widget.showRefresh || _failed)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(_failed ? '다시 시도' : '새로고침'),
+            ),
           ),
-        ),
       ],
     );
   }

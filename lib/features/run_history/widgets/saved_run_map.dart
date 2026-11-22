@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
 import '../../../shared/maps/run_map.dart';
+import '../../../shared/formatters/run_format.dart';
 import '../models/display_route.dart';
 import '../models/pace_route.dart';
 import '../models/run_route.dart';
@@ -26,6 +27,7 @@ class SavedRunMap extends StatefulWidget {
 class _SavedRunMapState extends State<SavedRunMap> {
   final _map = RunMapController();
   late List<PaceRoutePiece> _pieces;
+  ({Duration fastest, Duration slowest})? _range;
 
   void _updateRoute() {
     // 원본 거리로 페이스 색 경계를 정한 뒤 각 조각의 표시 좌표만 정리합니다.
@@ -33,6 +35,9 @@ class _SavedRunMapState extends State<SavedRunMap> {
       for (final piece in paceColoredRoute(widget.route, widget.splits))
         PaceRoutePiece(cleanDisplayRoute(piece.points), piece.color),
     ];
+    _range = _pieces.any((piece) => piece.color != paceDefault)
+        ? paceRange(widget.splits?.map((split) => split.pace) ?? const [])
+        : null;
     _fit();
   }
 
@@ -61,7 +66,7 @@ class _SavedRunMapState extends State<SavedRunMap> {
   @override
   Widget build(BuildContext context) {
     final pieces = _pieces;
-    final colored = pieces.any((piece) => piece.color != paceDefault);
+    final range = _range;
     return Column(
       children: [
         SizedBox(
@@ -106,14 +111,14 @@ class _SavedRunMapState extends State<SavedRunMap> {
             ],
           ),
         ),
-        if (colored)
+        if (range != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Wrap(
               spacing: 12,
               runSpacing: 6,
               children: [
-                const Text('이번 러닝 기준', style: TextStyle(fontSize: 12)),
+                const Text('이번 러닝 기준 · /km', style: TextStyle(fontSize: 12)),
                 for (final band in paceBands)
                   Text.rich(
                     TextSpan(
@@ -122,7 +127,15 @@ class _SavedRunMapState extends State<SavedRunMap> {
                           text: '● ',
                           style: TextStyle(color: band.color),
                         ),
-                        TextSpan(text: band.label),
+                        TextSpan(
+                          text: switch (band.color) {
+                            paceFast =>
+                              '${band.label} ${formatPaceDuration(range.fastest)}',
+                            paceSlow =>
+                              '${band.label} ${formatPaceDuration(range.slowest)}',
+                            _ => band.label,
+                          },
+                        ),
                       ],
                     ),
                     style: const TextStyle(fontSize: 12),

@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/models/run_record.dart';
 import 'package:runquest/features/run_history/models/run_route.dart';
+import 'package:runquest/features/run_history/models/run_split.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/run_history/run_record_detail_screen.dart';
 import 'package:runquest/features/run_history/widgets/saved_run_map.dart';
@@ -209,6 +210,39 @@ void main() {
       [resumed, turn, finish],
     ]);
     expect(route.segments.first, hasLength(7));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('지도 범례 양끝에 실제 구간 페이스를 표시합니다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SavedRunMap(
+            route: RunRoute([
+              [
+                for (var i = 0; i <= 24; i++)
+                  LatLng(37.5 + i * 100 / 111195, 127),
+              ],
+            ]),
+            splits: const [
+              RunSplit(distanceMeters: 1000, duration: Duration(seconds: 290)),
+              RunSplit(distanceMeters: 1000, duration: Duration(seconds: 360)),
+            ],
+            mapBridgeFactory: FakeMapBridge.new,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('매우 빠름 4’50”', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('매우 느림 6’00”', findRichText: true),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 

@@ -25,19 +25,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('20km'));
     await tester.pumpAndSettle();
-    expect(find.text('이번 주 20km 중 12.4km'), findsOneWidget);
+    expect(goal.kilometers, isNull);
+    await tester.tap(find.text('목표 저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('12.4 / 20km'), findsOneWidget);
     expect(find.text('62%'), findsOneWidget);
     expect(find.text('7.6km 남았어요.'), findsOneWidget);
 
     await tester.pumpWidget(bar(21000));
-    expect(find.text('달성!'), findsOneWidget);
+    expect(find.text('목표 달성'), findsOneWidget);
 
     final again = WeeklyGoal(store: store);
     await again.load();
     expect(again.kilometers, 20);
 
     // 목표를 지우면 다시 정하기 버튼이 나옵니다.
-    await tester.tap(find.text('이번 주 20km 중 21.0km'));
+    await tester.tap(find.text('목표 변경'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('목표 지우기'));
     await tester.pumpAndSettle();

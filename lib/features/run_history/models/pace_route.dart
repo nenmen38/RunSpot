@@ -25,27 +25,35 @@ const paceBands = [
   (label: '매우 느림', color: paceSlow),
 ];
 
+/// 유효한 구간 페이스 중 지도 색의 양끝을 정합니다.
+({Duration fastest, Duration slowest})? paceRange(Iterable<Duration?> paces) {
+  Duration? fastest;
+  Duration? slowest;
+  for (final pace in paces.whereType<Duration>()) {
+    if (fastest == null || pace < fastest) fastest = pace;
+    if (slowest == null || pace > slowest) slowest = pace;
+  }
+  if (fastest == null || slowest == null || fastest == slowest) return null;
+  return (fastest: fastest, slowest: slowest);
+}
+
 /// 1km 구간 기록으로 경로를 구간별 색으로 나눕니다.
 /// 경로를 따라 거리를 재며 몇 번째 km인지 정하고, 그 구간 페이스가 이번 러닝에서
 /// 빠른 편일수록 초록, 느린 편일수록 빨강으로 칠합니다. 구간이 하나뿐이면 기본색 한 가지입니다.
 List<PaceRoutePiece> paceColoredRoute(RunRoute route, List<RunSplit>? splits) {
-  final paces = [
-    for (final split in splits ?? const <RunSplit>[])
-      split.pace?.inMicroseconds,
-  ];
-  final measured = paces.whereType<int>();
-  if (measured.length < 2) {
+  final paces = [for (final split in splits ?? const <RunSplit>[]) split.pace];
+  final range = paceRange(paces);
+  if (range == null) {
     return [
       for (final segment in route.segments)
         PaceRoutePiece(segment, paceDefault),
     ];
   }
-  final fastest = measured.reduce((a, b) => a < b ? a : b);
-  final slowest = measured.reduce((a, b) => a > b ? a : b);
+  final span = (range.slowest - range.fastest).inMicroseconds;
   Color colorOf(int index) {
     final pace = paces[index];
-    if (pace == null || slowest == fastest) return paceDefault;
-    final fraction = (pace - fastest) / (slowest - fastest);
+    if (pace == null) return paceDefault;
+    final fraction = (pace - range.fastest).inMicroseconds / span;
     return paceBands[(fraction * (paceBands.length - 1)).round()].color;
   }
 

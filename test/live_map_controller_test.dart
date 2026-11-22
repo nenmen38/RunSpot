@@ -107,6 +107,7 @@ void main() {
     await controller.start();
     await controller.refresh();
     expect(controller.runners.single.id, 'other');
+    expect(controller.nearbyLoaded, isTrue);
     expect(controller.runSession, isNull);
     expect(history.visibleRecords, isEmpty);
     expect(service.actions, isEmpty);
@@ -125,6 +126,7 @@ void main() {
   test('홈을 벗어난 뒤 도착한 조회 응답은 표시하지 않습니다', () async {
     service.pendingNearby = Completer<List<LiveRunner>>();
     await controller.start();
+    expect(controller.nearbyLoaded, isFalse);
     controller.setMapVisible(false);
     service.pendingNearby!.complete([
       LiveRunner(
@@ -138,6 +140,7 @@ void main() {
     ]);
     await Future<void>.delayed(Duration.zero);
     expect(controller.runners, isEmpty);
+    expect(controller.nearbyLoaded, isFalse);
     expect(service.actions, isEmpty);
   });
 
