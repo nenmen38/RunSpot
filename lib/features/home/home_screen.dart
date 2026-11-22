@@ -376,6 +376,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           MaterialPageRoute(
             builder: (_) => RunShareScreen(
               record: currentRecord(),
+              wallet: widget.wallet,
               isCurrentOwner: () => service.isCurrentOwner,
               loadRoute: () async => summary.route,
               ownerChanges: client?.auth.onAuthStateChange,
@@ -391,8 +392,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _openHistory() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            RunHistoryScreen(controller: widget.controller.runHistory),
+        builder: (_) => RunHistoryScreen(
+          controller: widget.controller.runHistory,
+          wallet: widget.wallet,
+        ),
       ),
     );
   }

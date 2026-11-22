@@ -333,7 +333,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
   void _openHistory() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => RunHistoryScreen(controller: _map.runHistory),
+        builder: (_) =>
+            RunHistoryScreen(controller: _map.runHistory, wallet: _wallet),
       ),
     );
   }
@@ -405,6 +406,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       BoardScreen(service: _board),
       ProfileCosmetics.store(
         wallet: _wallet,
+        history: _map.runHistory,
         crew: _crew,
         client: widget.mapController == null ? Supabase.instance.client : null,
       ),

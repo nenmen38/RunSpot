@@ -67,7 +67,9 @@ class ShareImageRenderer {
     const width = 1080.0;
     const inset = 48.0;
     const contentWidth = width - inset * 2;
-    final onDark = dark || background != null;
+    final night = layout == ShareLayout.nightCard;
+    final minimal = layout == ShareLayout.minimalCard;
+    final onDark = dark || night || background != null;
     final foreground =
         textColor?.withValues(alpha: 1) ??
         (onDark ? Colors.white : const Color(0xFF202428));
@@ -106,6 +108,46 @@ class ShareImageRenderer {
           Paint()..color = scrim,
         );
       }
+    }
+
+    if (photo == null && night) {
+      final bounds = Rect.fromLTWH(0, 0, width, height);
+      canvas.drawRect(
+        bounds,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF101326), Color(0xFF26305E), Color(0xFF171A35)],
+          ).createShader(bounds),
+      );
+      for (var i = 0; i < 3; i++) {
+        final stripe = Rect.fromLTWH(
+          74 + i * 19.0,
+          height * .12 + i * 25,
+          932 - i * 38.0,
+          height * .62 - i * 50,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(stripe, const Radius.circular(430)),
+          Paint()
+            ..color = const Color(0xFF918BFF).withValues(alpha: .16)
+            ..strokeWidth = 3
+            ..style = PaintingStyle.stroke,
+        );
+      }
+    } else if (photo == null && minimal) {
+      canvas.drawColor(
+        onDark ? const Color(0xFF172823) : const Color(0xFFF1F4ED),
+        BlendMode.src,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(64, 66, 952, height - 132),
+        Paint()
+          ..color = const Color(0xFF649080).withValues(alpha: .55)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3,
+      );
     }
 
     void label(
@@ -162,7 +204,13 @@ class ShareImageRenderer {
       final left = bounds.center.dx - side / 2;
       final top = bounds.center.dy - side / 2;
       final paint = Paint()
-        ..color = foreground
+        ..color = textColor != null || photo != null
+            ? foreground
+            : night
+            ? const Color(0xFFC1B5FF)
+            : minimal
+            ? (onDark ? const Color(0xFF98D3BC) : const Color(0xFF326956))
+            : foreground
         ..strokeWidth = (side * .04).clamp(20.0, 32.0)
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round

@@ -1,3 +1,5 @@
+import '../../monetization/coin_frames.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -12,8 +14,9 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/panel.dart';
 
 class RecentRuns extends StatefulWidget {
-  const RecentRuns({required this.controller, super.key});
+  const RecentRuns({required this.controller, this.wallet, super.key});
   final RunHistoryController controller;
+  final WalletController? wallet;
   @override
   State<RecentRuns> createState() => _RecentRunsState();
 }
@@ -76,6 +79,7 @@ class _RecentRunsState extends State<RecentRuns> {
                       builder: (_) => RunRecordDetailScreen(
                         record: record,
                         controller: widget.controller,
+                        wallet: widget.wallet,
                         feedbackService:
                             widget.controller.service
                                 is SupabaseRunRecordService

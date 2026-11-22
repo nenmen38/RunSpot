@@ -13,14 +13,22 @@ import '../crew/widgets/crew_widgets.dart';
 import 'cosmetic_shop.dart';
 import 'coin_frames.dart';
 import 'store_catalog.dart';
+import 'share_card_shop.dart';
+import '../run_history/run_history_controller.dart';
 
 class ProfileCosmetics extends StatefulWidget {
   const ProfileCosmetics({required this.client, required this.child, super.key})
     : wallet = null,
-      crew = null;
+      crew = null,
+      history = null;
 
-  const ProfileCosmetics.store({this.client, this.wallet, this.crew, super.key})
-    : child = null;
+  const ProfileCosmetics.store({
+    this.client,
+    this.wallet,
+    this.crew,
+    this.history,
+    super.key,
+  }) : child = null;
 
   final SupabaseClient? client;
   final Widget? child;
@@ -30,6 +38,7 @@ class ProfileCosmetics extends StatefulWidget {
 
   /// 크루 생성권을 사용해 크루를 만들 때 씁니다.
   final CrewController? crew;
+  final RunHistoryController? history;
 
   @override
   State<ProfileCosmetics> createState() => _ProfileCosmeticsState();
@@ -295,6 +304,12 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
                 onCharge: _openCoins,
                 onMessage: _showMessage,
               ),
+              ShareCardShop(
+                wallet: wallet,
+                history: widget.history,
+                onCharge: _openCoins,
+                onMessage: _showMessage,
+              ),
               CosmeticShop(
                 controller: wallet,
                 onCharge: _openCoins,
@@ -336,6 +351,13 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
               onUseCrewTicket: widget.crew == null ? null : _useCrewTicket,
             ),
             CosmeticInventory(controller: wallet, onMessage: _showMessage),
+            ShareCardShop(
+              wallet: wallet,
+              history: widget.history,
+              onCharge: _openCoins,
+              onMessage: _showMessage,
+              ownedOnly: true,
+            ),
           ],
         ),
         null => null,

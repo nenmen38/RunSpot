@@ -77,6 +77,10 @@ class Wallet {
       level = json['level'] as int,
       levelCoins = json['level_coins'] as int,
       hasServerCosmeticPrices = json['cosmetic_prices'] is Map,
+      listedCosmetics = {
+        for (final code in (json['cosmetic_prices'] as Map? ?? const {}).keys)
+          ?CosmeticItem.fromCode(code),
+      },
       weeklyQuest = switch (json['weekly_quest']) {
         final Map quest => WeeklyCoinQuest(
           days: quest['days'] as int,
@@ -143,6 +147,7 @@ class Wallet {
   final List<CoinActivity> transactions;
   final Map<CosmeticItem, int> cosmeticPrices;
   final bool hasServerCosmeticPrices;
+  final Set<CosmeticItem> listedCosmetics;
   int priceOf(CosmeticItem item) => cosmeticPrices[item]!;
 
   final int? nextRewardLevel;

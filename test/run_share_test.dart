@@ -16,6 +16,10 @@ import 'package:runquest/features/run_share/models/share_route.dart';
 import 'package:runquest/features/run_share/run_share_screen.dart';
 
 import 'share_photo_test.dart' show photoBytes;
+import 'support/wallet_fakes.dart';
+
+import 'package:runquest/features/monetization/coin_frames.dart';
+import 'package:runquest/features/monetization/cosmetics.dart';
 
 import 'package:runquest/features/run_share/models/share_layout.dart';
 import 'package:runquest/features/run_share/models/share_edits.dart';
@@ -201,6 +205,7 @@ void main() {
     WidgetTester tester,
     Renderer renderer, {
     ShareService? service,
+    WalletController? wallet,
     bool Function()? owner,
     Stream<Object?>? changes,
     Future<RunRoute> Function()? loadRoute,
@@ -216,6 +221,7 @@ void main() {
           isCurrentOwner: owner ?? () => true,
           loadRoute: loadRoute ?? () => Future.value(route),
           renderer: renderer,
+          wallet: wallet,
           shareService: service,
           ownerChanges: changes,
           photoService: photos,
@@ -559,7 +565,7 @@ void main() {
   testWidgets('다섯 공유 템플릿을 선택하면 이미지에 반영합니다', (tester) async {
     final renderer = Renderer();
     await show(tester, renderer, settings: true);
-    for (final layout in ShareLayout.values) {
+    for (final layout in ShareLayout.freeLayouts) {
       final chip = find.widgetWithText(ChoiceChip, layout.label);
       await tester.ensureVisible(chip);
       await tester.tap(chip);
@@ -567,7 +573,28 @@ void main() {
       expect(renderer.selectedLayout, layout);
     }
   });
-  testWidgets('다섯 템플릿은 서로 다른 이미지를 생성합니다', (tester) async {
+  testWidgets('구매한 공유 카드만 선택하고 실제 이미지에 적용합니다', (tester) async {
+    final renderer = Renderer();
+    final service = FakeWalletService()..cosmetics.add(CosmeticItem.shareNight);
+    final wallet = WalletController(service);
+    addTearDown(wallet.dispose);
+    await show(tester, renderer, wallet: wallet, settings: true);
+    final horizontal = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.right,
+    );
+    final night = find.widgetWithText(ChoiceChip, '야간 러닝 카드');
+    await tester.scrollUntilVisible(night, 150, scrollable: horizontal);
+    await tester.pumpAndSettle();
+    expect(night.hitTestable(), findsOneWidget);
+    await tester.tap(night);
+    await tester.pumpAndSettle();
+    expect(renderer.selectedLayout, ShareLayout.nightCard);
+    expect(find.widgetWithText(ChoiceChip, '미니멀 카드'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('무료·구매 템플릿은 서로 다른 이미지를 생성합니다', (tester) async {
     await tester.runAsync(() async {
       final images = <Uint8List>[];
       for (final layout in ShareLayout.values) {

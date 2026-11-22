@@ -41,6 +41,7 @@ class CosmeticPreview extends StatelessWidget {
           CosmeticSlot.route => Icons.route,
           CosmeticSlot.chatBubble => Icons.chat_bubble,
           CosmeticSlot.titleStyle => Icons.badge,
+          CosmeticSlot.shareCard => Icons.image_outlined,
         },
         size: size * .45,
         color: Colors.white,
@@ -108,7 +109,9 @@ class CosmeticShop extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final slot in CosmeticSlot.values) ...[
+          for (final slot in CosmeticSlot.values.where(
+            (slot) => slot != CosmeticSlot.shareCard,
+          )) ...[
             const SizedBox(height: 20),
             Text(
               slot.label,
@@ -176,7 +179,9 @@ class CosmeticInventory extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final slot in CosmeticSlot.values)
+          for (final slot in CosmeticSlot.values.where(
+            (slot) => slot != CosmeticSlot.shareCard,
+          ))
             if (wallet.cosmetics.any((item) => item.slot == slot)) ...[
               const SizedBox(height: 20),
               Text(

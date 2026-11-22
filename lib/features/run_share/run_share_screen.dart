@@ -1,3 +1,5 @@
+import '../monetization/coin_frames.dart';
+
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -12,6 +14,7 @@ import 'data/share_image_renderer.dart';
 import 'data/share_photo_service.dart';
 import 'models/share_route.dart';
 import 'models/share_layout.dart';
+import 'models/share_card_catalog.dart';
 import 'widgets/share_sticker_editor.dart';
 import 'widgets/share_text_color_control.dart';
 
@@ -26,8 +29,10 @@ class RunShareScreen extends StatefulWidget {
     this.photoService,
     this.averageHeartRate,
     this.loadCadence,
+    this.wallet,
     super.key,
   });
+  final WalletController? wallet;
   final RunRecord record;
   final bool Function() isCurrentOwner;
   final Future<RunRoute> Function() loadRoute;
@@ -63,13 +68,23 @@ class _RunShareScreenState extends State<RunShareScreen> {
   late final _service = widget.shareService ?? PlatformRunShareService();
   late final _photos = widget.photoService ?? GallerySharePhotoService();
 
+  bool _canUse(ShareLayout layout) =>
+      ShareLayout.freeLayouts.contains(layout) ||
+      (widget.wallet?.service.isCurrentOwner == true &&
+          shareCardLayouts.entries.any(
+            (entry) =>
+                entry.value == layout &&
+                widget.wallet!.wallet?.cosmetics.contains(entry.key) == true,
+          ));
+
   bool get _darkPreview => _photo == null
-      ? _dark
+      ? (_dark || (!_customSelected && _layout == ShareLayout.nightCard))
       : (_textColor ?? Colors.white).computeLuminance() > .179;
 
   @override
   void initState() {
     super.initState();
+    unawaited(widget.wallet?.refresh());
     _ownerSubscription = widget.ownerChanges?.listen((_) {
       if (!mounted) return;
       setState(() {
@@ -107,6 +122,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
 
   Future<void> _render() async {
     if (_busy || !widget.isCurrentOwner()) return;
+    if (!_customSelected && !_canUse(_layout)) _layout = ShareLayout.centered;
     final height = _imageHeight;
     final draft = _customSelected ? _customDraft : null;
     setState(() {
@@ -301,6 +317,10 @@ class _RunShareScreenState extends State<RunShareScreen> {
 
   Future<void> _share() async {
     if (_busy || _png == null || !widget.isCurrentOwner()) return;
+    if (!_customSelected && !_canUse(_layout)) {
+      await _render();
+      return;
+    }
     final box = _shareButton.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     final origin = box.localToGlobal(Offset.zero) & box.size;
@@ -312,7 +332,8 @@ class _RunShareScreenState extends State<RunShareScreen> {
       final result = await _service.share(
         _png!,
         origin,
-        isCurrentOwner: widget.isCurrentOwner,
+        isCurrentOwner: () =>
+            widget.isCurrentOwner() && (_customSelected || _canUse(_layout)),
       );
       if (mounted && widget.isCurrentOwner()) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -514,51 +535,17 @@ class _RunShareScreenState extends State<RunShareScreen> {
       const SizedBox(height: 16),
       const Text('공유 템플릿'),
       const SizedBox(height: 8),
-      SizedBox(
-        height: 160,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: ShareLayout.values.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(width: 10),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return _templateChoice(
-                label: '직접 수정',
-                description: '표시할 정보와 위치를 직접 선택합니다.',
-                preview: const Icon(
-                  Icons.dashboard_customize_outlined,
-                  size: 36,
-                ),
-                selected: _customSelected,
-                onSelected: _busy ? null : (_) => _edit(),
-              );
-            }
-            final layout = ShareLayout.values[index - 1];
-            return _templateChoice(
-              label: layout.label,
-              description: layout.description,
-              preview: CustomPaint(painter: _TemplatePreview(layout)),
-              selected: !_customSelected && _layout == layout,
-              onSelected: _busy
-                  ? null
-                  : (selected) async {
-                      if (!selected || !widget.isCurrentOwner()) return;
-                      setState(() {
-                        _layout = layout;
-                        _customSelected = false;
-                      });
-                      await _render();
-                    },
-            );
-          },
-        ),
-      ),
+      if (widget.wallet case final wallet?)
+        ListenableBuilder(
+          listenable: wallet,
+          builder: (_, _) => _templatePicker(),
+        )
+      else
+        _templatePicker(),
       const SizedBox(height: 16),
       ShareTextColorControl(
         color: _textColor,
-        automaticColor: _dark || _photo != null
-            ? Colors.white
-            : const Color(0xFF202428),
+        automaticColor: _darkPreview ? Colors.white : const Color(0xFF202428),
         enabled: !_busy,
         onChanged: _selectTextColor,
       ),
@@ -586,6 +573,53 @@ class _RunShareScreenState extends State<RunShareScreen> {
         ),
     ],
   );
+
+  Widget _templatePicker() {
+    final layouts = [
+      ...ShareLayout.freeLayouts,
+      ...shareCardLayouts.values.where(_canUse),
+    ];
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: layouts.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _templateChoice(
+              label: '직접 수정',
+              description: '표시할 정보와 위치를 직접 선택합니다.',
+              preview: const Icon(Icons.dashboard_customize_outlined, size: 36),
+              selected: _customSelected,
+              onSelected: _busy ? null : (_) => _edit(),
+            );
+          }
+          final layout = layouts[index - 1];
+          return _templateChoice(
+            label: layout.label,
+            description: layout.description,
+            preview: CustomPaint(painter: _TemplatePreview(layout)),
+            selected: !_customSelected && _layout == layout,
+            onSelected: _busy
+                ? null
+                : (selected) async {
+                    if (!selected ||
+                        !widget.isCurrentOwner() ||
+                        !_canUse(layout)) {
+                      return;
+                    }
+                    setState(() {
+                      _layout = layout;
+                      _customSelected = false;
+                    });
+                    await _render();
+                  },
+          );
+        },
+      ),
+    );
+  }
 
   Widget _templateChoice({
     required String label,
@@ -617,9 +651,16 @@ class _TemplatePreview extends CustomPainter {
   final ShareLayout layout;
   @override
   void paint(Canvas canvas, Size size) {
+    final night = layout == ShareLayout.nightCard;
+    final minimal = layout == ShareLayout.minimalCard;
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(6)),
-      Paint()..color = const Color(0xFFF8FAFC),
+      Paint()
+        ..color = night
+            ? const Color(0xFF222A53)
+            : minimal
+            ? const Color(0xFFF1F4ED)
+            : const Color(0xFFF8FAFC),
     );
     canvas.save();
     canvas.scale(size.width / 1080, size.height / 1920);
@@ -638,7 +679,7 @@ class _TemplatePreview extends CustomPainter {
       canvas.drawPath(
         path,
         Paint()
-          ..color = const Color(0xFF16836F)
+          ..color = night ? const Color(0xFFC1B5FF) : const Color(0xFF16836F)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 22,
       );
@@ -652,6 +693,8 @@ class _TemplatePreview extends CustomPainter {
         Paint()
           ..color = slot.isLabel
               ? const Color(0xFF929CA3)
+              : night
+              ? Colors.white
               : const Color(0xFF202428),
       );
     }

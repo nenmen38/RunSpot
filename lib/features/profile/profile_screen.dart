@@ -139,7 +139,7 @@ class ProfileScreen extends StatelessWidget {
             ],
             if (mapController case final controller?) ...[
               const SizedBox(height: 12),
-              RecentRuns(controller: controller.runHistory),
+              RecentRuns(controller: controller.runHistory, wallet: wallet),
             ],
             if (statisticsService != null ||
                 personalRecordsService != null ||

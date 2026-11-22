@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 enum CosmeticSlot {
   route('route', '경로 색', '러닝 중 지도에 그려지는 내 경로 선 색'),
   titleStyle('title_style', '칭호 모양', '닉네임 옆 칭호 배지의 색과 아이콘'),
-  chatBubble('chat_bubble', '말풍선', '친구와의 대화에서 내 말풍선 색');
+  chatBubble('chat_bubble', '말풍선', '친구와의 대화에서 내 말풍선 색'),
+  shareCard('share_card', '공유 카드', '러닝 기록을 공유할 때 고르는 카드');
 
   const CosmeticSlot(this.code, this.label, this.description);
   final String code;
@@ -17,6 +18,13 @@ enum CosmeticSlot {
 
 /// 코인으로 사는 꾸미기 아이템입니다. 가격은 서버(cosmetic_price)와 같아야 합니다.
 enum CosmeticItem {
+  shareMinimal('share_minimal', CosmeticSlot.shareCard, '미니멀 카드', 100, [
+    Color(0xFFE3EBE7),
+  ]),
+  shareNight('share_night', CosmeticSlot.shareCard, '야간 러닝 카드', 200, [
+    Color(0xFF0F1830),
+    Color(0xFF675DE0),
+  ]),
   routeNeon('route_neon', CosmeticSlot.route, '네온 핑크', 400, [
     Color(0xFFFF2D95),
   ]),

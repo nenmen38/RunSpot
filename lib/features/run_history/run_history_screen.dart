@@ -1,3 +1,4 @@
+import '../monetization/coin_frames.dart';
 import '../run_transfer/external_runs_screen.dart';
 
 import 'dart:async';
@@ -18,8 +19,10 @@ class RunHistoryScreen extends StatefulWidget {
   const RunHistoryScreen({
     required this.controller,
     this.feedbackService,
+    this.wallet,
     super.key,
   });
+  final WalletController? wallet;
   final RunHistoryController controller;
   final RunFeedbackService? feedbackService;
 
@@ -40,6 +43,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       builder: (_) => RunRecordDetailScreen(
         record: record,
         controller: widget.controller,
+        wallet: widget.wallet,
         feedbackService:
             widget.feedbackService ??
             (widget.controller.service is SupabaseRunRecordService

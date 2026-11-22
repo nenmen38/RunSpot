@@ -52,7 +52,11 @@ enum ShareLayout {
   headline('헤드라인', '상단 거리와 하단 기록'),
   board('기록 보드', '네 가지 기록을 격자로'),
   split('좌우 분할', '경로 옆에 세로 기록'),
-  footer('하단 카드', '사진 위에 기록 카드');
+  footer('하단 카드', '사진 위에 기록 카드'),
+  minimalCard('미니멀 카드', '여백과 차분한 선으로 간결하게'),
+  nightCard('야간 러닝 카드', '깊은 남색과 보랏빛 트랙');
+
+  static const freeLayouts = [centered, headline, board, split, footer];
 
   const ShareLayout(this.label, this.description);
   final String label;
@@ -187,6 +191,42 @@ enum ShareLayout {
           texts,
           route: hasRoute
               ? Rect.fromLTWH(64, (height - 460) / 2, 460, 460)
+              : null,
+        );
+      case ShareLayout.minimalCard:
+        final y = hasRoute ? height - 510 : height * .34;
+        add(ShareField.distanceLabel, 96, y, 888, 32);
+        add(ShareField.distance, 84, y + 45, 750, 175, bold: true);
+        add(ShareField.unit, 840, y + 156, 150, 38);
+        stats(y + 282);
+        return ShareComposition(
+          texts,
+          route: hasRoute ? Rect.fromLTWH(180, height * .14, 720, 660) : null,
+        );
+      case ShareLayout.nightCard:
+        final y = height * .20;
+        add(ShareField.distanceLabel, 88, y, 904, 40, centered: true);
+        add(
+          ShareField.distance,
+          88,
+          y + 55,
+          904,
+          225,
+          centered: true,
+          bold: true,
+        );
+        add(ShareField.unit, 88, y + 325, 904, 38, centered: true);
+        stats(height - 290);
+        final side = (height - 950).clamp(340, 760).toDouble();
+        return ShareComposition(
+          texts,
+          route: hasRoute
+              ? Rect.fromLTWH(
+                  (1080 - side) / 2,
+                  (height - 290 + y + 390 - side) / 2,
+                  side,
+                  side,
+                )
               : null,
         );
       case ShareLayout.footer:

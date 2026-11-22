@@ -86,4 +86,17 @@ select pg_temp.check_item(pg_temp.fails(format('select public.expand_crew(%L)',:
 reset role;
 set local role anon;
 select pg_temp.check_item(pg_temp.fails('select public.my_titles()','42501'),'익명 거부');
+-- 공유 카드는 표시 가격으로 구매하고 보관하되 기존 꾸미기 칸에 착용할 수 없습니다.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000301',true);
+select pg_temp.check_item(public.my_wallet()->'cosmetic_prices'->>'share_minimal'='100'
+  and public.my_wallet()->'cosmetic_prices'->>'share_night'='200','공유 카드 가격');
+select (public.my_wallet()->>'coins')::int as before_share_card \gset
+select pg_temp.check_item((select (w->>'coins')::int=:'before_share_card'::int-100
+  and w->'cosmetics'->'owned' ? 'share_minimal'
+  from (select public.buy_cosmetic('share_minimal',100) w) x),'미니멀 카드 구매');
+select pg_temp.check_item((select (w->>'coins')::int=:'before_share_card'::int-100
+  from (select public.buy_cosmetic('share_minimal',100) w) x),'공유 카드 중복 차감 방지');
+select pg_temp.check_item(pg_temp.fails('select public.buy_cosmetic(''share_night'',100)','P0001'),'공유 카드 가격 검증');
+select pg_temp.check_item(pg_temp.fails('select public.equip_cosmetic(''route'',''share_minimal'')','22023'),'일반 착용 칸에 공유 카드 사용 거부');
 rollback;

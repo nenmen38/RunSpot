@@ -1,3 +1,4 @@
+import '../monetization/coin_frames.dart';
 import '../run_transfer/run_export.dart';
 
 import 'dart:async';
@@ -29,8 +30,10 @@ class RunRecordDetailScreen extends StatefulWidget {
     this.mapBridgeFactory,
     this.feedbackService,
     this.healthService,
+    this.wallet,
     super.key,
   });
+  final WalletController? wallet;
   final RunRecord record;
   final RunHistoryController controller;
   final MapBridgeFactory? mapBridgeFactory;
@@ -165,6 +168,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                       MaterialPageRoute<void>(
                         builder: (_) => RunShareScreen(
                           record: _record,
+                          wallet: widget.wallet,
                           averageHeartRate:
                               _selectedHealthSource?.averageHeartRate,
                           isCurrentOwner: () =>
