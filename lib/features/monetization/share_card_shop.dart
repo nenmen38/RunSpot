@@ -9,11 +9,11 @@ import '../run_share/data/share_image_renderer.dart';
 import '../run_share/models/share_card_catalog.dart';
 import 'coin_frames.dart';
 import 'cosmetics.dart';
+import 'shop_item_actions.dart';
 
 class ShareCardShop extends StatelessWidget {
   const ShareCardShop({
     required this.wallet,
-    required this.onCharge,
     required this.onMessage,
     this.history,
     this.ownedOnly = false,
@@ -22,7 +22,6 @@ class ShareCardShop extends StatelessWidget {
 
   final WalletController wallet;
   final RunHistoryController? history;
-  final ValueChanged<int> onCharge;
   final ValueChanged<String> onMessage;
   final bool ownedOnly;
 
@@ -52,11 +51,19 @@ class ShareCardShop extends StatelessWidget {
     return (image: image, isSample: isSample);
   }
 
-  Future<void> _open(BuildContext context, CosmeticItem item) async {
+  Future<void> _open(
+    BuildContext context,
+    CosmeticItem item, {
+    bool buy = false,
+  }) async {
     final current = wallet.wallet;
     if (current == null || !wallet.service.isCurrentOwner) return;
     final price = current.priceOf(item);
-    final owned = current.cosmetics.contains(item);
+    if (buy &&
+        (!await checkCoinBalance(context, current, price) ||
+            !context.mounted)) {
+      return;
+    }
     final preview = _preview(item);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -95,14 +102,10 @@ class ShareCardShop extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
             child: const Text('닫기'),
           ),
-          if (!owned && current.listedCosmetics.contains(item))
+          if (buy)
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(
-                current.coins < price
-                    ? '코인 충전'
-                    : '${formatNumber(price)}코인으로 구매',
-              ),
+              child: Text('${formatNumber(price)}코인으로 구매'),
             ),
         ],
       ),
@@ -112,10 +115,7 @@ class ShareCardShop extends StatelessWidget {
         !wallet.service.isCurrentOwner) {
       return;
     }
-    if ((wallet.wallet?.coins ?? 0) < price) {
-      onCharge(price);
-      return;
-    }
+    if ((wallet.wallet?.coins ?? 0) < price) return;
     final error = await wallet.buyCosmetic(item, expectedPrice: price);
     if (context.mounted) {
       onMessage(error ?? '구매했어요. 러닝 공유 화면에서 카드를 골라 보세요.');
@@ -149,22 +149,55 @@ class ShareCardShop extends StatelessWidget {
                   ),
                 ),
                 for (final item in items)
-                  ListTile(
-                    leading: Icon(
-                      item == CosmeticItem.shareNight
-                          ? Icons.nights_stay_outlined
-                          : Icons.photo_outlined,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
                     ),
-                    title: Text(item.label),
-                    subtitle: Text(
-                      current.cosmetics.contains(item)
-                          ? '보유 중 · 러닝 공유 화면에서 사용'
-                          : current.listedCosmetics.contains(item)
-                          ? '${current.priceOf(item)}코인 · 미리보기'
-                          : '${item.defaultPrice}코인 · 판매 준비 중',
+                    child: Row(
+                      children: [
+                        Icon(
+                          item == CosmeticItem.shareNight
+                              ? Icons.nights_stay_outlined
+                              : Icons.photo_outlined,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.label,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              Text(
+                                current.cosmetics.contains(item)
+                                    ? '보유 중 · 러닝 공유 화면에서 사용'
+                                    : current.listedCosmetics.contains(item)
+                                    ? '${formatNumber(current.priceOf(item))}코인'
+                                    : '${item.defaultPrice}코인 · 판매 준비 중',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ShopItemActions(
+                          onPreview: () => _open(context, item),
+                          purchase:
+                              !ownedOnly &&
+                                  !current.cosmetics.contains(item) &&
+                                  current.listedCosmetics.contains(item)
+                              ? FilledButton(
+                                  onPressed: wallet.busy
+                                      ? null
+                                      : () => _open(context, item, buy: true),
+                                  child: const Text('구매'),
+                                )
+                              : null,
+                        ),
+                      ],
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: wallet.busy ? null : () => _open(context, item),
                   ),
               ],
             ),

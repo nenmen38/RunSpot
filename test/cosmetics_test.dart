@@ -19,11 +19,7 @@ void main() {
         home: Scaffold(
           body: ListView(
             children: [
-              CosmeticShop(
-                controller: wallet,
-                onCharge: (_) => messages.add('충전'),
-                onMessage: messages.add,
-              ),
+              CosmeticShop(controller: wallet, onMessage: messages.add),
               CosmeticInventory(controller: wallet, onMessage: messages.add),
             ],
           ),
@@ -45,16 +41,28 @@ void main() {
     expect(service.coins, 600);
     expect(wallet.wallet!.cosmetics, {CosmeticItem.routeNeon});
 
-    // 코인이 모자란 아이템은 충전 창으로 안내합니다.
-    final flame = find.descendant(
-      of: find.byKey(const ValueKey('shop-route_rainbow')),
-      matching: find.text('코인 충전'),
+    final rainbow = find.byKey(const ValueKey('shop-route_rainbow'));
+    final preview = find.descendant(
+      of: rainbow,
+      matching: find.byTooltip('미리보기'),
     );
-    await tester.ensureVisible(flame);
+    await tester.ensureVisible(preview);
+    await tester.tap(preview);
     await tester.pumpAndSettle();
-    await tester.tap(flame);
-    await tester.pump();
-    expect(messages, contains('충전'));
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(service.coins, 600);
+    await tester.tap(find.text('닫기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('200코인 부족'), findsNothing);
+    final buyRainbow = find.descendant(of: rainbow, matching: find.text('구매'));
+    await tester.ensureVisible(buyRainbow);
+    await tester.tap(buyRainbow);
+    await tester.pumpAndSettle();
+    expect(find.text('200코인 부족'), findsOneWidget);
+    expect(find.text('코인 충전'), findsNothing);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
 
     // 보관함에서 착용하고 해제합니다.
     final wear = find.descendant(
@@ -98,7 +106,6 @@ void main() {
               CrewExpansionShop(
                 controller: wallet,
                 crew: crew,
-                onCharge: (_) {},
                 onMessage: messages.add,
               ),
             ],
@@ -109,7 +116,9 @@ void main() {
     // 크루장인 크루만 보입니다.
     expect(find.byKey(const ValueKey('expand-crew-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('expand-crew-2')), findsNothing);
-    await tester.tap(find.text('정원 늘리기'));
+    await tester.tap(find.text('구매'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '구매').last);
     await tester.pumpAndSettle();
     expect(service.calls, contains('expand:crew-1'));
     expect(service.coins, 500);

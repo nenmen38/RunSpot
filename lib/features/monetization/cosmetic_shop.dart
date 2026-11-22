@@ -1,10 +1,14 @@
+import 'dart:ui' show PointMode;
+
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
+import '../chat/chat_room_style.dart';
 import '../crew/crew_controller.dart';
 import '../titles/badge_directory.dart';
 import 'coin_frames.dart';
 import 'cosmetics.dart';
+import 'shop_item_actions.dart';
 
 /// 아이템 미리보기입니다. 칭호 모양은 배지로, 나머지는 색 동그라미로 보여줍니다.
 class CosmeticPreview extends StatelessWidget {
@@ -50,25 +54,102 @@ class CosmeticPreview extends StatelessWidget {
   }
 }
 
+Future<void> _showCosmeticPreview(BuildContext context, CosmeticItem item) =>
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${item.slot.label} · ${item.label}'),
+        content: switch (item.slot) {
+          CosmeticSlot.route => SizedBox(
+            width: 240,
+            height: 112,
+            child: CustomPaint(painter: _RouteExample(item)),
+          ),
+          CosmeticSlot.chatBubble => SizedBox(
+            width: 240,
+            child: ChatMessageBubble(
+              body: '오늘 같이 달릴래요?',
+              nickname: '러너',
+              mine: true,
+              showAvatar: false,
+              showTime: false,
+              sentAt: null,
+              showDay: false,
+              bubble: item,
+            ),
+          ),
+          CosmeticSlot.titleStyle => Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('러너'),
+              const SizedBox(width: 8),
+              Flexible(
+                child: TitleBadge(title: RunnerTitle.tenK, style: item),
+              ),
+            ],
+          ),
+          CosmeticSlot.shareCard => CosmeticPreview(item: item),
+        },
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+
+class _RouteExample extends CustomPainter {
+  const _RouteExample(this.item);
+
+  final CosmeticItem item;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = [
+      Offset(size.width * .08, size.height * .76),
+      Offset(size.width * .24, size.height * .62),
+      Offset(size.width * .38, size.height * .28),
+      Offset(size.width * .59, size.height * .37),
+      Offset(size.width * .73, size.height * .70),
+      Offset(size.width * .92, size.height * .51),
+    ];
+    final route = skinRoute([points], item, chunk: 1);
+    for (final (index, segment) in route.segments.indexed) {
+      final color = Color(
+        0xff000000 | int.parse(route.colors![index].substring(1), radix: 16),
+      );
+      canvas.drawPoints(
+        PointMode.polygon,
+        segment,
+        Paint()
+          ..color = color
+          ..strokeWidth = 6
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RouteExample oldDelegate) => oldDelegate.item != item;
+}
+
 /// 상점의 꾸미기 아이템 목록입니다. 칸(경로 색·칭호 모양·오라 효과·말풍선)별로 묶습니다.
 class CosmeticShop extends StatelessWidget {
   const CosmeticShop({
     required this.controller,
-    required this.onCharge,
     required this.onMessage,
     super.key,
   });
 
   final WalletController controller;
-  final ValueChanged<int> onCharge;
   final ValueChanged<String> onMessage;
 
   Future<void> _buy(BuildContext context, CosmeticItem item) async {
     final wallet = controller.wallet;
     if (wallet == null) return;
     final price = wallet.priceOf(item);
-    if (wallet.coins < price) {
-      onCharge(price);
+    if (!await checkCoinBalance(context, wallet, price) || !context.mounted) {
       return;
     }
     final ok = await showDialog<bool>(
@@ -130,15 +211,11 @@ class CosmeticShop extends StatelessWidget {
                         onPressed: wallet == null || controller.busy
                             ? null
                             : () => _buy(context, item),
-                        child: Text(
-                          (wallet?.coins ?? 0) <
-                                  (wallet?.priceOf(item) ?? item.defaultPrice)
-                              ? '코인 충전'
-                              : '구매',
-                        ),
+                        child: const Text('구매'),
                       ),
                 subtitle:
                     '${formatNumber(wallet?.priceOf(item) ?? item.defaultPrice)}코인',
+                onPreview: () => _showCosmeticPreview(context, item),
               ),
           ],
         ],
@@ -224,12 +301,14 @@ class _ItemRow extends StatelessWidget {
     required this.item,
     required this.trailing,
     this.subtitle,
+    this.onPreview,
     super.key,
   });
 
   final CosmeticItem item;
   final Widget trailing;
   final String? subtitle;
+  final VoidCallback? onPreview;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -242,7 +321,12 @@ class _ItemRow extends StatelessWidget {
     ),
     child: Row(
       children: [
-        CosmeticPreview(item: item),
+        CosmeticPreview(
+          item: item,
+          size: onPreview != null && item.slot == CosmeticSlot.titleStyle
+              ? 32
+              : 44,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -260,7 +344,11 @@ class _ItemRow extends StatelessWidget {
             ],
           ),
         ),
-        trailing,
+        if (onPreview case final preview?) ...[
+          const SizedBox(width: 8),
+          ShopItemActions(onPreview: preview, purchase: trailing),
+        ] else
+          trailing,
       ],
     ),
   );
@@ -271,14 +359,12 @@ class CrewExpansionShop extends StatelessWidget {
   const CrewExpansionShop({
     required this.controller,
     required this.crew,
-    required this.onCharge,
     required this.onMessage,
     super.key,
   });
 
   final WalletController controller;
   final CrewController crew;
-  final ValueChanged<int> onCharge;
   final ValueChanged<String> onMessage;
 
   @override
@@ -342,10 +428,36 @@ class CrewExpansionShop extends StatelessWidget {
                         onPressed: wallet == null || controller.busy
                             ? null
                             : () async {
-                                if (wallet.coins < price) {
-                                  onCharge(price);
+                                if (!await checkCoinBalance(
+                                      context,
+                                      wallet,
+                                      price,
+                                    ) ||
+                                    !context.mounted) {
                                   return;
                                 }
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('크루 정원을 늘릴까요?'),
+                                    content: Text(
+                                      '${formatNumber(price)}코인을 사용해 ${item.name}의 정원을 ${item.sizeLimit}명에서 50명으로 늘려요.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('취소'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text('구매'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed != true || !context.mounted)
+                                  return;
                                 final message = await controller.expandCrew(
                                   item.id,
                                 );
@@ -356,9 +468,7 @@ class CrewExpansionShop extends StatelessWidget {
                                 await crew.refresh();
                                 onMessage('${item.name} 정원을 50명으로 늘렸어요.');
                               },
-                        child: Text(
-                          (wallet?.coins ?? 0) < price ? '코인 충전' : '정원 늘리기',
-                        ),
+                        child: const Text('구매'),
                       ),
                   ],
                 ),

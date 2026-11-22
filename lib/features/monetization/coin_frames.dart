@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shared/errors/server_error.dart';
 import '../../shared/theme/app_colors.dart';
 import 'cosmetics.dart';
+import 'shop_item_actions.dart';
 
 /// 코인으로 사는 테두리입니다. 가격은 서버가 정하며 여기 값은 서버 응답이 없을 때만 씁니다.
 enum FrameKind {
@@ -570,7 +571,6 @@ class CoinShopSheet extends StatelessWidget {
     required this.prices,
     required this.onBuy,
     this.note,
-    this.itemPrice,
     super.key,
   });
 
@@ -580,19 +580,12 @@ class CoinShopSheet extends StatelessWidget {
   final Map<String, String> prices;
   final ValueChanged<CoinPack> onBuy;
   final String? note;
-  final int? itemPrice;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final wallet = controller.wallet;
     final balance = wallet?.coins;
-    final cost = itemPrice;
-    final shortfall = cost == null || balance == null
-        ? null
-        : cost > balance
-        ? cost - balance
-        : 0;
     return SafeArea(
       top: false,
       child: ListView(
@@ -600,10 +593,6 @@ class CoinShopSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         children: [
           Text('코인 충전', style: text.titleLarge),
-          if (shortfall != null && cost != null)
-            Text(
-              '아이템 ${formatNumber(cost)}코인 · 부족 ${formatNumber(shortfall)}코인',
-            ),
           if (balance != null && balance < 0)
             const Text('코인이 조정되어 잔액이 부족합니다. 거래 내역을 확인해 주세요.'),
           if (wallet != null) ...[
@@ -641,13 +630,6 @@ class CoinShopSheet extends StatelessWidget {
                   '${formatNumber(pack.coins)}코인',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                subtitle: cost != null && balance != null
-                    ? Text(
-                        balance + pack.coins >= cost
-                            ? '아이템 구매 후 ${formatNumber(balance + pack.coins - cost)}코인 남음'
-                            : '충전 후에도 ${formatNumber(cost - balance - pack.coins)}코인 부족',
-                      )
-                    : null,
                 trailing: FilledButton(
                   onPressed: prices.containsKey(pack.id)
                       ? () => onBuy(pack)
@@ -994,20 +976,48 @@ class _Swatch extends StatelessWidget {
   );
 }
 
+/// 구매 버튼을 눌렀을 때 부족한 코인 수를 알려 줍니다.
+Future<bool> checkCoinBalance(
+  BuildContext context,
+  Wallet wallet,
+  int price,
+) async {
+  final missing = price - wallet.coins;
+  if (missing <= 0) return true;
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('코인이 부족해요'),
+      content: Text('${formatNumber(missing)}코인 부족'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('확인'),
+        ),
+      ],
+    ),
+  );
+  return false;
+}
+
 /// 상점 맨 위의 코인 테두리 판매 목록입니다.
 class FrameShop extends StatelessWidget {
   const FrameShop({
     required this.controller,
-    required this.onCharge,
     required this.onMessage,
     super.key,
   });
 
   final WalletController controller;
-  final ValueChanged<int> onCharge;
   final ValueChanged<String> onMessage;
 
   Future<void> _buy(BuildContext context, FrameKind kind, int price) async {
+    final wallet = controller.wallet;
+    if (wallet == null ||
+        !await checkCoinBalance(context, wallet, price) ||
+        !context.mounted) {
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1050,8 +1060,6 @@ class FrameShop extends StatelessWidget {
               builder: (context) {
                 final price = wallet?.prices[kind] ?? kind.defaultPrice;
                 final owned = wallet?.owned.contains(kind) ?? false;
-                final short =
-                    wallet != null && price > 0 && wallet.coins < price;
                 return Container(
                   key: ValueKey('shop-${kind.code}'),
                   margin: const EdgeInsets.only(bottom: 10),
@@ -1089,20 +1097,43 @@ class FrameShop extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      if (owned)
-                        const FilledButton(onPressed: null, child: Text('보유 중'))
-                      else if (short)
-                        OutlinedButton(
-                          onPressed: () => onCharge(price),
-                          child: const Text('코인 충전'),
-                        )
-                      else
-                        FilledButton(
-                          onPressed: wallet == null || controller.busy
-                              ? null
-                              : () => _buy(context, kind, price),
-                          child: const Text('구매'),
+                      ShopItemActions(
+                        onPreview: () => showDialog<void>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(kind.label),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                FrameBadge(
+                                  kind: kind,
+                                  color: controller.color,
+                                  size: 88,
+                                ),
+                                const SizedBox(height: 12),
+                                const Text('지도에서 내 위치에 표시되는 모습'),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('닫기'),
+                              ),
+                            ],
+                          ),
                         ),
+                        purchase: owned
+                            ? const FilledButton(
+                                onPressed: null,
+                                child: Text('보유 중'),
+                              )
+                            : FilledButton(
+                                onPressed: wallet == null || controller.busy
+                                    ? null
+                                    : () => _buy(context, kind, price),
+                                child: const Text('구매'),
+                              ),
+                      ),
                     ],
                   ),
                 );
@@ -1120,7 +1151,6 @@ class FrameShop extends StatelessWidget {
                   wallet?.crewTicketPrice ?? Wallet.crewTicketDefaultPrice;
               // 쓰지 않은 생성권이 있으면 먼저 쓰도록 더 사지 않습니다.
               final blocked = wallet != null && wallet.crewTickets > 0;
-              final short = wallet != null && price > 0 && wallet.coins < price;
               return _CrewTicketCard(
                 key: const ValueKey('shop-crew-ticket'),
                 subtitle: price == 0
@@ -1128,11 +1158,6 @@ class FrameShop extends StatelessWidget {
                     : '나만의 크루를 만들고 친구를 초대해요.\n${formatNumber(price)}코인',
                 action: blocked
                     ? FilledButton(onPressed: null, child: const Text('보유 중'))
-                    : short
-                    ? OutlinedButton(
-                        onPressed: () => onCharge(price),
-                        child: const Text('코인 충전'),
-                      )
                     : FilledButton(
                         onPressed: wallet == null || controller.busy
                             ? null
@@ -1149,6 +1174,12 @@ class FrameShop extends StatelessWidget {
   );
 
   Future<void> _buyTicket(BuildContext context, int price) async {
+    final wallet = controller.wallet;
+    if (wallet == null ||
+        !await checkCoinBalance(context, wallet, price) ||
+        !context.mounted) {
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

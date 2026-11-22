@@ -142,14 +142,15 @@ void main() {
     expect(service.calls, ['buy:basic']);
     expect(find.text('1,200'), findsOneWidget);
     expect(button(tester, 'shop-basic', '보유 중').onPressed, isNull);
-    // 남은 코인으로 오라를 살 수 없으면 충전 버튼을 보여줍니다.
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('shop-aura')),
-        matching: find.text('코인 충전'),
-      ),
-      findsOneWidget,
-    );
+    final aura = find.byKey(const ValueKey('shop-aura'));
+    final auraBuy = find.descendant(of: aura, matching: find.text('구매'));
+    await tester.ensureVisible(auraBuy);
+    expect(find.text('200코인 부족'), findsNothing);
+    await tester.tap(auraBuy);
+    await tester.pumpAndSettle();
+    expect(find.text('200코인 부족'), findsOneWidget);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('보관함'));
     await tester.pumpAndSettle();

@@ -214,7 +214,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     );
   }
 
-  Future<void> _openCoins([int? itemPrice]) async {
+  Future<void> _openCoins() async {
     final wallet = widget.wallet;
     if (wallet == null) return;
     unawaited(wallet.refresh());
@@ -227,7 +227,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
         listenable: wallet,
         builder: (context, _) => CoinShopSheet(
           controller: wallet,
-          itemPrice: itemPrice,
           prices: {
             if (!_previewOnly && !_busy && wallet.wallet?.weeklyQuest != null)
               for (final entry in _coinPackages.entries)
@@ -299,27 +298,17 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
           final wallet? => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FrameShop(
-                controller: wallet,
-                onCharge: _openCoins,
-                onMessage: _showMessage,
-              ),
+              FrameShop(controller: wallet, onMessage: _showMessage),
               ShareCardShop(
                 wallet: wallet,
                 history: widget.history,
-                onCharge: _openCoins,
                 onMessage: _showMessage,
               ),
-              CosmeticShop(
-                controller: wallet,
-                onCharge: _openCoins,
-                onMessage: _showMessage,
-              ),
+              CosmeticShop(controller: wallet, onMessage: _showMessage),
               if (widget.crew case final crew?)
                 CrewExpansionShop(
                   controller: wallet,
                   crew: crew,
-                  onCharge: _openCoins,
                   onMessage: _showMessage,
                 ),
             ],
@@ -354,7 +343,6 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
             ShareCardShop(
               wallet: wallet,
               history: widget.history,
-              onCharge: _openCoins,
               onMessage: _showMessage,
               ownedOnly: true,
             ),
