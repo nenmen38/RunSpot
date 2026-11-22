@@ -109,7 +109,24 @@ test('착용한 테두리를 고른 색으로 내 위치 원에 표시하고 해
   assert.equal(own.className,'point frame basic');assert.equal(own.style.values['--c'],'#22C55E');
   // 형식이 잘못된 색은 그리지 않습니다.
   f.update({...d,frame:{style:'basic',color:'red;x'}});assert.equal(own.className,'point');
-  f.update({...d,frame:null});assert.equal(own.className,'point');assert.equal(own.innerHTML,'');
+  f.update({...d,frame:null});assert.equal(own.className,'point');assert.match(own.innerHTML,/<svg /);
+});
+test('내 위치 화살표는 달리는 방향을 가리키고 작은 흔들림에는 돌지 않습니다',()=>{
+  const f=documentFixture(),d=data();f.update({...d,frame:{style:'aura',color:'#3182F6'}});
+  const own=f.overlays.find(o=>o.content.attributes['aria-label']==='내 현재 위치').content;
+  assert.match(own.innerHTML,/<svg /);assert.equal(own.style.values['--h'],'0deg');
+  // 동쪽으로 약 18m 달리면 90도를 가리킵니다.
+  f.update({...d,position:[37,127.0002]});assert.equal(own.style.values['--h'],'90deg');
+  // 1m 남짓한 흔들림은 무시합니다.
+  f.update({...d,position:[37.00001,127.0002]});assert.equal(own.style.values['--h'],'90deg');
+  // 남쪽으로 돌면 180도, 다시 서쪽이면 270도이고, 북쪽은 360도로 이어집니다(한 바퀴 거꾸로 돌지 않음).
+  f.update({...d,position:[36.9998,127.0002]});assert.equal(own.style.values['--h'],'180deg');
+  f.update({...d,position:[36.9998,127]});assert.equal(own.style.values['--h'],'270deg');
+  f.update({...d,position:[37,127]});assert.equal(own.style.values['--h'],'360deg');
+  // 내 위치가 사라졌다 다시 나타나면 새로 시작합니다.
+  f.update({...d,position:null});f.update({...d,position:[37,127.001]});
+  const again=f.overlays.filter(o=>o.content.attributes['aria-label']==='내 현재 위치').at(-1).content;
+  assert.notEqual(again,own);assert.equal(again.style.values['--h'],'360deg');
 });
 
 // 오라 합체 테스트용 상태입니다. 거리 판정은 앱이 하므로 여기서는 받은 값만 씁니다.
