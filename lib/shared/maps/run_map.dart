@@ -41,16 +41,12 @@ class RunMapMarker {
 
 /// 내 위치 원에 두르는 테두리입니다. [color]는 #RRGGBB 형식입니다.
 class RunMapFrame {
-  const RunMapFrame({required this.aura, required this.color, this.effect});
+  const RunMapFrame({required this.aura, required this.color});
   final bool aura;
   final String color;
-
-  /// 오라 테두리에 더하는 움직이는 효과입니다(sparkle·flame·wave). 오라일 때만 씁니다.
-  final String? effect;
   Map<String, Object?> toJson() => {
     'style': aura ? 'aura' : 'basic',
     'color': color,
-    if (aura && effect != null) 'effect': effect,
   };
 }
 

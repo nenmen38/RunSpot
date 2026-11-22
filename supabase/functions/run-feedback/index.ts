@@ -54,4 +54,7 @@ Deno.serve(feedbackHandler((authorization): Gateway => {
       if (error) throw error;
     },
   };
-}, key ? new GeminiFeedback(key) : null));
+}, key
+  // 모델 이름은 서버 비밀값 GEMINI_MODEL로 바꿀 수 있습니다(없으면 기본 모델).
+  ? new GeminiFeedback(key, fetch, Deno.env.get("GEMINI_MODEL")?.trim() || undefined)
+  : null));

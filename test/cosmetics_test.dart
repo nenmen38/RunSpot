@@ -4,7 +4,6 @@ import 'package:runquest/features/crew/crew_controller.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
 import 'package:runquest/features/monetization/cosmetic_shop.dart';
 import 'package:runquest/features/monetization/cosmetics.dart';
-import 'package:runquest/shared/maps/run_map.dart';
 
 import 'support/crew_fakes.dart';
 import 'support/wallet_fakes.dart';
@@ -48,7 +47,7 @@ void main() {
 
     // 코인이 모자란 아이템은 충전 창으로 안내합니다.
     final flame = find.descendant(
-      of: find.byKey(const ValueKey('shop-aura_flame')),
+      of: find.byKey(const ValueKey('shop-route_rainbow')),
       matching: find.text('코인 충전'),
     );
     await tester.ensureVisible(flame);
@@ -62,7 +61,8 @@ void main() {
       of: find.byKey(const ValueKey('inventory-route_neon')),
       matching: find.text('착용'),
     );
-    await tester.ensureVisible(wear);
+    // 목록이 길어 보관함이 아직 그려지지 않았을 수 있으니 내려가며 찾습니다.
+    await tester.scrollUntilVisible(wear, 300);
     await tester.pumpAndSettle();
     await tester.tap(wear);
     await tester.pumpAndSettle();
@@ -130,21 +130,5 @@ void main() {
     expect(rainbow.segments.first.last, 8);
     expect(rainbow.segments.last.last, 19);
     expect(rainbow.colors, ['#ef4444', '#f97316', '#facc15']);
-  });
-
-  test('오라 효과는 오라 테두리일 때만 지도에 보냅니다', () {
-    expect(CosmeticItem.auraFlame.mapEffect, 'flame');
-    expect(
-      const RunMapFrame(aura: true, color: '#3182F6', effect: 'flame').toJson(),
-      {'style': 'aura', 'color': '#3182F6', 'effect': 'flame'},
-    );
-    expect(
-      const RunMapFrame(
-        aura: false,
-        color: '#3182F6',
-        effect: 'flame',
-      ).toJson().containsKey('effect'),
-      isFalse,
-    );
   });
 }

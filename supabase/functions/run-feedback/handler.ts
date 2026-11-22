@@ -97,7 +97,9 @@ export function feedbackHandler(
             : { heart_summary: heartSummary }),
         });
         await gateway.finish(reservation.request_id, result);
-      } catch {
+      } catch (error) {
+        // 원인을 서버 로그(Edge Functions → run-feedback → Logs)에 남깁니다. 사용자 정보는 넣지 않습니다.
+        console.error("run_feedback_failed", describeFailure(error));
         // 실패 후 다시 호출하지 않고 예약과 예산을 유지합니다.
         await gateway.finish(reservation.request_id, null).catch(() => {});
         return reply({
@@ -106,8 +108,20 @@ export function feedbackHandler(
         });
       }
       return reply(await gateway.read(body.run_id));
-    } catch {
+    } catch (error) {
+      console.error("run_feedback_unavailable", describeFailure(error));
       return reply({ error: "unavailable" }, 503);
     }
   };
+}
+
+/** 로그에 남길 실패 이유입니다. 오류 이름·코드와 응답 상태만 남깁니다. */
+export function describeFailure(error: unknown): string {
+  if (error instanceof Error) {
+    const status = (error as { status?: unknown }).status;
+    return typeof status === "number"
+      ? `${error.message} (status ${status})`
+      : error.message.slice(0, 120);
+  }
+  return "unknown";
 }

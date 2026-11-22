@@ -50,7 +50,7 @@ select public.user_badges(array['00000000-0000-0000-0000-000000000301'::uuid]) a
 select pg_temp.check_item(:'badges'::jsonb->'00000000-0000-0000-0000-000000000301'->>'title'='ten_k'
   and :'badges'::jsonb->'00000000-0000-0000-0000-000000000301'->>'title_style'='title_crown'
   and :'badges'::jsonb->'00000000-0000-0000-0000-000000000301'->>'chat_bubble'='bubble_mint','다른 사람에게 보임');
-select pg_temp.check_item(pg_temp.fails('select public.buy_cosmetic(''aura_flame'')','P0001'),'코인 부족');
+select pg_temp.check_item(pg_temp.fails('select public.buy_cosmetic(''route_rainbow'')','P0001'),'코인 부족');
 reset role;
 insert into runspot_private.board_posts(author_id,client_post_id,board,topic,title,body)
  values('00000000-0000-0000-0000-000000000301',gen_random_uuid(),'national','free','칭호 글','내용');

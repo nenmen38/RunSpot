@@ -1,5 +1,6 @@
 import { feedbackComparison } from "./comparison.ts";
 import { GeminiFeedback, safeSummary, type Summary } from "./gemini.ts";
+import { describeFailure } from "./handler.ts";
 import { feedbackHandler, type Gateway, type State } from "./handler.ts";
 function assert(ok: boolean, message = "검증 실패") {
   if (!ok) throw new Error(message);
@@ -145,7 +146,7 @@ Deno.test("Gemini 요청은 숫자 요약만 전송하고 도구·자동 재시�
       );
       const body = JSON.parse(options!.body as string);
       assert(
-        body.generationConfig.maxOutputTokens === 768 &&
+        body.generationConfig.maxOutputTokens === 2048 &&
           body.generationConfig.candidateCount === 1 && !body.tools,
       );
       assert(body.systemInstruction.parts[0].text.includes("4’50”/km"));
@@ -321,7 +322,7 @@ Deno.test("심박을 포함한 생성도 숫자만 전송하며 객관적 분석
   assert(result.message.includes("145"));
 });
 
-Deno.test("150자를 넘는 새 피드백은 잘라 저장하지 않고 거부합니다", async () => {
+Deno.test("200자를 넘는 새 피드백은 잘라 저장하지 않고 거부합니다", async () => {
   const provider = new GeminiFeedback(
     "secret",
     (async () =>
@@ -329,7 +330,7 @@ Deno.test("150자를 넘는 새 피드백은 잘라 저장하지 않고 거부�
         candidates: [{
           finishReason: "STOP",
           content: {
-            parts: [{ text: JSON.stringify({ message: "가".repeat(151) }) }],
+            parts: [{ text: JSON.stringify({ message: "가".repeat(201) }) }],
           },
         }],
         usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 10 },
@@ -386,4 +387,25 @@ Deno.test("비교 차이는 이전 평균 거리·합산 페이스 기준으로 
     slower.distance_difference_m === null &&
       slower.pace_difference_seconds_per_km === 10,
   );
+});
+
+Deno.test("실패 이유 코드와 응답 상태를 로그용으로 남기고 모델은 바꿀 수 있습니다", async () => {
+  let url = "";
+  const provider = new GeminiFeedback(
+    "secret",
+    (async (target) => {
+      url = String(target);
+      return new Response("not found", { status: 404 });
+    }) as typeof fetch,
+    "gemini-custom",
+  );
+  let failure = "";
+  try {
+    await provider.generate(summary);
+  } catch (error) {
+    failure = describeFailure(error);
+  }
+  assert(url.includes("/models/gemini-custom:generateContent"));
+  assert(failure === "provider_unavailable (status 404)");
+  assert(!failure.includes("secret"));
 });

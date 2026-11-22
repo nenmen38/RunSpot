@@ -84,8 +84,22 @@ export async function boundedJson(
   }
   return JSON.parse(new TextDecoder().decode(bytes));
 }
+/** 실패 원인을 로그로 남길 수 있게 이유 코드와 (있으면) 응답 상태를 담습니다. 개인정보는 넣지 않습니다. */
+export class FeedbackError extends Error {
+  constructor(code: string, readonly status?: number) {
+    super(code);
+  }
+}
+
 export class GeminiFeedback {
-  constructor(private key: string, private fetcher: typeof fetch = fetch) {}
+  constructor(
+    private key: string,
+    private fetcher: typeof fetch = fetch,
+    /** 쓰는 모델입니다. 서버 비밀값 GEMINI_MODEL로 바꿀 수 있습니다. */
+    readonly model: string = MODEL,
+  ) {}
+
+  // 실패해도 자동으로 다시 요청하지 않습니다(예산 보호). 원인은 FeedbackError 코드로 남깁니다.
   async generate(summary: Summary): Promise<Feedback> {
     const instruction =
       "감정을 배제한 냉정하고 객관적인 한국어 반말로 러닝 피드백을 3문장, 총 150자 이내로 작성해. 문장은 했다·이다·없다처럼 간결한 서술형으로 끝내. " +
@@ -121,10 +135,10 @@ export class GeminiFeedback {
       comparison: feedbackComparison(safe),
     });
     if (new TextEncoder().encode(instruction + content).length > 16384) {
-      throw new Error("large_prompt");
+      throw new FeedbackError("large_prompt");
     }
     const response = await this.fetcher(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
       {
         method: "POST",
         headers: {
@@ -137,7 +151,8 @@ export class GeminiFeedback {
           contents: [{ role: "user", parts: [{ text: content }] }],
           generationConfig: {
             candidateCount: 1,
-            maxOutputTokens: 768,
+            // 생각(thinking) 토큰도 이 한도에 들어가므로 답이 잘리지 않게 넉넉히 둡니다.
+            maxOutputTokens: 2048,
             responseMimeType: "application/json",
             responseSchema: {
               type: "OBJECT",
@@ -150,7 +165,8 @@ export class GeminiFeedback {
     );
     if (!response.ok) {
       await response.body?.cancel();
-      throw new Error("provider_unavailable");
+      // 404는 모델 이름이 없거나 바뀐 경우, 400·403은 키·요청 설정 문제, 429는 사용 한도입니다.
+      throw new FeedbackError("provider_unavailable", response.status);
     }
     const result = await boundedJson(response) as {
       candidates?: {
@@ -163,24 +179,32 @@ export class GeminiFeedback {
         thoughtsTokenCount?: number;
       };
     };
+    const usage = result.usageMetadata;
+    const fail = (code: string) => new FeedbackError(code);
     const candidate = result.candidates?.[0];
     if (candidate?.finishReason !== "STOP") {
-      throw new Error("incomplete_response");
+      throw fail("incomplete_response");
     }
-    const parsed = JSON.parse(
-      candidate.content?.parts?.filter((part) => !part.thought)
-        .map((part) => part.text ?? "").join("") ?? "",
-    );
+    let parsed: { message?: unknown };
+    try {
+      parsed = JSON.parse(
+        candidate.content?.parts?.filter((part) => !part.thought)
+          .map((part) => part.text ?? "").join("") ?? "",
+      );
+    } catch {
+      throw fail("invalid_json");
+    }
     const message = typeof parsed.message === "string"
       ? parsed.message.trim()
       : "";
+    // 지시는 150자 이내지만 페이스 표기(4’50”/km) 등으로 조금 넘는 답까지 버리면 실패가 잦아지므로
+    // 화면·저장 한도(500자) 안에서 200자까지 받습니다. 그보다 길면 잘라 저장하지 않고 거부합니다.
     if (
-      !message || [...message].length > 150 || !/[가-힣]/.test(message) ||
+      !message || [...message].length > 200 || !/[가-힣]/.test(message) ||
       /https?:|<[^>]*>/.test(message)
     ) {
-      throw new Error("invalid_response");
+      throw fail("invalid_response");
     }
-    const usage = result.usageMetadata;
     const inputTokens = usage?.promptTokenCount;
     const outputTokens = (usage?.candidatesTokenCount ?? 0) +
       (usage?.thoughtsTokenCount ?? 0);
@@ -188,7 +212,7 @@ export class GeminiFeedback {
       !Number.isSafeInteger(inputTokens) || inputTokens! < 0 ||
       !Number.isSafeInteger(outputTokens) || outputTokens < 0
     ) {
-      throw new Error("invalid_usage");
+      throw new FeedbackError("invalid_usage");
     }
     return { message, inputTokens: inputTokens!, outputTokens };
   }

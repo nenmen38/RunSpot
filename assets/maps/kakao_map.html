@@ -25,15 +25,7 @@
     .runner.framed.aura { border-width:4px; animation:pulse 1.6s ease-in-out infinite alternate; }
     /* 함께 달리기 덩어리: 신청한 사람의 오라 색 동그라미 하나에 인원수만 적습니다. */
     .runner.group.framed { background:var(--c); border:3px solid white; font:800 18px sans-serif; }
-    /* 상점에서 산 오라 효과입니다. 오라 테두리를 착용했을 때만 내 위치 원 둘레에 더합니다. */
-    .point.frame.aura.fx-sparkle::after,.point.frame.aura.fx-flame::after,.point.frame.aura.fx-wave::after { content:''; position:absolute; border-radius:50%; pointer-events:none; }
-    .point.frame.aura.fx-sparkle::after { inset:-16px; background:radial-gradient(circle,#fff 0 1.6px,transparent 2.2px) 0 0/11px 11px; -webkit-mask:radial-gradient(circle,transparent 52%,#000 58%,#000 70%,transparent 76%); mask:radial-gradient(circle,transparent 52%,#000 58%,#000 70%,transparent 76%); animation:fxspin 5s linear infinite; }
-    .point.frame.aura.fx-flame::after { inset:-12px; background:conic-gradient(from 0deg,#f97316,#ef4444,#facc15,#f97316,#ef4444,#facc15,#f97316); -webkit-mask:radial-gradient(circle,transparent 58%,#000 64%,transparent 74%); mask:radial-gradient(circle,transparent 58%,#000 64%,transparent 74%); filter:blur(1px); animation:fxspin 2.4s linear infinite,fxflicker .35s ease-in-out infinite alternate; }
-    .point.frame.aura.fx-wave::after { inset:-4px; border:3px solid var(--c); animation:fxwave 1.8s ease-out infinite; }
-    @keyframes fxspin { to { transform:rotate(360deg); } }
-    @keyframes fxflicker { from { opacity:.75; transform:scale(.97) rotate(0deg); } to { opacity:1; transform:scale(1.04) rotate(20deg); } }
-    @keyframes fxwave { from { transform:scale(1); opacity:.9; } to { transform:scale(2.1); opacity:0; } }
-    @media (prefers-reduced-motion:reduce) { .point.frame.aura, .runner.framed.aura, .point.frame.aura::after { animation:none; box-shadow:0 0 14px 5px var(--g); } }
+    @media (prefers-reduced-motion:reduce) { .point.frame.aura, .runner.framed.aura { animation:none; box-shadow:0 0 14px 5px var(--g); } }
     /* 친구와 이어진 오라는 아래 캔버스가 대신 그리므로 개별 오라는 끕니다. */
     .fused { animation:none !important; box-shadow:none !important; }
     .aura-layer { display:block; pointer-events:none; }
@@ -404,9 +396,7 @@ window.createRunspotMap = () => {
         else own.setPosition(point(data.position));
         // 착용한 테두리를 사용자가 고른 색으로 내 위치 원에 표시합니다.
         const frame=data.frame&&/^#[0-9A-F]{6}$/i.test(data.frame.color)?data.frame:null;
-        // 오라 효과는 정해 둔 이름만 받습니다.
-        const effect=frame&&frame.style==='aura'&&['sparkle','flame','wave'].includes(frame.effect)?' fx-'+frame.effect:'';
-        const ownClass=(frame?'point frame '+(frame.style==='aura'?'aura':'basic'):'point')+effect+(frame&&aura.fused('self')?' fused':'');
+        const ownClass=(frame?'point frame '+(frame.style==='aura'?'aura':'basic'):'point')+(frame&&aura.fused('self')?' fused':'');
         if(ownElement.className!==ownClass){ownElement.className=ownClass; ownElement.innerHTML=frame?runnerIcon:'';}
         ownElement.style.setProperty('--c',frame?frame.color:'');
         ownElement.style.setProperty('--g',frame?frame.color+'99':'');

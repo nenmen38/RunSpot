@@ -562,9 +562,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     final wallet? when wallet.equipped != null => RunMapFrame(
                       aura: wallet.equipped == FrameKind.aura,
                       color: wallet.wallet!.color,
-                      effect: wallet
-                          .equippedIn(CosmeticSlot.auraEffect)
-                          ?.mapEffect,
                     ),
                     _ => null,
                   },

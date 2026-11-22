@@ -39,7 +39,6 @@ class CosmeticPreview extends StatelessWidget {
       child: Icon(
         switch (item.slot) {
           CosmeticSlot.route => Icons.route,
-          CosmeticSlot.auraEffect => Icons.auto_awesome,
           CosmeticSlot.chatBubble => Icons.chat_bubble,
           CosmeticSlot.titleStyle => Icons.badge,
         },
@@ -179,12 +178,6 @@ class CosmeticInventory extends StatelessWidget {
                 '내 ${slot.label}',
                 style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
-              if (slot == CosmeticSlot.auraEffect &&
-                  wallet.equipped != FrameKind.aura)
-                Text(
-                  '오라 테두리를 착용해야 효과가 보여요.',
-                  style: text.bodySmall?.copyWith(color: AppColors.orange),
-                ),
               const SizedBox(height: 10),
               for (final item in CosmeticItem.values.where(
                 (i) => i.slot == slot && wallet.cosmetics.contains(i),

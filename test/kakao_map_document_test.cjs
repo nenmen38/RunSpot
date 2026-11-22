@@ -59,16 +59,6 @@ test('단절된 경로를 각각 그리고 출발·도착을 따로 표시합니
   const lines=f.lines.length;f.update(d);assert.equal(f.lines.length,lines);
   f.update({...d,segments:[]});assert.ok(f.lines.every(l=>l.map===null));
 });
-test('오라 테두리에만 정해 둔 효과를 붙입니다',()=>{
-  const f=documentFixture(),d=data();
-  const own=()=>f.overlays.find(o=>o.content.attributes['aria-label']==='내 현재 위치').content;
-  f.update({...d,frame:{style:'aura',color:'#3182F6',effect:'sparkle'}});
-  assert.match(own().className,/fx-sparkle/);
-  f.update({...d,frame:{style:'aura',color:'#3182F6',effect:'boom"><img'}});
-  assert.doesNotMatch(own().className,/fx-/);
-  f.update({...d,frame:{style:'basic',color:'#3182F6',effect:'wave'}});
-  assert.doesNotMatch(own().className,/fx-/);
-});
 test('다크 모드면 지도를 어둡게 하는 표시를 켜고 끕니다',()=>{
   const f=documentFixture(),d=data();
   f.update({...d,dark:true});assert.ok(f.root.classes.has('dark'));

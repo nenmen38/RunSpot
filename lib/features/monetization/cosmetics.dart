@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 enum CosmeticSlot {
   route('route', '경로 색', '러닝 중 지도에 그려지는 내 경로 선 색'),
   titleStyle('title_style', '칭호 모양', '닉네임 옆 칭호 배지의 색과 아이콘'),
-  auraEffect('aura_effect', '오라 효과', '오라 테두리를 착용했을 때 더해지는 움직이는 효과'),
   chatBubble('chat_bubble', '말풍선', '친구와의 대화에서 내 말풍선 색');
 
   const CosmeticSlot(this.code, this.label, this.description);
@@ -46,15 +45,6 @@ enum CosmeticItem {
   titleFire('title_fire', CosmeticSlot.titleStyle, '불꽃 아이콘', 300, [
     Color(0xFFF97316),
   ]),
-  auraSparkle('aura_sparkle', CosmeticSlot.auraEffect, '별가루', 1600, [
-    Color(0xFFFDE68A),
-  ]),
-  auraFlame('aura_flame', CosmeticSlot.auraEffect, '불꽃', 1600, [
-    Color(0xFFF97316),
-  ]),
-  auraWave('aura_wave', CosmeticSlot.auraEffect, '물결', 1600, [
-    Color(0xFF38BDF8),
-  ]),
   bubbleMint('bubble_mint', CosmeticSlot.chatBubble, '민트', 200, [
     Color(0xFF14B8A6),
   ]),
@@ -86,10 +76,6 @@ enum CosmeticItem {
 
   static CosmeticItem? fromCode(Object? code) =>
       values.where((item) => item.code == code).firstOrNull;
-
-  /// 지도에서 쓰는 효과 이름입니다(오라 효과 칸만). 예: sparkle
-  String? get mapEffect =>
-      slot == CosmeticSlot.auraEffect ? code.substring('aura_'.length) : null;
 
   /// 칭호 배지에 붙는 아이콘입니다(칭호 모양 칸만).
   IconData? get titleIcon => switch (this) {
