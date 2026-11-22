@@ -93,6 +93,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('말풍선을 오른쪽으로 밀면 답장 대상이 표시되고 입력창이 열립니다', (tester) async {
+    final chat = _Chat()
+      ..room = [
+        message(3, 'friend'),
+        {...message(2, 'friend'), 'kind': 'deleted'},
+        message(1, 'friend'),
+      ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FriendChatView(service: chat, peer: 'friend', nickname: '친구'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final input = find.byType(TextField);
+    final preview = find.byTooltip('답장 취소');
+
+    await tester.drag(find.text('메시지3'), const Offset(-100, 0));
+    await tester.drag(find.text('메시지3'), const Offset(32, 0));
+    await tester.drag(find.text('메시지3'), const Offset(0, -85));
+    await tester.drag(find.text('메시지2'), const Offset(100, 0));
+    await tester.pumpAndSettle();
+    expect(preview, findsNothing);
+    expect(tester.widget<TextField>(input).focusNode!.hasFocus, isFalse);
+
+    final messageBubble = find.text('메시지3');
+    final swipe = await tester.startGesture(tester.getCenter(messageBubble));
+    await swipe.moveBy(const Offset(25, 0));
+    await swipe.moveBy(const Offset(75, 0));
+    await tester.pump();
+    final arrow = find.byIcon(Icons.reply_rounded);
+    expect(arrow, findsOneWidget);
+    expect(
+      tester.getTopLeft(arrow).dx,
+      greaterThan(tester.getTopRight(messageBubble).dx),
+    );
+    await swipe.up();
+    await tester.pumpAndSettle();
+    expect(preview, findsOneWidget);
+    expect(tester.widget<TextField>(input).focusNode!.hasFocus, isTrue);
+    await tester.enterText(input, '드래그 답장');
+    await tester.pump();
+    await tester.tap(find.byTooltip('보내기'));
+    await tester.pumpAndSettle();
+    expect(chat.sent.single.body, '드래그 답장');
+    expect(chat.sent.single.replyTo, 3);
+    expect(preview, findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('메시지에 답장하고 내 메시지를 두 사람의 대화에서 삭제합니다', (tester) async {
     final chat = _Chat()..room = [message(2, 'me'), message(1, 'friend')];
     await tester.pumpWidget(

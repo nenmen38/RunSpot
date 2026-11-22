@@ -178,6 +178,7 @@ class FriendChatView extends StatefulWidget {
 class _FriendChatViewState extends State<FriendChatView>
     with WidgetsBindingObserver {
   final _input = TextEditingController();
+  final _inputFocus = FocusNode();
   List<Map<String, dynamic>> _rows = [];
   List<ChatRoomSummary> _roomList = [];
   bool _loadingRooms = false;
@@ -482,6 +483,14 @@ class _FriendChatViewState extends State<FriendChatView>
     }
   }
 
+  void _startReply(Map<String, dynamic> row) {
+    final current = _rows.where((item) => item['id'] == row['id']).firstOrNull;
+    if (current == null || current['kind'] == 'deleted') return;
+    setState(() => _reply = current);
+    unawaited(HapticFeedback.selectionClick());
+    _inputFocus.requestFocus();
+  }
+
   Future<void> _messageActions(Map<String, dynamic> row) async {
     final mine = row['sender_id'] == widget.service.ownerId;
     final action = await showModalBottomSheet<String>(
@@ -521,12 +530,7 @@ class _FriendChatViewState extends State<FriendChatView>
     if (_refreshAfterDialog) _markRead();
     switch (action) {
       case 'reply':
-        final current = _rows
-            .where((item) => item['id'] == row['id'])
-            .firstOrNull;
-        if (current != null && current['kind'] != 'deleted') {
-          setState(() => _reply = current);
-        }
+        _startReply(row);
       case 'copy':
         await Clipboard.setData(ClipboardData(text: row['body'] as String));
         if (mounted) {
@@ -585,6 +589,7 @@ class _FriendChatViewState extends State<FriendChatView>
     widget.sync?.removeListener(_onSync);
     _poll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    _inputFocus.dispose();
     _input.dispose();
     super.dispose();
   }
@@ -642,17 +647,20 @@ class _FriendChatViewState extends State<FriendChatView>
                     // 보낸 사람이 착용한 말풍선 색을 씁니다(내 것도 서버에서 받아 씁니다).
                     final sender = row['sender_id'] as String?;
                     return ListenableBuilder(
+                      key: ValueKey(row['id']),
                       listenable: BadgeDirectory.instance,
                       builder: (context, _) => ChatMessageBubble(
                         bubble: sender == null
                             ? null
                             : BadgeDirectory.instance.user(sender)?.chatBubble,
-                        key: ValueKey(row['id']),
                         body: row['body'] as String,
                         replyPreview: row['reply_preview'] as String?,
                         onLongPress: row['kind'] == 'deleted'
                             ? null
                             : () => _messageActions(row),
+                        onReply: row['kind'] == 'deleted'
+                            ? null
+                            : () => _startReply(row),
                         content: switch (row['kind']) {
                           'photo' => FriendChatPhoto(
                             load: () => widget.service.photo(
@@ -716,6 +724,7 @@ class _FriendChatViewState extends State<FriendChatView>
           ),
         ChatComposer(
           controller: _input,
+          focusNode: _inputFocus,
           sending: _sending,
           canSend: _loadError == null && !_restoring && _pendingMessage == null,
           onSend: _send,

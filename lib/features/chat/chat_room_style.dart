@@ -3,6 +3,7 @@ import '../monetization/cosmetics.dart';
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
+import 'swipe_to_reply.dart';
 
 String formatChatTime(DateTime time, bool use24Hours) {
   final minutes = time.minute.toString().padLeft(2, '0');
@@ -50,6 +51,7 @@ class ChatMessageBubble extends StatelessWidget {
     this.replyPreview,
     this.content,
     this.onLongPress,
+    this.onReply,
     this.bubble,
     super.key,
   });
@@ -68,6 +70,7 @@ class ChatMessageBubble extends StatelessWidget {
   final String? replyPreview;
   final Widget? content;
   final VoidCallback? onLongPress;
+  final VoidCallback? onReply;
 
   final String body;
   final String nickname;
@@ -93,6 +96,58 @@ class ChatMessageBubble extends StatelessWidget {
         : theme.colorScheme.onSurface;
     const corner = Radius.circular(18);
     const groupedCorner = Radius.circular(6);
+
+    final message = GestureDetector(
+      onLongPress: onLongPress,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: themed != null
+              ? themed.color
+              : mine
+              ? AppColors.blueDark
+              : theme.colorScheme.surface,
+          gradient: themed?.gradient,
+          border: mine || themed != null
+              ? null
+              : Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: BorderRadius.only(
+            topLeft: mine ? corner : groupedCorner,
+            topRight: mine ? groupedCorner : corner,
+            bottomLeft: corner,
+            bottomRight: corner,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (replyPreview case final preview?)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '↪ $preview',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: foreground.withValues(alpha: .8),
+                    ),
+                  ),
+                ),
+              content ??
+                  Text(
+                    body,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: foreground,
+                      height: 1.45,
+                    ),
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
 
     return Column(
       children: [
@@ -159,68 +214,13 @@ class ChatMessageBubble extends StatelessWidget {
                         if (mine && unreadLabel != null)
                           _UnreadMark(unreadLabel, right: true),
                         Flexible(
-                          child: GestureDetector(
-                            onLongPress: onLongPress,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: themed != null
-                                    ? themed.color
-                                    : mine
-                                    ? AppColors.blueDark
-                                    : theme.colorScheme.surface,
-                                gradient: themed?.gradient,
-                                border: mine || themed != null
-                                    ? null
-                                    : Border.all(
-                                        color: theme.colorScheme.outlineVariant,
-                                      ),
-                                borderRadius: BorderRadius.only(
-                                  topLeft: mine ? corner : groupedCorner,
-                                  topRight: mine ? groupedCorner : corner,
-                                  bottomLeft: corner,
-                                  bottomRight: corner,
+                          child: onReply == null
+                              ? message
+                              : SwipeToReply(
+                                  onReply: onReply!,
+                                  incoming: !mine,
+                                  child: message,
                                 ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (replyPreview case final preview?)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 6,
-                                        ),
-                                        child: Text(
-                                          '↪ $preview',
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                                color: foreground.withValues(
-                                                  alpha: .8,
-                                                ),
-                                              ),
-                                        ),
-                                      ),
-                                    content ??
-                                        Text(
-                                          body,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                                color: foreground,
-                                                height: 1.45,
-                                              ),
-                                        ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
                         ),
                         if (!mine && unreadLabel != null)
                           _UnreadMark(unreadLabel, right: false),
@@ -261,6 +261,7 @@ class ChatComposer extends StatelessWidget {
     required this.canSend,
     required this.onSend,
     this.onAttach,
+    this.focusNode,
     super.key,
   });
 
@@ -269,6 +270,7 @@ class ChatComposer extends StatelessWidget {
   final bool canSend;
   final VoidCallback onSend;
   final VoidCallback? onAttach;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -296,6 +298,7 @@ class ChatComposer extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                focusNode: focusNode,
                 maxLength: 1000,
                 minLines: 1,
                 maxLines: 4,
