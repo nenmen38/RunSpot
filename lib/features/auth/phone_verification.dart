@@ -187,7 +187,6 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                 labelText: '휴대폰 번호',
                 hintText: '01012345678',
                 prefixIcon: Icon(Icons.phone_outlined),
-                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -226,7 +225,6 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                 ],
                 decoration: const InputDecoration(
                   labelText: '인증번호',
-                  border: OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _verify(),
               ),

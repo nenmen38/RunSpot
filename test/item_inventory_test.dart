@@ -10,7 +10,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('아이템'), findsOneWidget);
     expect(find.text('미리보기'), findsOneWidget);
-    expect(find.text('보관함이 비어 있어요.'), findsOneWidget);
+    expect(find.textContaining('보관함이 비어 있어요.'), findsOneWidget);
 
     await tester.tap(find.text('상점'));
     await tester.pumpAndSettle();
@@ -20,7 +20,7 @@ void main() {
 
     await tester.tap(find.text('보관함'));
     await tester.pumpAndSettle();
-    expect(find.text('보관함이 비어 있어요.'), findsOneWidget);
+    expect(find.textContaining('보관함이 비어 있어요.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

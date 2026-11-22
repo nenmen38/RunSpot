@@ -1,3 +1,5 @@
+import '../../../shared/widgets/status_view.dart';
+
 import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:flutter/material.dart';
 
@@ -69,7 +71,11 @@ class _FriendListState extends State<FriendList> {
         children: [
           if (widget.requests) ...[
             _Heading('받은 요청', received.length),
-            if (received.isEmpty) const _Empty('받은 요청이 없습니다.'),
+            if (received.isEmpty)
+              const _Empty(
+                '받은 요청이 없습니다.',
+                icon: Icons.mark_email_unread_outlined,
+              ),
             for (final entry in received)
               FriendRow(
                 entry: entry,
@@ -78,7 +84,8 @@ class _FriendListState extends State<FriendList> {
               ),
             const Divider(height: 24),
             _Heading('보낸 요청', sent.length),
-            if (sent.isEmpty) const _Empty('보낸 요청이 없습니다.'),
+            if (sent.isEmpty)
+              const _Empty('보낸 요청이 없습니다.', icon: Icons.outgoing_mail),
             for (final entry in sent)
               FriendRow(
                 entry: entry,
@@ -104,13 +111,17 @@ class _FriendListState extends State<FriendList> {
                           onPressed: () => setState(_search.clear),
                           icon: const Icon(Icons.close),
                         ),
-                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
             _Heading(query.isEmpty ? '내 친구' : '검색 결과', friends.length),
             if (friends.isEmpty && controller.loaded)
-              _Empty(query.isEmpty ? '아직 친구가 없습니다.' : '일치하는 친구가 없습니다.'),
+              _Empty(
+                query.isEmpty
+                    ? '아직 친구가 없습니다.\n검색 탭에서 닉네임으로 친구를 찾아보세요.'
+                    : '일치하는 친구가 없습니다.',
+                icon: query.isEmpty ? Icons.people_outline : Icons.search_off,
+              ),
             for (final entry in friends)
               FriendRow(
                 entry: entry,
@@ -165,13 +176,15 @@ class _Heading extends StatelessWidget {
   );
 }
 
+/// 목록이 비었을 때 아이콘과 함께 보여주는 안내입니다.
 class _Empty extends StatelessWidget {
-  const _Empty(this.label);
+  const _Empty(this.label, {this.icon = Icons.people_outline});
   final String label;
+  final IconData icon;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 24),
-    child: Text(label, textAlign: TextAlign.center),
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: StatusView.empty(message: label, icon: icon),
   );
 }
 

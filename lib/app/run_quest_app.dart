@@ -13,6 +13,18 @@ ThemeData buildAppTheme({required bool dark}) {
   try {
     final brightness = dark ? Brightness.dark : Brightness.light;
     final ink = AppColors.ink;
+    // 버튼·입력창·카드·창의 모서리를 한 기준으로 맞춥니다.
+    const radius = 14.0;
+    final rounded = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+    );
+    // 테두리선은 너무 진하지 않게 부드러운 회색을 씁니다.
+    final outline = dark ? const Color(0xFF4A515B) : const Color(0xFFD1D6DB);
+    final buttonText = const TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -.1,
+    );
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
@@ -28,16 +40,153 @@ ThemeData buildAppTheme({required bool dark}) {
         onSecondaryContainer: dark
             ? const Color(0xFFB9D4FF)
             : AppColors.blueDark,
+        outline: outline,
         outlineVariant: AppColors.line,
         surfaceTint: Colors.transparent,
       ),
       dividerColor: AppColors.line,
+      dividerTheme: DividerThemeData(color: AppColors.line),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          shape: rounded,
+          textStyle: buttonText,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          shape: rounded,
+          side: BorderSide(color: outline),
+          foregroundColor: ink,
+          textStyle: buttonText,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          shape: rounded,
+          foregroundColor: AppColors.blueText,
+          textStyle: buttonText.copyWith(fontSize: 14),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          shape: rounded,
+          side: BorderSide(color: outline),
+          selectedBackgroundColor: AppColors.blueSoft,
+          selectedForegroundColor: AppColors.blueText,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        // 테두리 모양만 정하고 색은 상태(기본·선택·오류)에 맞춰 자동으로 바뀝니다.
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(radius)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        hintStyle: TextStyle(
+          color: AppColors.gray,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: AppColors.line),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        titleTextStyle: TextStyle(
+          color: ink,
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: AppColors.surface,
+        modalBackgroundColor: AppColors.surface,
+        dragHandleColor: outline,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.surface,
+        shape: rounded,
+        elevation: 3,
+      ),
+      // 알림 문구는 화면 아래에 떠 있는 둥근 상자로 보여줍니다.
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: dark
+            ? const Color(0xFF2C3139)
+            : const Color(0xFF333D4B),
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        actionTextColor: const Color(0xFF7DB2FF),
+        shape: rounded,
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      ),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        side: BorderSide(color: AppColors.line),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: AppColors.blue,
+        linearTrackColor: AppColors.blueSoft,
+        circularTrackColor: Colors.transparent,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w800
+                : FontWeight.w600,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.blueText
+                : AppColors.gray,
+          ),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.blueText
+                : AppColors.gray,
+          ),
+        ),
+      ),
+      tabBarTheme: TabBarThemeData(
+        dividerColor: AppColors.line,
+        labelColor: AppColors.blueText,
+        unselectedLabelColor: AppColors.gray,
+        labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       // 폴드를 펼친 화면에서도 눌러서 들어간 화면이 읽기 좋은 폭을 넘지 않게 합니다.
       pageTransitionsTheme: ReadableWidthTransitionsBuilder.theme(),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.surface,
         foregroundColor: ink,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: .5,
+        shadowColor: AppColors.line,
+        titleTextStyle: TextStyle(
+          color: ink,
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+        ),
       ),
       textTheme: TextTheme(
         headlineMedium: TextStyle(

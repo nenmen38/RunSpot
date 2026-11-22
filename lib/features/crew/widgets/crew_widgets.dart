@@ -105,7 +105,6 @@ class _CreateCrewSheetState extends State<CreateCrewSheet> {
                     decoration: const InputDecoration(
                       labelText: '크루 이름',
                       hintText: '예: 새벽런',
-                      border: OutlineInputBorder(),
                     ),
                     validator: (value) => (value?.trim().length ?? 0) < 2
                         ? '크루 이름은 2~20자로 입력해 주세요.'
@@ -121,7 +120,6 @@ class _CreateCrewSheetState extends State<CreateCrewSheet> {
                     decoration: const InputDecoration(
                       labelText: '크루 간단 설명 (선택)',
                       hintText: '예: 매일 아침 한강에서 5km 달려요',
-                      border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 8),

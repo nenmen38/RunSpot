@@ -13,6 +13,7 @@ import '../features/monetization/profile_cosmetics.dart';
 import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:runquest/features/chat/chat_sync.dart';
 import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:runquest/features/chat/friend_chat.dart';
@@ -421,6 +422,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       if (index == 0 || index == 4) unawaited(_wallet?.refresh());
       // 소셜·아이템 탭을 열 때 크루와 받은 초대를 다시 확인합니다.
       if (index == 1 || index == 4) unawaited(_crew?.refresh());
+      if (index != _tab) unawaited(HapticFeedback.selectionClick());
       setState(() => _tab = index);
     }
 
@@ -451,7 +453,11 @@ class _RunQuestShellState extends State<RunQuestShell> {
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
               // 폴드를 펼친 화면에서도 글과 버튼이 읽기 좋은 폭을 넘지 않게 합니다.
-              child: ReadableWidth(child: pages[_tab - 1]),
+              // 탭을 바꿀 때 화면이 툭 바뀌지 않도록 살짝 떠오르며 나타나게 합니다.
+              child: _TabEntrance(
+                key: ValueKey(_tab),
+                child: ReadableWidth(child: pages[_tab - 1]),
+              ),
             ),
           if (_groups case final groups?)
             Positioned.fill(child: GroupStartCountdown(controller: groups)),
@@ -534,4 +540,59 @@ class _RunQuestShellState extends State<RunQuestShell> {
     (Icons.forum_outlined, Icons.forum, '게시판'),
     (Icons.inventory_2_outlined, Icons.inventory_2, '아이템'),
   ];
+}
+
+/// 탭 화면이 처음 나타날 때 짧게 흐려졌다가 선명해지며 조금 떠오릅니다.
+/// 이전 화면을 겹쳐 두지 않으므로 같은 글자가 두 번 보이는 순간이 없습니다.
+class _TabEntrance extends StatefulWidget {
+  const _TabEntrance({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  State<_TabEntrance> createState() => _TabEntranceState();
+}
+
+class _TabEntranceState extends State<_TabEntrance>
+    with SingleTickerProviderStateMixin {
+  late final _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+  late final _curve = CurvedAnimation(
+    parent: _animation,
+    curve: Curves.easeOutCubic,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _animation.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 동작 줄이기 설정이면 바로 보여줍니다.
+    if (MediaQuery.disableAnimationsOf(context)) _animation.value = 1;
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _curve,
+    child: SlideTransition(
+      position: Tween(
+        begin: const Offset(0, .015),
+        end: Offset.zero,
+      ).animate(_curve),
+      child: widget.child,
+    ),
+  );
 }

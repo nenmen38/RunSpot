@@ -71,7 +71,6 @@ Future<bool> showBodyWeightDialog(
               decoration: InputDecoration(
                 suffixText: 'kg',
                 errorText: error,
-                border: const OutlineInputBorder(),
               ),
             ),
           ],

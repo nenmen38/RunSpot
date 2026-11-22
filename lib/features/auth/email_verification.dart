@@ -178,7 +178,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                 decoration: const InputDecoration(
                   labelText: '이메일',
                   prefixIcon: Icon(Icons.mail_outline),
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),

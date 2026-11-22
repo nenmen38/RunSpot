@@ -95,7 +95,6 @@ class _NewChatScreenState extends State<NewChatScreen> {
                 decoration: const InputDecoration(
                   labelText: '대화방 이름 (선택)',
                   counterText: '',
-                  border: OutlineInputBorder(),
                   isDense: true,
                 ),
               ),

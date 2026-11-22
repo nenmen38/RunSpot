@@ -38,7 +38,7 @@ void main() {
   testWidgets('검색 후 친구 요청 및 취소가 실제 상태에 반영됩니다', (tester) async {
     final service = FakeFriendService();
     await showSocial(tester, service);
-    expect(find.text('아직 친구가 없습니다.'), findsOneWidget);
+    expect(find.textContaining('아직 친구가 없습니다.'), findsOneWidget);
     await tester.tap(find.text('검색'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '러너1');

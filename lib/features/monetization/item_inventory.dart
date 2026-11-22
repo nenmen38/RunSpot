@@ -1,3 +1,5 @@
+import '../../shared/widgets/status_view.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
@@ -43,8 +45,11 @@ class ItemInventory extends StatelessWidget {
         ),
       if (items.isEmpty && header == null)
         const Padding(
-          padding: EdgeInsets.only(top: 40),
-          child: Text('보관함이 비어 있어요.', textAlign: TextAlign.center),
+          padding: EdgeInsets.only(top: 24),
+          child: StatusView.empty(
+            icon: Icons.inventory_2_outlined,
+            message: '보관함이 비어 있어요.\n상점에서 아이템을 만나 보세요.',
+          ),
         ),
       for (final entry in items) ...[
         _InventoryTile(

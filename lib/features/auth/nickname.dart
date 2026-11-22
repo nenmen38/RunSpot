@@ -107,7 +107,6 @@ class _NicknameScreenState extends State<NicknameScreen> {
                 decoration: const InputDecoration(
                   labelText: '닉네임',
                   helperText: '한글·영문·숫자·밑줄 2~30자',
-                  border: OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _save(),
               ),

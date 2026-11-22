@@ -114,7 +114,6 @@ class _PasswordChangeScreenState extends State<PasswordChangeScreen> {
                 ],
                 decoration: InputDecoration(
                   labelText: field.label,
-                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),

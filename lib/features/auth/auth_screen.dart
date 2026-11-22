@@ -213,7 +213,6 @@ class _AuthScreenState extends State<AuthScreen> {
                       decoration: const InputDecoration(
                         labelText: '이메일',
                         prefixIcon: Icon(Icons.mail_outline),
-                        border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -232,7 +231,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         helperMaxLines: 2,
                         labelText: '비밀번호',
                         prefixIcon: Icon(Icons.lock_outline),
-                        border: OutlineInputBorder(),
                       ),
                       onSubmitted: (_) => _loading ? null : _submit(),
                     ),
@@ -245,7 +243,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         decoration: const InputDecoration(
                           labelText: '비밀번호 확인',
                           prefixIcon: Icon(Icons.lock_outline),
-                          border: OutlineInputBorder(),
                         ),
                       ),
                     ],

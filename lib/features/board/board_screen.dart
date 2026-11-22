@@ -259,7 +259,6 @@ class _BoardScreenState extends State<BoardScreen> {
                   prefixIcon: const Icon(Icons.search),
                   counterText: '',
                   isDense: true,
-                  border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     tooltip: '검색',
                     onPressed: () => controller.search(_search.text),

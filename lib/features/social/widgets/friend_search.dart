@@ -37,7 +37,6 @@ class _FriendSearchState extends State<FriendSearch> {
           decoration: InputDecoration(
             labelText: '닉네임',
             counterText: '',
-            border: const OutlineInputBorder(),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
