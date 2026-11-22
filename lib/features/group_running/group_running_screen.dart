@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../social/friend_controller.dart';
+import '../titles/badge_directory.dart';
 import 'group_controller.dart';
 import 'models/running_group.dart';
 
@@ -112,8 +113,9 @@ class GroupRunningScreen extends StatelessWidget {
             for (final member in group.members)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(
+                title: TitledNickname(
                   '${member.nickname}${member.userId == group.hostId ? ' · 방장' : ''}',
+                  userId: member.userId,
                 ),
                 subtitle: Text(
                   member.distance != null

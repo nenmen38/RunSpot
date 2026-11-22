@@ -6,14 +6,24 @@ import 'package:runquest/features/social/data/ranking_service.dart';
 import 'package:runquest/features/social/models/weekly_ranking.dart';
 import 'package:runquest/features/social/widgets/friend_ranking.dart';
 
-WeeklyRanking result(RankingCategory category, String name, int score) =>
-    WeeklyRanking.fromJson({
-      'can_interact': true,
-      'week_started_at': '2026-11-02T00:00:00+09:00',
-      'entries': [
-        {'rank': 1, 'nickname': name, 'score': score, 'is_me': false},
-      ],
-    }, category: category);
+WeeklyRanking result(
+  RankingCategory category,
+  String name,
+  int score, {
+  String? userId,
+}) => WeeklyRanking.fromJson({
+  'can_interact': true,
+  'week_started_at': '2026-11-02T00:00:00+09:00',
+  'entries': [
+    {
+      'rank': 1,
+      'nickname': name,
+      'score': score,
+      'is_me': false,
+      if (userId != null) 'user_id': userId,
+    },
+  ],
+}, category: category);
 
 class _Service implements FilteredRankingService {
   Completer<WeeklyRanking>? pending;
@@ -49,6 +59,21 @@ void main() {
     expect(
       result(RankingCategory.fiveK, '러너', 1500000000).entries.single.value,
       '25:00',
+    );
+  });
+  test('친구 랭킹 응답의 사용자 ID를 칭호 조회에 사용합니다', () {
+    expect(
+      result(
+        RankingCategory.distance,
+        '러너',
+        1200,
+        userId: 'friend',
+      ).entries.single.userId,
+      'friend',
+    );
+    expect(
+      result(RankingCategory.distance, '러너', 1200).entries.single.userId,
+      isNull,
     );
   });
   testWidgets('기준·대상 전환 후 늦게 온 이전 순위를 표시하지 않습니다', (tester) async {

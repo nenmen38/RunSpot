@@ -4,6 +4,7 @@ import '../data/crew_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../titles/badge_directory.dart';
 import '../crew_controller.dart';
 import '../models/crew.dart';
 
@@ -372,7 +373,7 @@ class CrewTab extends StatelessWidget {
                     radius: 18,
                     child: Icon(Icons.person_outline, size: 20),
                   ),
-                  title: Text(member.nickname),
+                  title: TitledNickname(member.nickname, userId: member.userId),
                   trailing: member.isOwner
                       ? DecoratedBox(
                           decoration: BoxDecoration(

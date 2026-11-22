@@ -135,6 +135,31 @@ class UserTitle extends StatelessWidget {
   );
 }
 
+/// 목록에서 닉네임과 착용한 칭호를 한 줄로 보여줍니다.
+class TitledNickname extends StatelessWidget {
+  const TitledNickname(this.nickname, {this.userId, this.style, super.key});
+
+  final String nickname;
+  final String? userId;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Flexible(
+        child: Text(
+          nickname,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+      if (userId case final id?)
+        Flexible(child: UserTitle(userId: id, size: 10)),
+    ],
+  );
+}
+
 /// 게시글 글쓴이의 칭호 배지입니다.
 class PostAuthorTitle extends StatelessWidget {
   const PostAuthorTitle({required this.postId, this.size = 10, super.key});

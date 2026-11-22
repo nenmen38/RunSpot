@@ -47,6 +47,7 @@ class WeeklyRanking {
           final nickname = row['nickname'];
           final distance = row['score'] ?? row['distance_m'];
           final isMe = row['is_me'];
+          final userId = row['user_id'];
           if (rank is! int ||
               rank < 0 ||
               nickname is! String ||
@@ -75,6 +76,7 @@ class WeeklyRanking {
                     : '${distance ~/ 60000000}:${((distance ~/ 1000000) % 60).toString().padLeft(2, '0')}',
             },
             isMe,
+            userId: userId is String && userId.isNotEmpty ? userId : null,
           );
         }),
       ),

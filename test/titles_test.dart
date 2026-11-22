@@ -61,6 +61,8 @@ void main() {
     expect(find.text('3 / 10회'), findsOneWidget);
     // 얻은 칭호(10K 클럽)에만 '달기' 버튼이 있습니다.
     expect(find.text('달기'), findsOneWidget);
+    expect(find.byTooltip('10K 클럽 자랑하기'), findsOneWidget);
+    expect(find.byTooltip('하프 마라토너 자랑하기'), findsNothing);
     await tester.tap(find.text('달기'));
     await tester.pumpAndSettle();
     expect(service.selected, RunnerTitle.tenK);

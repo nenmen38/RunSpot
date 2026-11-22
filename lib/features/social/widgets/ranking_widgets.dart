@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:runquest/features/social/models/runner_rank.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
+import '../../titles/badge_directory.dart';
+
 class RankRow extends StatelessWidget {
   const RankRow({required this.runner, super.key});
 
@@ -33,10 +35,9 @@ class RankRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                TitledNickname(
                   runner.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  userId: runner.userId,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,

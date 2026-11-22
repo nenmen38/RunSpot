@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/panel.dart';
@@ -55,6 +56,26 @@ class _TitlesCardState extends State<TitlesCard> {
     await _run(() => widget.service.select(title));
     // 다른 화면의 내 칭호도 새로 불러오게 합니다.
     BadgeDirectory.instance.refreshAll();
+  }
+
+  Future<void> _share(BuildContext buttonContext, RunnerTitle title) async {
+    if (!widget.service.isCurrentOwner) return;
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    final origin = box == null
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: '런스팟 칭호 · ${title.label}\n${title.condition}',
+          sharePositionOrigin: origin,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('칭호 공유를 열지 못했어요.')));
+    }
   }
 
   @override
@@ -121,6 +142,16 @@ class _TitlesCardState extends State<TitlesCard> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    if (item.earned)
+                      Builder(
+                        builder: (context) => IconButton(
+                          tooltip: '${item.title.label} 자랑하기',
+                          onPressed: _busy
+                              ? null
+                              : () => _share(context, item.title),
+                          icon: const Icon(Icons.ios_share_outlined, size: 20),
+                        ),
+                      ),
                     if (item.earned)
                       state.selected == item.title
                           ? OutlinedButton(
