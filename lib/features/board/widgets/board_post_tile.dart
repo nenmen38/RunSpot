@@ -74,6 +74,24 @@ class BoardCrewBadge extends StatelessWidget {
   );
 }
 
+/// 말머리마다 다른 색을 써서 목록에서 한눈에 구분되게 합니다.
+({Color background, Color foreground}) boardTopicColors(BoardTopic topic) {
+  final dark = AppColors.dark;
+  Color soft(Color color) => color.withValues(alpha: dark ? .22 : .12);
+  final color = switch (topic) {
+    BoardTopic.course => const Color(0xFF12A37A),
+    BoardTopic.tip => AppColors.blue,
+    BoardTopic.food => const Color(0xFFF2780C),
+    BoardTopic.free => const Color(0xFF7C5CFF),
+    BoardTopic.question => const Color(0xFFE0447C),
+  };
+  return (
+    background: soft(color),
+    // 어두운 화면에서는 글자를 조금 밝게 해 읽히게 합니다.
+    foreground: dark ? Color.lerp(color, Colors.white, .35)! : color,
+  );
+}
+
 class BoardPostTile extends StatelessWidget {
   const BoardPostTile({
     required this.post,
@@ -89,145 +107,340 @@ class BoardPostTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final raceDate = post.raceDate;
+    final photos = post.visibleImageUrls;
+    final topic = post.topic;
+    final preview = (post.racePlace ?? post.body).replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
     return Semantics(
       button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (raceDate != null) ...[
-                Container(
-                  width: 58,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: BoardStyle.surface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        '${raceDate.month}.${raceDate.day}',
-                        style: TextStyle(
-                          color: BoardStyle.ink,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        raceCountdown(raceDate),
-                        style: TextStyle(
-                          color: BoardStyle.secondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: BoardStyle.line),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (post.topic != null) ...[
-                      BoardLabel(text: post.topic!.label),
-                      const SizedBox(height: 6),
+                    if (raceDate != null) ...[
+                      _RaceDate(date: raceDate),
+                      const SizedBox(width: 12),
                     ],
-                    Text(
-                      post.title,
-                      maxLines: MediaQuery.textScalerOf(context).scale(16) > 22
-                          ? null
-                          : 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: BoardStyle.section,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      post.racePlace ?? post.body,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: BoardStyle.meta.copyWith(fontSize: 14),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: post.isMine ? null : onAuthorTap,
-                            child: ListenableBuilder(
-                              listenable: BadgeDirectory.instance,
-                              builder: (context, _) => Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(text: post.nickname),
-                                    // 칭호가 있을 때만 이름 옆에 붙입니다.
-                                    if (BadgeDirectory.instance
-                                            .post(post.id)
-                                            ?.title !=
-                                        null)
-                                      WidgetSpan(
-                                        alignment: PlaceholderAlignment.middle,
-                                        child: PostAuthorTitle(postId: post.id),
-                                      ),
-                                    if (post.crew case final crew?)
-                                      WidgetSpan(
-                                        alignment: PlaceholderAlignment.middle,
-                                        child: BoardCrewBadge(crew: crew),
-                                      ),
-                                    TextSpan(
-                                      text:
-                                          ' · ${formatBoardDateTime(post.createdAt)}',
-                                    ),
-                                  ],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: _metaStyle,
-                              ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (topic != null) ...[
+                            _TopicChip(topic: topic),
+                            const SizedBox(height: 8),
+                          ],
+                          Text(
+                            post.title,
+                            maxLines:
+                                MediaQuery.textScalerOf(context).scale(16) > 22
+                                ? null
+                                : 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: BoardStyle.section.copyWith(
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
                             ),
                           ),
-                        ),
-                        if (post.likeCount > 0) ...[
-                          Icon(
-                            post.liked ? Icons.favorite : Icons.favorite_border,
-                            size: 13,
-                            color: post.liked
-                                ? AppColors.red
-                                : BoardStyle.secondary,
-                          ),
-                          const SizedBox(width: 2),
-                          Text('${post.likeCount}', style: _metaStyle),
-                          const SizedBox(width: 8),
+                          if (preview.trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              preview,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: BoardStyle.meta.copyWith(
+                                fontSize: 14,
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
                         ],
-                        if (post.commentCount > 0) ...[
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 13,
-                            color: BoardStyle.secondary,
-                          ),
-                          const SizedBox(width: 2),
-                          Text('${post.commentCount}', style: _metaStyle),
-                        ],
-                      ],
+                      ),
                     ),
+                    if (photos.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      ExcludeSemantics(
+                        child: Stack(
+                          children: [
+                            BoardPhoto(url: photos.first, size: 72),
+                            // 사진이 여러 장이면 몇 장 더 있는지 붙입니다.
+                            if (photos.length > 1)
+                              Positioned(
+                                right: 4,
+                                bottom: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: .6),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '+${photos.length - 1}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              ),
-              if (post.visibleImageUrls.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                ExcludeSemantics(
-                  child: BoardPhoto(url: post.visibleImageUrls.first, size: 64),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: post.isMine ? null : onAuthorTap,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          children: [
+                            _AuthorDot(nickname: post.nickname),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: ListenableBuilder(
+                                listenable: BadgeDirectory.instance,
+                                builder: (context, _) => Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: post.nickname,
+                                        style: TextStyle(
+                                          color: BoardStyle.ink,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      // 칭호가 있을 때만 이름 옆에 붙입니다.
+                                      if (BadgeDirectory.instance
+                                              .post(post.id)
+                                              ?.title !=
+                                          null)
+                                        WidgetSpan(
+                                          alignment:
+                                              PlaceholderAlignment.middle,
+                                          child: PostAuthorTitle(
+                                            postId: post.id,
+                                          ),
+                                        ),
+                                      if (post.crew case final crew?)
+                                        WidgetSpan(
+                                          alignment:
+                                              PlaceholderAlignment.middle,
+                                          child: BoardCrewBadge(crew: crew),
+                                        ),
+                                      TextSpan(
+                                        text:
+                                            ' · ${formatBoardDateTime(post.createdAt)}',
+                                      ),
+                                    ],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: _metaStyle,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (post.likeCount > 0)
+                      _Count(
+                        icon: post.liked
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: post.liked ? AppColors.red : null,
+                        count: post.likeCount,
+                        label: '좋아요',
+                      ),
+                    if (post.commentCount > 0)
+                      _Count(
+                        icon: Icons.chat_bubble_outline,
+                        count: post.commentCount,
+                        label: '댓글',
+                      ),
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _TopicChip extends StatelessWidget {
+  const _TopicChip({required this.topic});
+
+  final BoardTopic topic;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = boardTopicColors(topic);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        topic.label,
+        style: TextStyle(
+          color: colors.foreground,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          height: 1.3,
+        ),
+      ),
+    );
+  }
+}
+
+/// 대회 날짜 달력 칸입니다. 일주일 안으로 다가오면 D-day를 빨간색으로 강조합니다.
+class _RaceDate extends StatelessWidget {
+  const _RaceDate({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    final countdown = raceCountdown(date);
+    final now = DateTime.now();
+    final days = DateTime(
+      date.year,
+      date.month,
+      date.day,
+    ).difference(DateTime(now.year, now.month, now.day)).inDays;
+    final soon = days >= 0 && days <= 7;
+    return Container(
+      width: 60,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: BoardStyle.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            color: soon ? AppColors.red : BoardStyle.accent,
+            child: Text(
+              '${date.month}월',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+            child: Column(
+              children: [
+                Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    color: BoardStyle.ink,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  countdown,
+                  style: TextStyle(
+                    color: soon ? AppColors.red : BoardStyle.secondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 글쓴이 닉네임 첫 글자가 든 작은 동그라미입니다.
+class _AuthorDot extends StatelessWidget {
+  const _AuthorDot({required this.nickname});
+
+  final String nickname;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: CircleAvatar(
+      radius: 10,
+      backgroundColor: AppColors.blueSoft,
+      child: Text(
+        nickname.trim().characters.firstOrNull ?? '?',
+        style: TextStyle(
+          color: AppColors.blueText,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ),
+  );
+}
+
+class _Count extends StatelessWidget {
+  const _Count({
+    required this.icon,
+    required this.count,
+    required this.label,
+    this.color,
+  });
+
+  final IconData icon;
+  final int count;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: '$label $count개',
+    child: ExcludeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.only(left: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color ?? BoardStyle.secondary),
+            const SizedBox(width: 3),
+            Text(
+              '$count',
+              style: _metaStyle.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

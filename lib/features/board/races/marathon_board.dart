@@ -247,9 +247,12 @@ class _MarathonBoardState extends State<MarathonBoard> {
                             ),
                           ),
                           for (final post in notices)
-                            BoardPostTile(
-                              post: post,
-                              onTap: () => widget.onOpenNotice(post),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: BoardPostTile(
+                                post: post,
+                                onTap: () => widget.onOpenNotice(post),
+                              ),
                             ),
                         ],
                       ],

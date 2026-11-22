@@ -368,8 +368,10 @@ class _BoardScreenState extends State<BoardScreen> {
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: posts.length + 1,
+        // 글마다 카드로 나누고 사이를 띄웁니다.
+        padding: const EdgeInsets.only(top: 4, bottom: 16),
         separatorBuilder: (_, index) => index < posts.length - 1
-            ? Divider(height: 1, color: BoardStyle.line, thickness: .5)
+            ? const SizedBox(height: 10)
             : const SizedBox.shrink(),
         itemBuilder: (context, index) {
           if (index < posts.length) {
