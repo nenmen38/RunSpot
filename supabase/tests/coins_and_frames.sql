@@ -22,7 +22,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000201',true);
 select pg_temp.assert_true((select (w->>'coins')::int=0 and (w->>'level')::int=1
   and (w->>'next_reward_level')::int=2 and (w->>'next_reward_coins')::int=10
-  and (w->'prices'->>'basic')::int=300 and (w->'prices'->>'aura')::int=1400
+  and (w->'prices'->>'basic')::int=200 and (w->'prices'->>'aura')::int=700
   and w->'owned'='[]'::jsonb and w->'equipped'='null'::jsonb and w->>'color'='#3182F6'
   from (select public.my_wallet() w) x),'처음 지갑');
 select pg_temp.assert_true(pg_temp.fails('select public.buy_frame(''basic'')','P0001'),'코인 부족 구매 거부');
@@ -32,10 +32,10 @@ select pg_temp.assert_true(pg_temp.fails('insert into runspot_private.owned_fram
 
 -- 운영자 지급 뒤 기본 테두리를 사고, 다시 사도 코인이 두 번 빠지지 않습니다.
 reset role;
-insert into runspot_private.coin_grants(user_id,coins,reason) values('00000000-0000-0000-0000-000000000201',1000,'테스트 지급');
+insert into runspot_private.coin_grants(user_id,coins,reason) values('00000000-0000-0000-0000-000000000201',850,'테스트 지급');
 set local role authenticated;
-select pg_temp.assert_true((public.buy_frame('basic')->>'coins')::int=700,'기본 테두리 구매');
-select pg_temp.assert_true((public.buy_frame('basic')->>'coins')::int=700
+select pg_temp.assert_true((public.buy_frame('basic')->>'coins')::int=650,'기본 테두리 구매');
+select pg_temp.assert_true((public.buy_frame('basic')->>'coins')::int=650
   and public.my_wallet()->'owned'='["basic"]'::jsonb,'중복 구매 방지');
 select pg_temp.assert_true(pg_temp.fails('select public.buy_frame(''aura'')','P0001'),'오라 코인 부족');
 
@@ -52,15 +52,15 @@ select public.cosmetic_customer() as customer \gset
 select pg_temp.assert_true(pg_temp.fails(format('select public.record_coin_purchase(''t1'',%L,''coins_16500'',now(),''SANDBOX'')',:'customer'),'42501'),'사용자 결제 기록 거부');
 reset role;
 set local role service_role;
-select pg_temp.assert_true(public.record_coin_purchase('t1',:'customer','coins_16500',now(),'SANDBOX'),'결제 기록');
-select pg_temp.assert_true(public.record_coin_purchase('t1',:'customer','coins_16500',now(),'SANDBOX'),'같은 거래 재전송');
-select pg_temp.assert_true(not public.record_coin_purchase('t2',:'customer','coins_999',now(),'SANDBOX'),'없는 상품 무시');
-select pg_temp.assert_true(not public.record_coin_purchase('t3',gen_random_uuid(),'coins_1100',now(),'SANDBOX'),'모르는 결제 계정 무시');
+select pg_temp.assert_true(public.record_coin_purchase('t1',:'customer','coins_16500',now(),'PRODUCTION'),'결제 기록');
+select pg_temp.assert_true(public.record_coin_purchase('t1',:'customer','coins_16500',now(),'PRODUCTION'),'같은 거래 재전송');
+select pg_temp.assert_true(not public.record_coin_purchase('t2',:'customer','coins_999',now(),'PRODUCTION'),'없는 상품 무시');
+select pg_temp.assert_true(not public.record_coin_purchase('t3',gen_random_uuid(),'coins_1100',now(),'PRODUCTION'),'모르는 결제 계정 무시');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000201',true);
-select pg_temp.assert_true((public.my_wallet()->>'coins')::int=2350,'결제 코인 한 번 반영');
-select pg_temp.assert_true((select w->'owned'='["aura", "basic"]'::jsonb and (w->>'coins')::int=950
+select pg_temp.assert_true((public.my_wallet()->>'coins')::int=2300,'결제 코인 한 번 반영');
+select pg_temp.assert_true((select w->'owned'='["aura", "basic"]'::jsonb and (w->>'coins')::int=1600
   from (select public.buy_frame('aura') w) x),'오라 테두리 구매');
 select pg_temp.assert_true(public.set_frame('aura','#EF4444')->>'equipped'='aura','오라 착용');
 
@@ -72,13 +72,61 @@ select pg_temp.assert_true((select (w->>'coins')::int=0 and w->'owned'='[]'::jso
 -- 환불되면 코인을 빼고, 잔액이 모자라면 새 구매를 막습니다.
 reset role;
 set local role service_role;
-select pg_temp.assert_true(public.refund_coin_purchase('t1'),'환불 기록');
+select pg_temp.assert_true(public.refund_coin_purchase('t1','PRODUCTION'),'환불 기록');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000201',true);
-select pg_temp.assert_true((public.my_wallet()->>'coins')::int=-700,'환불 후 잔액');
+select pg_temp.assert_true((public.my_wallet()->>'coins')::int=-50,'환불 후 잔액');
 reset role;
 delete from runspot_private.owned_frames where user_id='00000000-0000-0000-0000-000000000201' and frame='basic';
 set local role authenticated;
 select pg_temp.assert_true(pg_temp.fails('select public.buy_frame(''basic'')','P0001'),'음수 잔액 구매 거부');
+-- 테스트·누락 환경과 순서가 바뀐 환불은 운영 코인 잔액을 늘리지 않습니다.
+reset role;
+set local role service_role;
+select pg_temp.assert_true(not public.record_coin_purchase('test-env',:'customer','coins_1100',now(),'SANDBOX'),'운영에서 테스트 결제 제외');
+select pg_temp.assert_true(not public.record_coin_purchase('no-env',:'customer','coins_1100',now(),null),'환경 누락 거부');
+select pg_temp.assert_true(not public.refund_coin_purchase('t1',null),'환경 누락 환불 거부');
+select pg_temp.assert_true(public.refund_coin_purchase('early-refund','PRODUCTION'),'선행 환불 기록');
+select pg_temp.assert_true(public.record_coin_purchase('early-refund',:'customer','coins_5500_v2',now(),'PRODUCTION'),'환불 뒤 구매 알림 수신');
+select pg_temp.assert_true(public.record_coin_purchase('early-refund',:'customer','coins_5500_v2',now(),'PRODUCTION'),'환불 거래 재전송');
+reset role;
+set local role authenticated;
+select pg_temp.assert_true(public.my_coin_purchase_status('early-refund') @> '{"state":"refunded","coins":500}','같은 거래 환불 확인');
+select pg_temp.assert_true(not exists (
+  select 1 from jsonb_array_elements(public.my_wallet()->'transactions') e
+  where e->>'kind'='charge' and (e->>'coins')::integer=100
+),'테스트·누락 충전이 거래 내역에 없어야 함');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000202',true);
+select pg_temp.assert_true(public.my_coin_purchase_status('early-refund')->>'state'='pending','타인 거래 비공개');
+
+-- 한국 시간 기준 서로 다른 날짜의 적격 러닝만 자동으로 정산합니다.
+reset role;
+update runspot_private.coin_economy_settings set quests_start_at=now()-interval '14 days';
+select (date_trunc('week', (now()-interval '7 days') at time zone 'Asia/Seoul')
+    + interval '6 days 18 hours') at time zone 'Asia/Seoul' as sunday \gset
+select (date_trunc('week', now() at time zone 'Asia/Seoul')
+    - interval '3 days' + interval '18 hours') at time zone 'Asia/Seoul' as friday \gset
+insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
+select '00000000-0000-0000-0000-000000000202',gen_random_uuid(),run_day,run_day+interval '10 minutes',1000,600,'verified'
+from (values (:'friday'::timestamptz), (:'friday'::timestamptz+interval '1 hour')) d(run_day);
+-- 날짜를 고정한 테스트에서 지연 저장 XP 제한은 별도 테스트가 검증합니다.
+update runspot_private.run_rewards set xp=20
+where user_id='00000000-0000-0000-0000-000000000202';
+select pg_temp.assert_true(not exists (select 1 from runspot_private.weekly_coin_rewards),'같은 날짜 중복 제외');
+insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
+select '00000000-0000-0000-0000-000000000202',gen_random_uuid(),run_day,run_day+interval '10 minutes',1000,600,'verified'
+from (values (:'sunday'::timestamptz), (:'sunday'::timestamptz+interval '1 hour')) d(run_day);
+update runspot_private.run_rewards set xp=20
+where user_id='00000000-0000-0000-0000-000000000202';
+select pg_temp.assert_true((select count(*)=1 and sum(coins)=20
+  from runspot_private.weekly_coin_rewards),'다른 날짜 러닝 두 번에 주간 보상 한 번');
+-- 검토로 레벨 보상이 달라져도 차감 사유가 장부에 남습니다.
+select id as reviewed_run from public.runs
+where user_id='00000000-0000-0000-0000-000000000202' order by started_at limit 1 \gset
+update runspot_private.run_rewards set xp=40 where run_id=:'reviewed_run';
+update public.runs set integrity_status='rejected' where id=:'reviewed_run';
+select pg_temp.assert_true((select array_agg(coins order by id)=array[10,-10]
+  from runspot_private.level_coin_activity
+  where user_id='00000000-0000-0000-0000-000000000202'),'레벨 지급과 검토 차감 내역');
 rollback;

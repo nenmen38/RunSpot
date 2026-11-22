@@ -57,11 +57,7 @@ class CoinPack {
   static const all = [
     CoinPack('coins_1100', 1100, 100),
     CoinPack('coins_3300', 3300, 300),
-    CoinPack('coins_5500', 5500, 520),
-    CoinPack('coins_11000', 11000, 1080),
-    CoinPack('coins_16500', 16500, 1650),
-    CoinPack('coins_33000', 33000, 3400),
-    CoinPack('coins_49900', 49900, 5300),
+    CoinPack('coins_5500_v2', 5500, 500),
   ];
 }
 
@@ -80,6 +76,29 @@ class Wallet {
     : coins = json['coins'] as int,
       level = json['level'] as int,
       levelCoins = json['level_coins'] as int,
+      hasServerCosmeticPrices = json['cosmetic_prices'] is Map,
+      weeklyQuest = switch (json['weekly_quest']) {
+        final Map quest => WeeklyCoinQuest(
+          days: quest['days'] as int,
+          reward: quest['reward'] as int,
+          awarded: quest['awarded'] as bool,
+        ),
+        _ => null,
+      },
+      transactions = [
+        for (final Map entry in json['transactions'] as List? ?? const [])
+          CoinActivity(
+            kind: entry['kind'] as String,
+            coins: entry['coins'] as int,
+            at: DateTime.parse(entry['at'] as String).toLocal(),
+          ),
+      ],
+      cosmeticPrices = {
+        for (final item in CosmeticItem.values)
+          item:
+              (json['cosmetic_prices'] as Map?)?[item.code] as int? ??
+              item.defaultPrice,
+      },
       nextRewardLevel = json['next_reward_level'] as int?,
       nextRewardCoins = json['next_reward_coins'] as int?,
       prices = {
@@ -114,12 +133,18 @@ class Wallet {
           ),
       };
 
-  /// 크루 생성권 가격입니다. 1,100원 = 100코인 기준으로 약 7,040원입니다.
+  /// 이전 서버 응답에서 생성권 가격을 제공하지 않을 때 쓰는 값입니다.
   static const crewTicketDefaultPrice = 640;
 
   final int coins;
   final int level;
   final int levelCoins;
+  final WeeklyCoinQuest? weeklyQuest;
+  final List<CoinActivity> transactions;
+  final Map<CosmeticItem, int> cosmeticPrices;
+  final bool hasServerCosmeticPrices;
+  int priceOf(CosmeticItem item) => cosmeticPrices[item]!;
+
   final int? nextRewardLevel;
   final int? nextRewardCoins;
   final Map<FrameKind, int> prices;
@@ -142,16 +167,57 @@ class Wallet {
   final Map<CosmeticSlot, CosmeticItem> equippedCosmetics;
 }
 
+class WeeklyCoinQuest {
+  const WeeklyCoinQuest({
+    required this.days,
+    required this.reward,
+    required this.awarded,
+  });
+  final int days;
+  final int reward;
+  final bool awarded;
+}
+
+class CoinActivity {
+  const CoinActivity({
+    required this.kind,
+    required this.coins,
+    required this.at,
+  });
+  final String kind;
+  final int coins;
+  final DateTime at;
+
+  String get label => switch (kind) {
+    'charge' => '코인 충전',
+    'refund' => '결제 환불',
+    'weekly' => '주간 퀘스트 보상',
+    'level' => coins > 0 ? '레벨 보상' : '레벨 보상 조정',
+    'grant' => '운영 코인 조정',
+    'item' => '아이템 구매',
+    _ => '코인 조정',
+  };
+}
+
+enum CoinPurchaseState { pending, credited, refunded }
+
+class CoinPurchaseStatus {
+  const CoinPurchaseStatus(this.state, {this.coins});
+  final CoinPurchaseState state;
+  final int? coins;
+}
+
 abstract interface class WalletService {
   bool get isCurrentOwner;
   Future<Wallet> load();
+  Future<CoinPurchaseStatus> coinPurchaseStatus(String transactionId);
   Future<Wallet> buyFrame(FrameKind kind);
   Future<Wallet> buyCrewTicket();
 
   /// [kind]가 null이면 테두리를 해제합니다. 색은 그대로 저장합니다.
   Future<Wallet> setFrame(FrameKind? kind, String color);
 
-  Future<Wallet> buyCosmetic(CosmeticItem item);
+  Future<Wallet> buyCosmetic(CosmeticItem item, {int? expectedPrice});
 
   /// [item]이 null이면 그 칸을 비웁니다.
   Future<Wallet> equipCosmetic(CosmeticSlot slot, CosmeticItem? item);
@@ -183,6 +249,20 @@ class SupabaseWalletService implements WalletService {
   Future<Wallet> load() => _rpc('my_wallet');
 
   @override
+  Future<CoinPurchaseStatus> coinPurchaseStatus(String transactionId) async {
+    if (!isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+    final session = client.auth.currentSession!;
+    final data = await client
+        .rpc('my_coin_purchase_status', params: {'transaction': transactionId})
+        .setHeader('Authorization', 'Bearer ${session.accessToken}');
+    if (!isCurrentOwner) throw const AuthException('계정이 변경되었습니다.');
+    return CoinPurchaseStatus(
+      CoinPurchaseState.values.byName(data['state'] as String),
+      coins: data['coins'] as int?,
+    );
+  }
+
+  @override
   Future<Wallet> buyFrame(FrameKind kind) =>
       _rpc('buy_frame', {'requested_frame': kind.code});
 
@@ -196,8 +276,10 @@ class SupabaseWalletService implements WalletService {
   });
 
   @override
-  Future<Wallet> buyCosmetic(CosmeticItem item) =>
-      _rpc('buy_cosmetic', {'requested_item': item.code});
+  Future<Wallet> buyCosmetic(CosmeticItem item, {int? expectedPrice}) => _rpc(
+    'buy_cosmetic',
+    {'requested_item': item.code, 'expected_price': ?expectedPrice},
+  );
 
   @override
   Future<Wallet> equipCosmetic(CosmeticSlot slot, CosmeticItem? item) => _rpc(
@@ -294,8 +376,11 @@ class WalletController extends ChangeNotifier {
     '테두리 색을 바꾸지 못했습니다.',
   );
 
-  Future<String?> buyCosmetic(CosmeticItem item) =>
-      _change(() => service.buyCosmetic(item), '아이템을 사지 못했습니다.');
+  Future<String?> buyCosmetic(CosmeticItem item, {int? expectedPrice}) =>
+      _change(
+        () => service.buyCosmetic(item, expectedPrice: expectedPrice),
+        '아이템을 사지 못했습니다.',
+      );
 
   Future<String?> equipCosmetic(CosmeticSlot slot, CosmeticItem? item) =>
       _change(() => service.equipCosmetic(slot, item), '아이템을 바꾸지 못했습니다.');
@@ -307,14 +392,21 @@ class WalletController extends ChangeNotifier {
   CosmeticItem? equippedIn(CosmeticSlot slot) =>
       wallet?.equippedCosmetics[slot];
 
-  /// 결제 후 서버가 웹훅으로 코인을 기록할 때까지 잠시 다시 확인합니다.
-  Future<bool> waitForCoins(int before, {int attempts = 5}) async {
-    for (var i = 0; i < attempts && !_disposed; i++) {
-      await Future<void>.delayed(const Duration(seconds: 2));
-      await refresh();
-      if ((wallet?.coins ?? before) > before) return true;
+  /// 같은 거래의 적립 또는 환불만 확인합니다.
+  Future<CoinPurchaseStatus> waitForPurchase(String transactionId) async {
+    for (var i = 0; i < 5 && !_disposed && service.isCurrentOwner; i++) {
+      try {
+        final status = await service.coinPurchaseStatus(transactionId);
+        if (status.state != CoinPurchaseState.pending) {
+          await refresh();
+          return status;
+        }
+      } catch (_) {
+        // 일시적인 연결 오류는 결제 실패로 처리하지 않습니다.
+      }
+      if (i < 4) await Future<void>.delayed(const Duration(seconds: 2));
     }
-    return false;
+    return const CoinPurchaseStatus(CoinPurchaseState.pending);
   }
 
   @override
@@ -473,6 +565,7 @@ class CoinShopSheet extends StatelessWidget {
     required this.prices,
     required this.onBuy,
     this.note,
+    this.itemPrice,
     super.key,
   });
 
@@ -482,11 +575,19 @@ class CoinShopSheet extends StatelessWidget {
   final Map<String, String> prices;
   final ValueChanged<CoinPack> onBuy;
   final String? note;
+  final int? itemPrice;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final wallet = controller.wallet;
+    final balance = wallet?.coins;
+    final cost = itemPrice;
+    final shortfall = cost == null || balance == null
+        ? null
+        : cost > balance
+        ? cost - balance
+        : 0;
     return SafeArea(
       top: false,
       child: ListView(
@@ -494,6 +595,12 @@ class CoinShopSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         children: [
           Text('코인 충전', style: text.titleLarge),
+          if (shortfall != null && cost != null)
+            Text(
+              '아이템 ${formatNumber(cost)}코인 · 부족 ${formatNumber(shortfall)}코인',
+            ),
+          if (balance != null && balance < 0)
+            const Text('코인이 조정되어 잔액이 부족합니다. 거래 내역을 확인해 주세요.'),
           if (wallet != null) ...[
             const SizedBox(height: 4),
             Text(
@@ -529,8 +636,12 @@ class CoinShopSheet extends StatelessWidget {
                   '${formatNumber(pack.coins)}코인',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                subtitle: pack.bonus > 0
-                    ? Text('보너스 +${formatNumber(pack.bonus)}코인')
+                subtitle: cost != null && balance != null
+                    ? Text(
+                        balance + pack.coins >= cost
+                            ? '아이템 구매 후 ${formatNumber(balance + pack.coins - cost)}코인 남음'
+                            : '충전 후에도 ${formatNumber(cost - balance - pack.coins)}코인 부족',
+                      )
                     : null,
                 trailing: FilledButton(
                   onPressed: prices.containsKey(pack.id)
@@ -539,6 +650,24 @@ class CoinShopSheet extends StatelessWidget {
                   child: Text(prices[pack.id] ?? '${formatNumber(pack.krw)}원'),
                 ),
               ),
+            ),
+          if (wallet != null && wallet.transactions.isNotEmpty)
+            ExpansionTile(
+              title: const Text('거래 내역'),
+              children: [
+                for (final entry in wallet.transactions)
+                  ListTile(
+                    dense: true,
+                    title: Text(entry.label),
+                    subtitle: Text(
+                      MaterialLocalizations.of(context)
+                          .formatCompactDate(entry.at),
+                    ),
+                    trailing: Text(
+                      '${entry.coins > 0 ? '+' : ''}${formatNumber(entry.coins)}코인',
+                    ),
+                  ),
+              ],
             ),
         ],
       ),
@@ -870,7 +999,7 @@ class FrameShop extends StatelessWidget {
   });
 
   final WalletController controller;
-  final VoidCallback onCharge;
+  final ValueChanged<int> onCharge;
   final ValueChanged<String> onMessage;
 
   Future<void> _buy(BuildContext context, FrameKind kind, int price) async {
@@ -916,7 +1045,8 @@ class FrameShop extends StatelessWidget {
               builder: (context) {
                 final price = wallet?.prices[kind] ?? kind.defaultPrice;
                 final owned = wallet?.owned.contains(kind) ?? false;
-                final short = wallet != null && wallet.coins < price;
+                final short =
+                    wallet != null && price > 0 && wallet.coins < price;
                 return Container(
                   key: ValueKey('shop-${kind.code}'),
                   margin: const EdgeInsets.only(bottom: 10),
@@ -958,7 +1088,7 @@ class FrameShop extends StatelessWidget {
                         const FilledButton(onPressed: null, child: Text('보유 중'))
                       else if (short)
                         OutlinedButton(
-                          onPressed: onCharge,
+                          onPressed: () => onCharge(price),
                           child: const Text('코인 충전'),
                         )
                       else
@@ -985,23 +1115,24 @@ class FrameShop extends StatelessWidget {
                   wallet?.crewTicketPrice ?? Wallet.crewTicketDefaultPrice;
               // 쓰지 않은 생성권이 있으면 먼저 쓰도록 더 사지 않습니다.
               final blocked = wallet != null && wallet.crewTickets > 0;
-              final short = wallet != null && wallet.coins < price;
+              final short = wallet != null && price > 0 && wallet.coins < price;
               return _CrewTicketCard(
                 key: const ValueKey('shop-crew-ticket'),
-                subtitle:
-                    '나만의 크루를 만들고 친구를 크루원으로 초대해요.\n${formatNumber(price)}코인',
+                subtitle: price == 0
+                    ? '첫 크루를 무료로 만들고 친구를 초대해요.'
+                    : '나만의 크루를 만들고 친구를 초대해요.\n${formatNumber(price)}코인',
                 action: blocked
                     ? FilledButton(onPressed: null, child: const Text('보유 중'))
                     : short
                     ? OutlinedButton(
-                        onPressed: onCharge,
+                        onPressed: () => onCharge(price),
                         child: const Text('코인 충전'),
                       )
                     : FilledButton(
                         onPressed: wallet == null || controller.busy
                             ? null
                             : () => _buyTicket(context, price),
-                        child: const Text('구매'),
+                        child: Text(price == 0 ? '무료 받기' : '구매'),
                       ),
               );
             },
@@ -1016,9 +1147,11 @@ class FrameShop extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('크루 생성권을 살까요?'),
+        title: Text(price == 0 ? '첫 크루 생성권을 받을까요?' : '크루 생성권을 살까요?'),
         content: Text(
-          '${formatNumber(price)}코인을 사용합니다. 보관함에서 "사용하기"를 눌러 크루를 만들 수 있어요.',
+          price == 0
+              ? '보관함에서 "사용하기"를 눌러 첫 크루를 무료로 만들 수 있어요.'
+              : '${formatNumber(price)}코인을 사용합니다. 보관함에서 "사용하기"를 눌러 크루를 만들 수 있어요.',
         ),
         actions: [
           TextButton(

@@ -10,5 +10,5 @@ insert into runspot_private.coin_grants(user_id,coins,reason) values('00000000-0
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000341',true);
 select pg_temp.check_aura(pg_temp.fails('select public.buy_cosmetic(''aura_flame'')','22023'),'오라 효과는 팔지 않음');
-select pg_temp.check_aura((select (w->>'coins')::int=600 from (select public.buy_cosmetic('route_neon') w) x),'다른 아이템은 그대로');
+select pg_temp.check_aura((select (w->>'coins')::int=850 from (select public.buy_cosmetic('route_neon') w) x),'다른 아이템은 새 가격으로 구매 가능');
 rollback;

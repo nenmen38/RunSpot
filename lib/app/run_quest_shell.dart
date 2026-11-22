@@ -419,7 +419,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   Widget _layout(List<Widget> pages, {required bool wide}) {
     void select(int index) {
       // 홈과 아이템 탭을 열 때 코인과 착용 테두리를 다시 확인합니다.
-      if (index == 0 || index == 4) unawaited(_wallet?.refresh());
+      if (index == 0 || index == 2 || index == 4) unawaited(_wallet?.refresh());
       // 소셜·아이템 탭을 열 때 크루와 받은 초대를 다시 확인합니다.
       if (index == 1 || index == 4) unawaited(_crew?.refresh());
       if (index != _tab) unawaited(HapticFeedback.selectionClick());

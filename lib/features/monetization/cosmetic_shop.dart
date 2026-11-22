@@ -59,23 +59,22 @@ class CosmeticShop extends StatelessWidget {
   });
 
   final WalletController controller;
-  final VoidCallback onCharge;
+  final ValueChanged<int> onCharge;
   final ValueChanged<String> onMessage;
 
   Future<void> _buy(BuildContext context, CosmeticItem item) async {
     final wallet = controller.wallet;
     if (wallet == null) return;
-    if (wallet.coins < item.defaultPrice) {
-      onCharge();
+    final price = wallet.priceOf(item);
+    if (wallet.coins < price) {
+      onCharge(price);
       return;
     }
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('${item.slot.label} · ${item.label}를 살까요?'),
-        content: Text(
-          '${formatNumber(item.defaultPrice)}코인을 써요. 산 아이템은 보관함에서 착용할 수 있어요.',
-        ),
+        content: Text('${formatNumber(price)}코인을 써요. 산 아이템은 보관함에서 착용할 수 있어요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -89,7 +88,11 @@ class CosmeticShop extends StatelessWidget {
       ),
     );
     if (ok != true) return;
-    if (await controller.buyCosmetic(item) case final message?) {
+    if (await controller.buyCosmetic(
+          item,
+          expectedPrice: wallet.hasServerCosmeticPrices ? price : null,
+        )
+        case final message?) {
       onMessage(message);
     } else {
       onMessage('${item.label}를 샀어요. 보관함에서 착용해 보세요.');
@@ -125,12 +128,14 @@ class CosmeticShop extends StatelessWidget {
                             ? null
                             : () => _buy(context, item),
                         child: Text(
-                          (wallet?.coins ?? 0) < item.defaultPrice
+                          (wallet?.coins ?? 0) <
+                                  (wallet?.priceOf(item) ?? item.defaultPrice)
                               ? '코인 충전'
                               : '구매',
                         ),
                       ),
-                subtitle: '${formatNumber(item.defaultPrice)}코인',
+                subtitle:
+                    '${formatNumber(wallet?.priceOf(item) ?? item.defaultPrice)}코인',
               ),
           ],
         ],
@@ -268,7 +273,7 @@ class CrewExpansionShop extends StatelessWidget {
 
   final WalletController controller;
   final CrewController crew;
-  final VoidCallback onCharge;
+  final ValueChanged<int> onCharge;
   final ValueChanged<String> onMessage;
 
   @override
@@ -333,7 +338,7 @@ class CrewExpansionShop extends StatelessWidget {
                             ? null
                             : () async {
                                 if (wallet.coins < price) {
-                                  onCharge();
+                                  onCharge(price);
                                   return;
                                 }
                                 final message = await controller.expandCrew(

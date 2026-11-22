@@ -20,9 +20,11 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000301',true);
 -- 꾸미기 아이템은 사고, 가진 것만 칸에 맞게 착용합니다.
 select pg_temp.check_item(pg_temp.fails('select public.equip_cosmetic(''route'',''route_gold'')','P0001'),'안 산 아이템 착용 거부');
-select pg_temp.check_item((select (w->>'coins')::int=2400 and w->'cosmetics'->'owned' ? 'route_gold'
-  from (select public.buy_cosmetic('route_gold') w) x),'경로 색 구매');
-select pg_temp.check_item((select (w->>'coins')::int=2400 from (select public.buy_cosmetic('route_gold') w) x),'같은 아이템 다시 사지 않음');
+select pg_temp.check_item(public.my_wallet()->'cosmetic_prices'->>'route_gold'='300','서버 꾸미기 가격 표시');
+select pg_temp.check_item(pg_temp.fails('select public.buy_cosmetic(''route_gold'',600)','P0001'),'이전 가격으로 차감 거부');
+select pg_temp.check_item((select (w->>'coins')::int=2700 and w->'cosmetics'->'owned' ? 'route_gold'
+  from (select public.buy_cosmetic('route_gold',300) w) x),'경로 색 구매');
+select pg_temp.check_item((select (w->>'coins')::int=2700 from (select public.buy_cosmetic('route_gold') w) x),'같은 아이템 다시 사지 않음');
 select pg_temp.check_item(pg_temp.fails('select public.equip_cosmetic(''chat_bubble'',''route_gold'')','22023'),'다른 칸 착용 거부');
 select pg_temp.check_item(pg_temp.fails('select public.buy_cosmetic(''rocket'')','22023'),'없는 아이템 거부');
 select pg_temp.check_item((select w->'cosmetics'->'equipped'->>'route'='route_gold'
@@ -77,7 +79,7 @@ select pg_temp.check_item(pg_temp.fails(format('select public.expand_crew(%L)',:
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000301',true);
 select pg_temp.check_item((select (crew->>'size_limit')::int=30 from jsonb_array_elements(public.my_crew()->'crews') crew
   where crew->>'name'='정원검증'),'기본 정원 30');
-select pg_temp.check_item((select (w->>'coins')::int=3000-600-300-200-1000 from (select public.expand_crew(:'crew') w) x),'확장권 1000코인');
+select pg_temp.check_item((select (w->>'coins')::int=3000-300-150-100-600 from (select public.expand_crew(:'crew') w) x),'확장권 600코인');
 select pg_temp.check_item((select (crew->>'size_limit')::int=50 and (crew->>'expanded')::boolean
   from jsonb_array_elements(public.my_crew()->'crews') crew where crew->>'name'='정원검증'),'정원 50');
 select pg_temp.check_item(pg_temp.fails(format('select public.expand_crew(%L)',:'crew'),'P0001'),'두 번 확장 거부');

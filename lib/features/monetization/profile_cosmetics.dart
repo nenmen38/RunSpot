@@ -128,7 +128,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
           () => _message =
               PurchasesErrorHelper.getErrorCode(error) ==
                   PurchasesErrorCode.paymentPendingError
-              ? '결제 승인 대기 중입니다. 승인 후 구매 복원을 눌러 주세요.'
+              ? '결제 승인 대기 중입니다. 승인 후 코인 거래 내역을 확인해 주세요.'
               : '스토어 요청을 완료하지 못했습니다. 다시 시도해 주세요.',
         );
       }
@@ -152,6 +152,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
         for (final pack in CoinPack.all)
           for (final package in coins)
             if (pack.id == package.identifier &&
+                pack.id == package.storeProduct.identifier &&
                 package.storeProduct.productCategory ==
                     ProductCategory.nonSubscription)
               pack.id: package,
@@ -186,20 +187,25 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
     final package = _coinPackages[pack.id];
     final wallet = widget.wallet;
     if (package == null || wallet == null) return;
-    final before = wallet.wallet?.coins ?? 0;
-    await Purchases.purchase(PurchaseParams.package(package));
+    final result = await Purchases.purchase(PurchaseParams.package(package));
     _requireOwner();
     setState(() => _message = '결제를 확인하고 있어요.');
-    final added = await wallet.waitForCoins(before);
+    final transactionId = result.storeTransaction.transactionIdentifier;
+    final status = transactionId.isEmpty
+        ? const CoinPurchaseStatus(CoinPurchaseState.pending)
+        : await wallet.waitForPurchase(transactionId);
     _requireOwner();
     setState(
-      () => _message = added
-          ? '${formatNumber(pack.coins)}코인을 충전했어요.'
-          : '결제는 완료됐어요. 코인이 반영되기까지 조금 걸릴 수 있어요.',
+      () => _message = switch (status.state) {
+        CoinPurchaseState.credited =>
+          '${formatNumber(status.coins!)}코인을 충전했어요.',
+        CoinPurchaseState.refunded => '이 결제는 환불되어 코인이 적립되지 않았어요.',
+        CoinPurchaseState.pending => '코인 적립을 확인하고 있어요. 잠시 후 거래 내역을 확인해 주세요.',
+      },
     );
   }
 
-  Future<void> _openCoins() async {
+  Future<void> _openCoins([int? itemPrice]) async {
     final wallet = widget.wallet;
     if (wallet == null) return;
     unawaited(wallet.refresh());
@@ -212,13 +218,16 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
         listenable: wallet,
         builder: (context, _) => CoinShopSheet(
           controller: wallet,
+          itemPrice: itemPrice,
           prices: {
-            if (!_previewOnly && !_busy)
+            if (!_previewOnly && !_busy && wallet.wallet?.weeklyQuest != null)
               for (final entry in _coinPackages.entries)
                 entry.key: entry.value.storeProduct.priceString,
           },
           note: _previewOnly
               ? '결제 설정이 없는 미리보기에서는 가격만 볼 수 있어요.'
+              : wallet.wallet?.weeklyQuest == null
+              ? '코인 상점 정보를 확인할 수 없어 충전이 일시적으로 불가능합니다.'
               : _coinPackages.isEmpty
               ? '스토어에서 코인 상품을 불러오지 못했어요.'
               : null,

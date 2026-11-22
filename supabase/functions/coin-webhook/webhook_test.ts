@@ -43,14 +43,14 @@ Deno.test("코인 결제를 거래 식별자와 함께 기록함", async () => {
     product_id: "coins_3300",
     transaction_id: "GPA.1",
     purchased_at_ms: 0,
-    environment: "SANDBOX",
+    environment: "PRODUCTION",
   });
   assert(response.status === 200);
   assert(calls[0].name === "record_coin_purchase");
   assert(calls[0].body.transaction === "GPA.1");
   assert(calls[0].body.customer === customer);
   assert(calls[0].body.product === "coins_3300");
-  assert(calls[0].body.store_environment === "SANDBOX");
+  assert(calls[0].body.store_environment === "PRODUCTION");
 });
 
 Deno.test("임시 익명 계정 결제와 다른 상품은 기록하지 않음", async () => {
@@ -77,6 +77,7 @@ Deno.test("환불 알림은 코인을 회수하고 서버 오류는 재전송을
     type: "CANCELLATION",
     product_id: "coins_1100",
     transaction_id: "GPA.4",
+    environment: "PRODUCTION",
   });
   assert(ok.calls[0].name === "refund_coin_purchase");
   assert(ok.calls[0].body.transaction === "GPA.4");
@@ -86,6 +87,24 @@ Deno.test("환불 알림은 코인을 회수하고 서버 오류는 재전송을
     app_user_id: customer,
     product_id: "coins_1100",
     transaction_id: "GPA.5",
+    environment: "PRODUCTION",
   });
   assert(response.status === 500);
+});
+
+Deno.test("운영 웹훅은 테스트·누락 환경의 구매와 환불을 제외합니다", async () => {
+  const { calls, post } = setup();
+  for (const type of ["NON_RENEWING_PURCHASE", "CANCELLATION"]) {
+    for (const environment of ["SANDBOX", undefined]) {
+      const response = await post({
+        type,
+        app_user_id: customer,
+        product_id: "coins_1100",
+        transaction_id: "GPA.other",
+        environment,
+      });
+      assert(response.status === 200 && (await response.json()).ignored);
+    }
+  }
+  assert(calls.length === 0);
 });

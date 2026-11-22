@@ -21,7 +21,7 @@ void main() {
             children: [
               CosmeticShop(
                 controller: wallet,
-                onCharge: () => messages.add('충전'),
+                onCharge: (_) => messages.add('충전'),
                 onMessage: messages.add,
               ),
               CosmeticInventory(controller: wallet, onMessage: messages.add),
@@ -98,7 +98,7 @@ void main() {
               CrewExpansionShop(
                 controller: wallet,
                 crew: crew,
-                onCharge: () {},
+                onCharge: (_) {},
                 onMessage: messages.add,
               ),
             ],

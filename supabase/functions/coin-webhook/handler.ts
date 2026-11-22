@@ -3,6 +3,7 @@ type Config = {
   url: string;
   serviceKey: string;
   webhookSecret: string;
+  environment?: "PRODUCTION" | "SANDBOX";
 };
 
 type RevenueCatEvent = {
@@ -58,6 +59,12 @@ export function handler(config: Config, request = fetch) {
     } catch (_) {
       return new Response(null, { status: 400 });
     }
+    if (!event.product_id?.startsWith("coins_")) {
+      return Response.json({ ignored: true });
+    }
+    if (event.environment !== (config.environment ?? "PRODUCTION")) {
+      return Response.json({ ignored: true });
+    }
     try {
       if (
         event.type === "NON_RENEWING_PURCHASE" &&
@@ -74,7 +81,7 @@ export function handler(config: Config, request = fetch) {
           purchased: event.purchased_at_ms
             ? new Date(event.purchased_at_ms).toISOString()
             : null,
-          store_environment: event.environment ?? "PRODUCTION",
+          store_environment: event.environment,
         });
         return Response.json({ recorded });
       }
@@ -85,6 +92,7 @@ export function handler(config: Config, request = fetch) {
         // 일회성 상품의 취소 알림은 스토어 환불입니다.
         const refunded = await rpc("refund_coin_purchase", {
           transaction: event.transaction_id,
+          store_environment: event.environment,
         });
         return Response.json({ refunded });
       }

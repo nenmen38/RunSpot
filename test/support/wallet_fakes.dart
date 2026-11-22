@@ -10,6 +10,7 @@ class FakeWalletService implements WalletService {
   FrameKind? equipped;
   String color = '#3182F6';
   final calls = <String>[];
+  final purchaseStatuses = <String, CoinPurchaseStatus>{};
 
   static const prices = {FrameKind.basic: 300, FrameKind.aura: 1400};
 
@@ -39,7 +40,7 @@ class FakeWalletService implements WalletService {
   final expandedCrews = <String>{};
 
   @override
-  Future<Wallet> buyCosmetic(CosmeticItem item) async {
+  Future<Wallet> buyCosmetic(CosmeticItem item, {int? expectedPrice}) async {
     calls.add('buy:${item.code}');
     if (!cosmetics.contains(item)) {
       if (coins < item.defaultPrice) {
@@ -84,6 +85,13 @@ class FakeWalletService implements WalletService {
 
   @override
   bool get isCurrentOwner => true;
+
+  @override
+  Future<CoinPurchaseStatus> coinPurchaseStatus(String transactionId) async {
+    calls.add('transaction:$transactionId');
+    return purchaseStatuses[transactionId] ??
+        const CoinPurchaseStatus(CoinPurchaseState.pending);
+  }
 
   @override
   Future<Wallet> load() async => _wallet;

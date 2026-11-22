@@ -32,14 +32,27 @@ ButtonStyleButton button(WidgetTester tester, String key, String label) =>
     );
 
 void main() {
-  test('코인 묶음은 1,100원부터 49,900원까지이고 큰 묶음일수록 보너스가 큽니다', () {
+  test('충전 확인은 전체 잔액이 아닌 요청한 거래의 실제 지급량을 사용합니다', () async {
+    final service = FakeWalletService()
+      ..coins = 800
+      ..purchaseStatuses['current'] = const CoinPurchaseStatus(
+        CoinPurchaseState.credited,
+        coins: 100,
+      );
+    final wallet = WalletController(service);
+    addTearDown(wallet.dispose);
+    final purchase = await wallet.waitForPurchase('current');
+    expect(purchase.state, CoinPurchaseState.credited);
+    expect(purchase.coins, 100);
+    expect(service.calls, contains('transaction:current'));
+    expect(wallet.wallet!.coins, 800);
+  });
+
+  test('초기 코인 묶음은 1,100원부터 5,500원까지 같은 단가입니다', () {
     expect(CoinPack.all.first.krw, 1100);
     expect(CoinPack.all.first.coins, 100);
-    expect(CoinPack.all.last.krw, 49900);
-    expect(
-      [for (final pack in CoinPack.all) pack.bonus],
-      [0, 0, 20, 80, 150, 400, 764],
-    );
+    expect(CoinPack.all.last.krw, 5500);
+    expect([for (final pack in CoinPack.all) pack.bonus], [0, 0, 0]);
     // 1,100원 = 100코인 기준으로 기본 테두리는 3,300원, 오라 테두리는 15,400원입니다.
     expect(FrameKind.basic.defaultPrice * 11, 3300);
     expect(FrameKind.aura.defaultPrice * 11, 15400);
@@ -85,27 +98,11 @@ void main() {
     expect(find.text('코인 충전'), findsWidgets);
     // 결제 설정이 없는 미리보기에서는 가격만 보여주고 살 수 없습니다.
     expect(find.textContaining('미리보기에서는 가격만'), findsOneWidget);
-    for (final price in ['1,100원', '3,300원', '5,500원', '11,000원']) {
+    for (final price in ['1,100원', '3,300원', '5,500원']) {
       expect(find.text(price), findsOneWidget);
     }
-    await tester.scrollUntilVisible(
-      find.text('49,900원'),
-      200,
-      scrollable: find.byType(Scrollable).last,
-    );
-    expect(find.text('49,900원'), findsOneWidget);
-    expect(find.text('보너스 +764코인'), findsOneWidget);
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.ancestor(
-              of: find.text('49,900원'),
-              matching: find.byType(FilledButton),
-            ),
-          )
-          .onPressed,
-      isNull,
-    );
+    expect(find.text('11,000원'), findsNothing);
+    expect(find.text('49,900원'), findsNothing);
   });
 
   testWidgets('상점에서 코인으로 테두리를 사고 보관함에서 착용·해제·색 변경을 합니다', (tester) async {

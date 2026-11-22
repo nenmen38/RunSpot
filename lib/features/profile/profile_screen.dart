@@ -105,6 +105,26 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 12),
               WeeklyGoalSummary(service: service),
             ],
+            if (wallet case final controller?)
+              ListenableBuilder(
+                listenable: controller,
+                builder: (context, _) {
+                  final quest = controller.wallet?.weeklyQuest;
+                  if (quest == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Panel(
+                      child: SectionHeader(
+                        title: '이번 주 퀘스트',
+                        subtitle: quest.awarded
+                            ? '${quest.reward}코인 지급 완료'
+                            : '${quest.days}/2일 러닝 · ${quest.reward}코인',
+                        icon: Icons.task_alt_outlined,
+                      ),
+                    ),
+                  );
+                },
+              ),
             if (commerceClient case final client?) ...[
               const SizedBox(height: 8),
               _ProfileLink(

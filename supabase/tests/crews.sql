@@ -27,12 +27,12 @@ insert into runspot_private.coin_grants(user_id,coins,reason) values
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000221',true);
-select pg_temp.assert_true((select (w->'prices'->>'crew_ticket')::int=640 and (w->>'crew_tickets')::int=0
+select pg_temp.assert_true((select (w->'prices'->>'crew_ticket')::int=0 and (w->>'crew_tickets')::int=0
   and not (w->>'in_crew')::boolean from (select public.my_wallet() w) x),'생성권 가격 표시');
 select pg_temp.assert_true(pg_temp.fails('select public.create_crew(''새벽런'','''',''bolt'')','P0001'),'생성권 없이 생성 거부');
 
--- 생성권은 640코인이고, 쓰지 않은 생성권이 있으면 더 사지 않습니다.
-select pg_temp.assert_true((select (w->>'coins')::int=360 and (w->>'crew_tickets')::int=1
+-- 첫 생성권은 무료이고, 쓰지 않은 생성권이 있으면 더 사지 않습니다.
+select pg_temp.assert_true((select (w->>'coins')::int=1000 and (w->>'crew_tickets')::int=1
   from (select public.buy_crew_ticket() w) x),'생성권 구매');
 select pg_temp.assert_true(pg_temp.fails('select public.buy_crew_ticket()','P0001'),'생성권 중복 구매 거부');
 select pg_temp.assert_true(pg_temp.fails('select public.create_crew(''가'','''',''bolt'')','22023'),'짧은 이름 거부');
@@ -103,9 +103,9 @@ select pg_temp.assert_true((select jsonb_array_length(c->'crews')=2 and pg_temp.
   from (select public.respond_crew_invite(:'night',true) c) x),'여러 크루 가입');
 select pg_temp.assert_true(pg_temp.fails('select * from runspot_private.crews','42501'),'크루 원본 접근 거부');
 
--- 생성권 구매는 코인 잔액에서 빠집니다.
+-- 첫 무료 생성권을 사용한 뒤에도 기존 잔액은 유지됩니다.
 reset role;
-select pg_temp.assert_true(runspot_private.coin_balance('00000000-0000-0000-0000-000000000221')=360,'잔액 반영');
+select pg_temp.assert_true(runspot_private.coin_balance('00000000-0000-0000-0000-000000000221')=1000,'잔액 반영');
 
 -- 이미 크루가 있어도 생성권으로 크루를 더 만들고, 크루를 골라 초대합니다.
 insert into runspot_private.coin_grants(user_id,coins,reason) values('00000000-0000-0000-0000-000000000221',640,'테스트');
