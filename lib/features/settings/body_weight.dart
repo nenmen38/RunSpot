@@ -45,65 +45,81 @@ Future<bool> showBodyWeightDialog(
   BuildContext context,
   BodyWeight weight,
 ) async {
-  final input = TextEditingController(
-    text: weight.kg == null
-        ? ''
-        : weight.kg!.toStringAsFixed(weight.kg! % 1 == 0 ? 0 : 1),
-  );
-  String? error;
-  final saved = await showDialog<bool>(
+  final result = await showDialog<({double? kilograms})>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('체중'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('러닝 칼로리를 계산할 때만 쓰고, 이 폰에만 저장해요.'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: input,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: InputDecoration(
-                suffixText: 'kg',
-                errorText: error,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          if (weight.kg != null)
-            TextButton(
-              onPressed: () async {
-                await weight.set(null);
-                if (context.mounted) Navigator.pop(context, true);
-              },
-              child: const Text('설정 지우기'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final value = double.tryParse(input.text.trim());
-              if (value == null || !BodyWeight.valid(value)) {
-                setState(() => error = '30~200kg 사이로 입력해 주세요.');
-                return;
-              }
-              await weight.set(value);
-              if (context.mounted) Navigator.pop(context, true);
-            },
-            child: const Text('저장'),
-          ),
-        ],
-      ),
-    ),
+    builder: (_) => _BodyWeightDialog(kilograms: weight.kg),
   );
-  input.dispose();
-  return saved == true;
+  if (result == null) return false;
+  await weight.set(result.kilograms);
+  return true;
+}
+
+class _BodyWeightDialog extends StatefulWidget {
+  const _BodyWeightDialog({required this.kilograms});
+
+  final double? kilograms;
+
+  @override
+  State<_BodyWeightDialog> createState() => _BodyWeightDialogState();
+}
+
+class _BodyWeightDialogState extends State<_BodyWeightDialog> {
+  late final TextEditingController _input;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final kilograms = widget.kilograms;
+    _input = TextEditingController(
+      text: kilograms?.toStringAsFixed(kilograms % 1 == 0 ? 0 : 1) ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    // 입력창이 닫히는 전환이 끝나고 제거될 때 컨트롤러를 해제합니다.
+    _input.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final value = double.tryParse(_input.text.trim());
+    if (value == null || !BodyWeight.valid(value)) {
+      setState(() => _error = '30~200kg 사이로 입력해 주세요.');
+      return;
+    }
+    Navigator.pop(context, (kilograms: value));
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('체중'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('러닝 칼로리를 계산할 때만 쓰고, 이 폰에만 저장해요.'),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _input,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(suffixText: 'kg', errorText: _error),
+        ),
+      ],
+    ),
+    actions: [
+      if (widget.kilograms != null)
+        TextButton(
+          onPressed: () => Navigator.pop(context, (kilograms: null)),
+          child: const Text('설정 지우기'),
+        ),
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('취소'),
+      ),
+      FilledButton(onPressed: _save, child: const Text('저장')),
+    ],
+  );
 }

@@ -66,6 +66,53 @@ void main() {
     );
   });
 
+  testWidgets('체중 입력창이 닫히는 동안 입력 컨트롤러를 유지합니다', (tester) async {
+    final store = _Store();
+    final weight = BodyWeight(store: store);
+    addTearDown(weight.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showBodyWeightDialog(context, weight),
+              child: const Text('체중 입력'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Future<void> open() async {
+      await tester.tap(find.text('체중 입력'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> close(String button) async {
+      await tester.tap(find.text(button));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+
+    await open();
+    await tester.enterText(find.byType(TextField), '72.5');
+    await close('저장');
+    expect(weight.kg, 72.5);
+
+    await open();
+    await tester.enterText(find.byType(TextField), '80');
+    await close('취소');
+    expect(weight.kg, 72.5);
+
+    await open();
+    await close('설정 지우기');
+    expect(weight.kg, isNull);
+  });
+
   testWidgets('체중을 설정한 경우에만 러닝 칼로리를 계산합니다', (tester) async {
     final weight = BodyWeight(store: _Store());
     final record = RunRecord(
