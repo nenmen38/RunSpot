@@ -87,6 +87,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('러너x님에게 답글 작성 중'), findsNothing);
 
+    // 글 머리말이 커져 작은 시험 화면에서는 아래 답글이 가려질 수 있어 보이게 내립니다.
+    await tester.ensureVisible(find.text('답글 달기').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('답글 달기').last);
     await tester.pumpAndSettle();
     expect(find.text('러너y님에게 답글 작성 중'), findsOneWidget);

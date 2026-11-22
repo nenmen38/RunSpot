@@ -141,7 +141,7 @@ class BoardPostTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (topic != null) ...[
-                            _TopicChip(topic: topic),
+                            BoardTopicChip(topic: topic),
                             const SizedBox(height: 8),
                           ],
                           Text(
@@ -216,7 +216,7 @@ class BoardPostTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: Row(
                           children: [
-                            _AuthorDot(nickname: post.nickname),
+                            BoardAuthorAvatar(nickname: post.nickname),
                             const SizedBox(width: 6),
                             Flexible(
                               child: ListenableBuilder(
@@ -291,8 +291,8 @@ class BoardPostTile extends StatelessWidget {
   }
 }
 
-class _TopicChip extends StatelessWidget {
-  const _TopicChip({required this.topic});
+class BoardTopicChip extends StatelessWidget {
+  const BoardTopicChip({required this.topic, super.key});
 
   final BoardTopic topic;
 
@@ -388,21 +388,22 @@ class _RaceDate extends StatelessWidget {
 }
 
 /// 글쓴이 닉네임 첫 글자가 든 작은 동그라미입니다.
-class _AuthorDot extends StatelessWidget {
-  const _AuthorDot({required this.nickname});
+class BoardAuthorAvatar extends StatelessWidget {
+  const BoardAuthorAvatar({required this.nickname, this.size = 20, super.key});
 
   final String nickname;
+  final double size;
 
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
     child: CircleAvatar(
-      radius: 10,
+      radius: size / 2,
       backgroundColor: AppColors.blueSoft,
       child: Text(
         nickname.trim().characters.firstOrNull ?? '?',
         style: TextStyle(
           color: AppColors.blueText,
-          fontSize: 10,
+          fontSize: size * .45,
           fontWeight: FontWeight.w800,
         ),
       ),

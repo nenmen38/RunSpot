@@ -237,44 +237,88 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                     children: [
                       ..._postBody(context, post),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 24),
                       Wrap(
-                        spacing: 16,
+                        spacing: 8,
                         runSpacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
+                          // 좋아요를 누르면 빨간 하트와 옅은 빨간 바탕으로 바뀝니다.
                           OutlinedButton.icon(
                             onPressed: _liking ? null : _toggleLike,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 40),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
+                              shape: const StadiumBorder(),
+                              backgroundColor: post.liked
+                                  ? AppColors.red.withValues(alpha: .1)
+                                  : null,
+                              side: BorderSide(
+                                color: post.liked
+                                    ? AppColors.red.withValues(alpha: .4)
+                                    : BoardStyle.line,
+                              ),
+                              foregroundColor: post.liked
+                                  ? AppColors.red
+                                  : BoardStyle.ink,
+                              textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             icon: Icon(
                               post.liked
                                   ? Icons.favorite
                                   : Icons.favorite_border,
-                              color: post.liked ? AppColors.red : null,
+                              color: post.liked
+                                  ? AppColors.red
+                                  : BoardStyle.secondary,
                               size: 18,
                             ),
                             label: Text('좋아요 ${post.likeCount}'),
                           ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.chat_bubble_outline,
-                                size: 18,
-                                color: BoardStyle.secondary,
+                          Container(
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: ShapeDecoration(
+                              shape: StadiumBorder(
+                                side: BorderSide(color: BoardStyle.line),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '댓글 ${post.commentCount}',
-                                style: TextStyle(
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 17,
                                   color: BoardStyle.secondary,
-                                  fontSize: 14,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  '댓글 ${post.commentCount}',
+                                  style: TextStyle(
+                                    color: BoardStyle.ink,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const Divider(height: 28),
+                      const SizedBox(height: 20),
+                      // 글과 댓글 사이는 굵은 띠로 나눕니다.
+                      Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: BoardStyle.surface,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       ..._commentList(context),
                     ],
                   ),
@@ -292,60 +336,98 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     final raceDate = post.raceDate;
     final raceUrl = post.raceUrl == null ? null : Uri.tryParse(post.raceUrl!);
     return [
-      if (post.topic != null) ...[
+      if (post.topic case final topic?) ...[
         Align(
           alignment: Alignment.centerLeft,
-          child: BoardLabel(text: post.topic!.label),
+          child: BoardTopicChip(topic: topic),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
       ],
-      SelectableText(post.title, style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 6),
+      SelectableText(
+        post.title,
+        style: Theme.of(context).textTheme.titleLarge
+            ?.copyWith(fontSize: 22, fontWeight: FontWeight.w800, height: 1.35),
+      ),
+      const SizedBox(height: 16),
+      // 글쓴이: 첫 글자 동그라미·이름·칭호·크루, 아래 줄에 지역과 시각입니다.
       InkWell(
         onTap: post.isMine ? null : () => _openUser(),
-        child: ListenableBuilder(
-          listenable: BadgeDirectory.instance,
-          builder: (context, _) => Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: post.nickname),
-                // 칭호가 있을 때만 이름 옆에 붙입니다.
-                if (BadgeDirectory.instance.post(post.id)?.title != null)
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: PostAuthorTitle(postId: post.id),
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: [
+            BoardAuthorAvatar(nickname: post.nickname, size: 40),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListenableBuilder(
+                    listenable: BadgeDirectory.instance,
+                    builder: (context, _) => Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: post.nickname),
+                          // 칭호가 있을 때만 이름 옆에 붙입니다.
+                          if (BadgeDirectory.instance.post(post.id)?.title !=
+                              null)
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: PostAuthorTitle(postId: post.id),
+                            ),
+                          if (post.crew case final crew?)
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: BoardCrewBadge(crew: crew),
+                            ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: BoardStyle.ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                if (post.crew case final crew?)
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: BoardCrewBadge(crew: crew),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (post.region != null) post.region!,
+                      formatBoardDateTime(post.createdAt),
+                      if (post.isEdited) '수정됨',
+                    ].join(' · '),
+                    style: BoardStyle.meta,
                   ),
-                TextSpan(
-                  text: [
-                    '',
-                    if (post.region != null) post.region!,
-                    formatBoardDateTime(post.createdAt),
-                    if (post.isEdited) '수정됨',
-                  ].join(' · '),
-                ),
-              ],
+                ],
+              ),
             ),
-            style: BoardStyle.meta,
-          ),
+          ],
         ),
       ),
-      if (raceDate != null) ...[
-        const SizedBox(height: 14),
-        _InfoRow(
-          icon: Icons.event_outlined,
-          text: '${formatRaceDate(raceDate)} · ${raceCountdown(raceDate)}',
+      if (raceDate != null)
+        Container(
+          margin: const EdgeInsets.only(top: 18),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          decoration: BoxDecoration(
+            color: BoardStyle.surface,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            children: [
+              _InfoRow(
+                icon: Icons.event_outlined,
+                text: formatRaceDate(raceDate),
+                trailing: raceCountdown(raceDate),
+              ),
+              _InfoRow(icon: Icons.place_outlined, text: post.racePlace!),
+            ],
+          ),
         ),
-        _InfoRow(icon: Icons.place_outlined, text: post.racePlace!),
-      ],
-      const SizedBox(height: 24),
-      SelectableText(post.body, style: BoardStyle.body),
+      const SizedBox(height: 20),
+      SelectableText(post.body, style: BoardStyle.body.copyWith(height: 1.75)),
       for (final url in post.visibleImageUrls) ...[
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         BoardPhoto(url: url),
       ],
       if (post.images.length > post.visibleImageUrls.length)
@@ -358,7 +440,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
         ),
       if (raceUrl != null) ...[
         const SizedBox(height: 18),
-        OutlinedButton.icon(
+        FilledButton.tonalIcon(
           onPressed: () => unawaited(
             launchUrl(raceUrl, mode: LaunchMode.externalApplication),
           ),
@@ -387,28 +469,59 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
     }
     if (_comments.comments.isEmpty) {
       return [
-        Text(
-          _comments.canWrite ? '첫 댓글을 남겨 보세요.' : '아직 댓글이 없어요.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 28),
+          child: Column(
+            children: [
+              Icon(
+                Icons.chat_bubble_outline,
+                size: 30,
+                color: BoardStyle.secondary.withValues(alpha: .6),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _comments.canWrite ? '첫 댓글을 남겨 보세요.' : '아직 댓글이 없어요.',
+                style: BoardStyle.meta.copyWith(fontSize: 14),
+              ),
+            ],
+          ),
         ),
       ];
     }
     return [
       for (final (:comment, :isReply) in _comments.threads)
-        Padding(
-          padding: EdgeInsets.only(left: isReply ? 22 : 0, top: 16, bottom: 8),
+        Container(
+          // 답글은 들여쓰고 옅은 바탕에 담아 원댓글과 구분합니다.
+          margin: EdgeInsets.only(
+            left: isReply ? 28 : 0,
+            top: isReply ? 4 : 12,
+          ),
+          padding: EdgeInsets.fromLTRB(isReply ? 12 : 0, 10, 0, 2),
+          decoration: isReply
+              ? BoxDecoration(
+                  color: BoardStyle.surface,
+                  borderRadius: BorderRadius.circular(14),
+                )
+              : null,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isReply)
                 Padding(
-                  padding: EdgeInsets.only(right: 4, top: 1),
+                  padding: const EdgeInsets.only(right: 6, top: 8),
                   child: Icon(
                     Icons.subdirectory_arrow_right,
                     size: 14,
                     color: BoardStyle.secondary,
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.only(right: 10, top: 2),
+                child: BoardAuthorAvatar(
+                  nickname: comment.nickname,
+                  size: isReply ? 28 : 32,
+                ),
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,8 +530,23 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                       onTap: comment.isMine
                           ? null
                           : () => _openUser(commentId: comment.id),
-                      child: Text(
-                        '${comment.nickname} · ${formatBoardDateTime(comment.createdAt)}',
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: comment.nickname,
+                              style: TextStyle(
+                                color: BoardStyle.ink,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  '  ${formatBoardDateTime(comment.createdAt)}',
+                            ),
+                          ],
+                        ),
                         style: TextStyle(
                           color: BoardStyle.secondary,
                           fontSize: 12,
@@ -518,7 +646,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
   Widget _commentInput(BuildContext context) => SafeArea(
     top: false,
     child: Container(
-      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.line)),
@@ -560,19 +688,45 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                   decoration: InputDecoration(
                     hintText: _replyTo == null ? '댓글을 입력해 주세요' : '답글을 입력해 주세요',
                     counterText: '',
-                    border: InputBorder.none,
+                    isDense: true,
+                    filled: true,
+                    fillColor: BoardStyle.surface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 11,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide(
+                        color: BoardStyle.accent,
+                        width: 1.2,
+                      ),
+                    ),
                   ),
                 ),
               ),
-              IconButton(
+              const SizedBox(width: 6),
+              IconButton.filled(
                 tooltip: '댓글 등록',
+                style: IconButton.styleFrom(
+                  backgroundColor: BoardStyle.accent,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _comments.busy ? null : _sendComment,
                 icon: _comments.busy
                     ? const SizedBox.square(
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Icon(Icons.send, color: BoardStyle.accent),
+                    : const Icon(Icons.arrow_upward_rounded),
               ),
             ],
           ),
@@ -601,10 +755,13 @@ class _CommentAction extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.text});
+  const _InfoRow({required this.icon, required this.text, this.trailing});
 
   final IconData icon;
   final String text;
+
+  /// 오른쪽 끝에 붙이는 강조 표시(대회 D-day)입니다.
+  final String? trailing;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -616,6 +773,22 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: Text(text, style: Theme.of(context).textTheme.labelLarge),
         ),
+        if (trailing case final label?)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.blue,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
       ],
     ),
   );
