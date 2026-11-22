@@ -17,6 +17,7 @@ import 'chat_list_style.dart';
 import 'friend_chat_content.dart';
 import 'chat_sync.dart';
 import 'chat_room_style.dart';
+import 'chat_wallpaper.dart';
 
 class FriendChatService {
   FriendChatService(this.client) : ownerId = client.auth.currentUser?.id;
@@ -159,7 +160,11 @@ class FriendChatView extends StatefulWidget {
     this.sync,
     this.draftStore,
     this.rooms,
+    this.wallpaperStore,
   });
+
+  /// 대화방 배경을 저장하는 곳입니다. 없으면 기기 저장소를 씁니다.
+  final ChatWallpaperStore? wallpaperStore;
 
   /// 있으면 대화 목록에 단톡·크루 대화방도 함께 보여줍니다.
   final ChatRoomService? rooms;
@@ -197,6 +202,15 @@ class _FriendChatViewState extends State<FriendChatView>
 
   /// 서버에 읽음으로 알린 마지막 메시지 ID입니다. 같은 값을 반복해서 보내지 않습니다.
   int _markedRead = 0;
+
+  /// 이 대화방 배경입니다(대화 목록 화면에서는 쓰지 않습니다).
+  late final ChatWallpaperController? _wallpaper = widget.peer == null
+      ? null
+      : ChatWallpaperController(
+          owner: widget.service.ownerId,
+          room: 'friend:${widget.peer}',
+          store: widget.wallpaperStore,
+        );
 
   @override
   void initState() {
@@ -591,6 +605,7 @@ class _FriendChatViewState extends State<FriendChatView>
     WidgetsBinding.instance.removeObserver(this);
     _inputFocus.dispose();
     _input.dispose();
+    _wallpaper?.dispose();
     super.dispose();
   }
 
@@ -752,8 +767,28 @@ class _FriendChatViewState extends State<FriendChatView>
             if (widget.peer case final peer?) UserTitle(userId: peer),
           ],
         ),
+        actions: [
+          if (_wallpaper case final wallpaper?)
+            IconButton(
+              tooltip: '대화방 배경',
+              onPressed: () => wallpaper.choose(context),
+              icon: const Icon(Icons.wallpaper_outlined),
+            ),
+        ],
       ),
-      body: SafeArea(top: false, child: content),
+      body: SafeArea(
+        top: false,
+        child: _wallpaper == null
+            ? content
+            : ValueListenableBuilder(
+                valueListenable: _wallpaper,
+                builder: (context, wallpaper, child) => ChatWallpaperBackground(
+                  wallpaper: wallpaper,
+                  child: child!,
+                ),
+                child: content,
+              ),
+      ),
     );
   }
 

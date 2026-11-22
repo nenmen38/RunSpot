@@ -14,6 +14,7 @@ import '../crew/models/crew.dart';
 import '../titles/badge_directory.dart';
 import 'chat_room_style.dart';
 import 'chat_sync.dart';
+import 'chat_wallpaper.dart';
 
 /// 대화 목록에 보여줄 단톡·크루 대화방 하나입니다.
 class ChatRoomSummary {
@@ -216,12 +217,16 @@ class ChatRoomView extends StatefulWidget {
     required this.service,
     required this.roomId,
     this.sync,
+    this.wallpaperStore,
     super.key,
   });
 
   final ChatRoomService service;
   final String roomId;
   final ChatSync? sync;
+
+  /// 대화방 배경을 저장하는 곳입니다. 없으면 기기 저장소를 씁니다.
+  final ChatWallpaperStore? wallpaperStore;
 
   @override
   State<ChatRoomView> createState() => _ChatRoomViewState();
@@ -240,6 +245,11 @@ class _ChatRoomViewState extends State<ChatRoomView>
   Timer? _poll;
   int? _seenRevision;
   int _markedRead = 0;
+  late final _wallpaper = ChatWallpaperController(
+    owner: widget.service.ownerId,
+    room: 'room:${widget.roomId}',
+    store: widget.wallpaperStore,
+  );
 
   @override
   void initState() {
@@ -427,6 +437,7 @@ class _ChatRoomViewState extends State<ChatRoomView>
     _poll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _input.dispose();
+    _wallpaper.dispose();
     super.dispose();
   }
 
@@ -459,6 +470,11 @@ class _ChatRoomViewState extends State<ChatRoomView>
         ),
         actions: [
           IconButton(
+            tooltip: '대화방 배경',
+            onPressed: () => _wallpaper.choose(context),
+            icon: const Icon(Icons.wallpaper_outlined),
+          ),
+          IconButton(
             tooltip: '참여자 보기',
             onPressed: page == null ? null : _showMembers,
             icon: const Icon(Icons.people_outline),
@@ -476,55 +492,62 @@ class _ChatRoomViewState extends State<ChatRoomView>
         child: Column(
           children: [
             Expanded(
-              child: page == null
-                  ? (_error == null
-                        ? const StatusView.loading()
-                        : StatusView.error(message: _error!, onRetry: _load))
-                  : _messages.isEmpty
-                  ? const StatusView.empty(
-                      icon: Icons.forum_outlined,
-                      message: '첫 메시지를 보내 보세요.',
-                    )
-                  : ListView.builder(
-                      reverse: true,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        final previous = index + 1 < _messages.length
-                            ? _messages[index + 1]
-                            : null;
-                        final next = index > 0 ? _messages[index - 1] : null;
-                        return ListenableBuilder(
-                          key: ValueKey(message.id),
-                          listenable: BadgeDirectory.instance,
-                          builder: (context, _) => ChatMessageBubble(
-                            body: message.body,
-                            nickname: message.nickname,
-                            mine: message.senderId == owner,
-                            sentAt: message.sentAt,
-                            showDay:
-                                message.sentAt != null &&
-                                !_sameDay(message.sentAt, previous?.sentAt),
-                            showAvatar: !_sameGroup(message, previous),
-                            showTime: !_sameGroup(message, next),
-                            unreadCount: message.unread,
-                            showName: true,
-                            content: message.kind == 'photo'
-                                ? FriendChatPhoto(
-                                    load: () => widget.service.photo(
-                                      widget.roomId,
-                                      message.id,
-                                    ),
-                                  )
-                                : null,
-                            bubble: BadgeDirectory.instance
-                                .user(message.senderId)
-                                ?.chatBubble,
-                          ),
-                        );
-                      },
-                    ),
+              child: ValueListenableBuilder(
+                valueListenable: _wallpaper,
+                builder: (context, wallpaper, child) => ChatWallpaperBackground(
+                  wallpaper: wallpaper,
+                  child: child!,
+                ),
+                child: page == null
+                    ? (_error == null
+                          ? const StatusView.loading()
+                          : StatusView.error(message: _error!, onRetry: _load))
+                    : _messages.isEmpty
+                    ? const StatusView.empty(
+                        icon: Icons.forum_outlined,
+                        message: '첫 메시지를 보내 보세요.',
+                      )
+                    : ListView.builder(
+                        reverse: true,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final message = _messages[index];
+                          final previous = index + 1 < _messages.length
+                              ? _messages[index + 1]
+                              : null;
+                          final next = index > 0 ? _messages[index - 1] : null;
+                          return ListenableBuilder(
+                            key: ValueKey(message.id),
+                            listenable: BadgeDirectory.instance,
+                            builder: (context, _) => ChatMessageBubble(
+                              body: message.body,
+                              nickname: message.nickname,
+                              mine: message.senderId == owner,
+                              sentAt: message.sentAt,
+                              showDay:
+                                  message.sentAt != null &&
+                                  !_sameDay(message.sentAt, previous?.sentAt),
+                              showAvatar: !_sameGroup(message, previous),
+                              showTime: !_sameGroup(message, next),
+                              unreadCount: message.unread,
+                              showName: true,
+                              content: message.kind == 'photo'
+                                  ? FriendChatPhoto(
+                                      load: () => widget.service.photo(
+                                        widget.roomId,
+                                        message.id,
+                                      ),
+                                    )
+                                  : null,
+                              bubble: BadgeDirectory.instance
+                                  .user(message.senderId)
+                                  ?.chatBubble,
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
             if (_sendError case final error?)
               Padding(
