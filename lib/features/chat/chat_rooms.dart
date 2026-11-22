@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/status_view.dart';
+import '../../shared/widgets/skeleton.dart';
 import '../crew/models/crew.dart';
 import '../titles/badge_directory.dart';
 import 'chat_room_style.dart';
@@ -500,7 +501,7 @@ class _ChatRoomViewState extends State<ChatRoomView>
                 ),
                 child: page == null
                     ? (_error == null
-                          ? const StatusView.loading()
+                          ? const SkeletonList(layout: SkeletonLayout.chat)
                           : StatusView.error(message: _error!, onRetry: _load))
                     : _messages.isEmpty
                     ? const StatusView.empty(

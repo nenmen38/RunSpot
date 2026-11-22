@@ -3,6 +3,7 @@ import 'chat_draft_store.dart';
 import '../moderation/moderation_screen.dart';
 
 import 'package:runquest/shared/widgets/status_view.dart';
+import 'package:runquest/shared/widgets/skeleton.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -636,7 +637,7 @@ class _FriendChatViewState extends State<FriendChatView>
           ListTile(title: Text(error), onTap: _load),
         Expanded(
           child: !_loaded
-              ? const StatusView.loading()
+              ? const SkeletonList(layout: SkeletonLayout.chat)
               : _rows.isEmpty
               ? const StatusView.empty(
                   icon: Icons.chat_bubble_outline_rounded,
@@ -793,7 +794,7 @@ class _FriendChatViewState extends State<FriendChatView>
   }
 
   Widget _buildConversationList() {
-    if (!_loaded) return const StatusView.loading();
+    if (!_loaded) return const SkeletonList();
     if (_loadError case final error?) {
       return ChatListPlaceholder(message: error, onRetry: _load);
     }

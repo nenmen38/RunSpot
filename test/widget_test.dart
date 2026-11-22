@@ -755,7 +755,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('프로필').last);
       await tester.pumpAndSettle();
-      expect(find.text('새내기 러너 · 누적 130 XP'), findsOneWidget);
+      expect(find.text('새내기 러너'), findsOneWidget);
+      expect(find.text('누적 130 XP'), findsOneWidget);
       expect(find.text('30 / 150 XP'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());

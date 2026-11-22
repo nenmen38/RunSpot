@@ -1,4 +1,4 @@
-import 'package:runquest/shared/widgets/status_view.dart';
+import 'package:runquest/shared/widgets/skeleton.dart';
 
 import 'dart:async';
 
@@ -168,7 +168,7 @@ class _MarathonBoardState extends State<MarathonBoard> {
         const SizedBox(height: 8),
         Expanded(
           child: _loading && _feed == null
-              ? const StatusView.loading()
+              ? const SkeletonList(layout: SkeletonLayout.cards, count: 4)
               : LayoutBuilder(
                   builder: (context, constraints) => RefreshIndicator(
                     onRefresh: () async {

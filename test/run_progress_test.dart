@@ -205,7 +205,8 @@ void main() {
     await tester.tap(find.text('다시 시도'));
     await tester.pumpAndSettle();
     expect(service.loads, 2);
-    expect(find.text('새내기 러너 · 누적 130 XP'), findsOneWidget);
+    expect(find.text('새내기 러너'), findsOneWidget);
+    expect(find.text('누적 130 XP'), findsOneWidget);
     expect(find.text('Lv.2'), findsOneWidget);
     expect(find.text('30 / 150 XP'), findsOneWidget);
     expect(tester.takeException(), isNull);

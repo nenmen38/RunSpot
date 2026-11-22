@@ -1,4 +1,5 @@
 import 'package:runquest/shared/widgets/status_view.dart';
+import 'package:runquest/shared/widgets/skeleton.dart';
 
 import 'dart:async';
 
@@ -316,7 +317,7 @@ class _BoardScreenState extends State<BoardScreen> {
       );
     }
     if (controller.loading && controller.posts.isEmpty) {
-      return const StatusView.loading();
+      return const SkeletonList(layout: SkeletonLayout.cards, count: 4);
     }
     if (controller.needsRegion) {
       return _Notice(

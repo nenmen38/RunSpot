@@ -1,3 +1,5 @@
+import '../../shared/widgets/skeleton.dart';
+
 import 'package:runquest/features/titles/badge_directory.dart';
 
 import 'dart:async';
@@ -369,7 +371,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
 
   List<Widget> _commentList(BuildContext context) {
     if (_comments.loading && !_comments.loaded) {
-      return const [Center(child: CircularProgressIndicator())];
+      return const [SkeletonList(count: 3)];
     }
     if (_comments.error != null) {
       return [

@@ -1,3 +1,4 @@
+import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
 import 'package:runquest/features/titles/title_service.dart';
 
@@ -59,12 +60,15 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final identity = Panel(
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           PrivacyControls(sharingController: mapController, identityOnly: true),
           if (progressService != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Divider(height: 1, color: AppColors.line),
+            const SizedBox(height: 16),
             ProfileLevelCard(service: progressService!),
           ],
         ],

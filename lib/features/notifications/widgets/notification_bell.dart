@@ -1,4 +1,5 @@
 import 'package:runquest/shared/widgets/status_view.dart';
+import 'package:runquest/shared/widgets/skeleton.dart';
 
 import 'dart:async';
 
@@ -178,7 +179,7 @@ class NotificationSheet extends StatelessWidget {
 
   Widget _body() {
     if (controller.loading && controller.items.isEmpty) {
-      return const StatusView.loading();
+      return const SkeletonList();
     }
     if (controller.error != null && controller.items.isEmpty) {
       return StatusView.error(

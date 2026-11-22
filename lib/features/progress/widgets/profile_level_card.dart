@@ -6,6 +6,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../data/progress_service.dart';
 import '../models/run_progress.dart';
 import 'level_progress_bar.dart';
+import '../../../shared/widgets/skeleton.dart';
 
 /// 프로필의 레벨 칭호와 경험치 진행 바입니다. 화면을 열 때마다 서버 값을 조회합니다.
 class ProfileLevelCard extends StatefulWidget {
@@ -64,14 +65,38 @@ class _ProfileLevelCardState extends State<ProfileLevelCard> {
   Widget build(BuildContext context) {
     final progress = _progress;
     if (progress != null) {
+      final text = Theme.of(context).textTheme;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            '${levelTitle(progress.level)} · 누적 ${progress.totalXp} XP',
-            style: Theme.of(context).textTheme.bodyMedium,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.blueSoft,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.bolt_rounded,
+                  size: 18,
+                  color: AppColors.blueText,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  levelTitle(progress.level),
+                  style: text.titleMedium,
+                ),
+              ),
+              Text(
+                '누적 ${progress.totalXp} XP',
+                style: text.bodySmall?.copyWith(color: AppColors.gray),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           LevelProgressBar(progress: progress),
         ],
       );
@@ -86,16 +111,24 @@ class _ProfileLevelCardState extends State<ProfileLevelCard> {
         ],
       );
     }
-    return const Row(
-      children: [
-        SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        SizedBox(width: 10),
-        Text('레벨 확인 중'),
-      ],
+    // 불러오는 동안 실제 모양과 같은 뼈대를 보여줍니다.
+    return const Shimmer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              SkeletonBox(width: 30, height: 30, radius: 10),
+              SizedBox(width: 10),
+              SkeletonBox(width: 90, height: 14),
+              Spacer(),
+              SkeletonBox(width: 64, height: 11),
+            ],
+          ),
+          SizedBox(height: 14),
+          SkeletonBox(height: 10, radius: 5),
+        ],
+      ),
     );
   }
 }
