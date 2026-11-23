@@ -17,7 +17,7 @@ class RunRecordColors {
 ThemeData runRecordTheme(BuildContext context) {
   final base = Theme.of(context);
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.surface,
+    scaffoldBackgroundColor: AppColors.bg,
     textTheme: base.textTheme.apply(
       bodyColor: AppColors.ink,
       displayColor: AppColors.ink,

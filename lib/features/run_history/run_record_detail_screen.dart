@@ -11,6 +11,7 @@ import 'widgets/run_splits_panel.dart';
 import 'package:flutter/material.dart';
 
 import '../../shared/maps/run_map.dart';
+import '../../shared/widgets/panel.dart';
 
 import '../run_feedback/data/run_feedback_service.dart';
 import '../run_feedback/run_feedback_panel.dart';
@@ -196,7 +197,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: RunRecordDetails(record: _record),
+                    child: Panel(child: RunRecordDetails(record: _record)),
                   ),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -245,10 +246,19 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                       child: Center(child: Text('저장된 경로가 없습니다.')),
                     )
                   else
-                    SavedRunMap(
-                      route: _route!,
-                      splits: _record.splits,
-                      mapBridgeFactory: widget.mapBridgeFactory,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Panel(
+                        padding: EdgeInsets.zero,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(17),
+                          child: SavedRunMap(
+                            route: _route!,
+                            splits: _record.splits,
+                            mapBridgeFactory: widget.mapBridgeFactory,
+                          ),
+                        ),
+                      ),
                     ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),

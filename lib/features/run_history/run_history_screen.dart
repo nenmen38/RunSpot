@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../shared/formatters/run_format.dart';
+import '../../shared/widgets/panel.dart';
 import '../run_feedback/data/run_feedback_service.dart';
 import 'data/run_record_service.dart';
 import 'models/run_record.dart';
@@ -153,61 +154,20 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   );
                 }
                 final record = records[index];
-                return Column(
-                  children: [
-                    ListTile(
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                      title: Text(
-                        formatRunDate(record.startedAt),
-                        style: TextStyle(color: RunRecordColors.label),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Panel(
+                    padding: EdgeInsets.zero,
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                      clipBehavior: Clip.antiAlias,
+                      child: _RecordTile(
+                        record: record,
+                        onTap: () => _open(record),
                       ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Wrap(
-                          spacing: 16,
-                          runSpacing: 4,
-                          children: [
-                            if (record.pendingSync)
-                              Text(
-                                '서버 저장 대기',
-                                style: TextStyle(
-                                  color: RunRecordColors.warning,
-                                ),
-                              ),
-                            if (record.reviewPending)
-                              Text(
-                                '검토 중',
-                                style: TextStyle(
-                                  color: RunRecordColors.warning,
-                                ),
-                              )
-                            else if (record.integrityStatus == 'rejected')
-                              Text(
-                                '반려됨',
-                                style: TextStyle(color: RunRecordColors.danger),
-                              ),
-                            Text(
-                              '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
-                              style: TextStyle(
-                                color: AppColors.blueText,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              formatRunDuration(
-                                Duration(seconds: record.durationSeconds),
-                              ),
-                            ),
-                            Text(formatRunPace(record)),
-                          ],
-                        ),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _open(record),
                     ),
-                    const Divider(height: 1),
-                  ],
+                  ),
                 );
               },
             ),
@@ -216,4 +176,68 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       );
     },
   );
+}
+
+class _RecordTile extends StatelessWidget {
+  const _RecordTile({required this.record, required this.onTap});
+
+  final RunRecord record;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.blueSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(Icons.directions_run, size: 20, color: AppColors.blueText),
+      ),
+      title: Text(
+        formatRunDate(record.startedAt),
+        style: text.labelMedium?.copyWith(color: RunRecordColors.label),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
+              style: text.titleLarge?.copyWith(
+                color: AppColors.blueText,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 4,
+              children: [
+                Text(
+                  formatRunDuration(Duration(seconds: record.durationSeconds)),
+                ),
+                Text(formatRunPace(record)),
+              ],
+            ),
+            if (record.pendingSync)
+              Text(
+                '서버 저장 대기',
+                style: TextStyle(color: RunRecordColors.warning),
+              ),
+            if (record.reviewPending)
+              Text('검토 중', style: TextStyle(color: RunRecordColors.warning))
+            else if (record.integrityStatus == 'rejected')
+              Text('반려됨', style: TextStyle(color: RunRecordColors.danger)),
+          ],
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right, color: RunRecordColors.label),
+    );
+  }
 }

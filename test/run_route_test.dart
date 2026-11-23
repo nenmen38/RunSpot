@@ -213,7 +213,9 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('지도 범례 양끝에 실제 구간 페이스를 표시합니다', (tester) async {
+  testWidgets('좁은 화면에서 지도 범례와 실제 구간 페이스를 정렬합니다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -234,13 +236,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.text('이번 러닝의 구간 페이스'), findsOneWidget);
+    expect(find.text('4’50” /km'), findsOneWidget);
+    expect(find.text('6’00” /km'), findsOneWidget);
     expect(
-      find.textContaining('매우 빠름 4’50”', findRichText: true),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining('매우 느림 6’00”', findRichText: true),
-      findsOneWidget,
+      tester.getTopLeft(find.text('매우 빠름')).dy,
+      tester.getTopLeft(find.text('매우 느림')).dy,
     );
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

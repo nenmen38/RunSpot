@@ -113,37 +113,80 @@ class _SavedRunMapState extends State<SavedRunMap> {
         ),
         if (range != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                const Text('이번 러닝 기준 · /km', style: TextStyle(fontSize: 12)),
-                for (final band in paceBands)
-                  Text.rich(
-                    TextSpan(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: _PaceLegend(fastest: range.fastest, slowest: range.slowest),
+          ),
+      ],
+    );
+  }
+}
+
+class _PaceLegend extends StatelessWidget {
+  const _PaceLegend({required this.fastest, required this.slowest});
+
+  final Duration fastest;
+  final Duration slowest;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('이번 러닝의 구간 페이스', style: text.labelMedium),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${formatPaceDuration(fastest)} /km',
+                style: text.labelSmall,
+              ),
+              Text(
+                '${formatPaceDuration(slowest)} /km',
+                style: text.labelSmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              for (final band in paceBands)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Column(
                       children: [
-                        TextSpan(
-                          text: '● ',
-                          style: TextStyle(color: band.color),
+                        Container(
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: band.color,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
-                        TextSpan(
-                          text: switch (band.color) {
-                            paceFast =>
-                              '${band.label} ${formatPaceDuration(range.fastest)}',
-                            paceSlow =>
-                              '${band.label} ${formatPaceDuration(range.slowest)}',
-                            _ => band.label,
-                          },
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            band.label,
+                            style: text.labelSmall,
+                            maxLines: 1,
+                          ),
                         ),
                       ],
                     ),
-                    style: const TextStyle(fontSize: 12),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-      ],
+        ],
+      ),
     );
   }
 }
