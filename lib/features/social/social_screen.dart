@@ -353,7 +353,10 @@ class _SocialScreenState extends State<SocialScreen>
   Widget _social() => DefaultTabController(
     length: widget.crewController == null ? 4 : 5,
     // initialTab은 크루 탭이 없을 때의 번호입니다. 크루 탭이 친구 다음에 끼므로 뒤 탭은 한 칸 밀립니다.
-    initialIndex: widget.crewController != null && widget.initialTab >= 1
+    // -1은 크루 탭입니다(크루 초대 알림). 크루 탭이 없으면 친구 탭을 엽니다.
+    initialIndex: widget.initialTab < 0
+        ? (widget.crewController != null ? 1 : 0)
+        : widget.crewController != null && widget.initialTab >= 1
         ? widget.initialTab + 1
         : widget.initialTab,
     child: AnimatedBuilder(

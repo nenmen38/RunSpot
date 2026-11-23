@@ -53,6 +53,7 @@
 36. `migrations/20261120000100_group_chat_rooms.sql`: 단톡(group)과 크루 대화방(crew)을 추가합니다. 단톡은 친구나 같은 크루 사람 1~49명과 만들고(`create_chat_room`) 나갈 수 있으며, 크루 대화방은 크루마다 하나이고 크루원이면 들어갑니다(`crew_chat_room`). 메시지마다 안 읽은 사람 수를 돌려주고(`chat_room_read`), 실시간 신호·휴대폰 알림(`room_message`, 본문 미포함)·안 읽은 수(`chat_rooms_unread_total`)를 1:1 대화와 같은 방식으로 지원합니다.
 37. `migrations/20261121000100_group_chat_photos.sql`: 단톡·크루 대화방에서 사진을 보냅니다(`chat_room_send_photo`, 1MB 이하 JPEG, 1분에 5장). 사진은 참여자만 받을 수 있고(`chat_room_photo`), 차단한 사람의 사진은 보이지 않습니다. `chat_room_read`가 메시지 종류(`kind`)를 함께 돌려줍니다.
 38. `migrations/20261122000100_remove_aura_effects.sql`: 상점에서 오라 효과(별가루·불꽃·물결)를 없앱니다. 이미 산 오라 효과는 지워지고(잔액은 산 기록으로 계산하므로 코인이 돌아옵니다), 더 이상 살 수 없습니다.
+39. `migrations/20261123000100_push_all_notifications.sql`: 앱 알림창의 좋아요·크루 초대도 휴대폰 알림으로 보냅니다. 알림 제목·내용에 보낸 사람 이름과 메시지·댓글 내용을 넣고(`push_text`), `my_push_preferences`로 1:1 메시지·단체 대화방·친구 요청·함께 달리기 초대·크루 초대·댓글·좋아요·내용 미리보기를 항목별로 켜고 끕니다. 서버 함수 `operations-worker`를 다시 배포해야 새 문구가 적용됩니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

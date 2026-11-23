@@ -45,6 +45,31 @@ Deno.test("친구 메시지 알림은 본문 없이 보낸 친구별로 하나�
   assert(value.message.android.collapse_key === "chat-친구");
   assert(value.message.apns.headers["apns-collapse-id"] === "chat-친구");
 });
+Deno.test("서버가 준 보낸 사람 이름과 내용을 알림 제목·본문으로 씀", () => {
+  const value = payload({
+    ...delivery,
+    kind: "friend_message",
+    target_id: "친구",
+    title: "바람러너",
+    body: "오늘 저녁에\n같이 뛸래?",
+  });
+  assert(value.message.notification.title === "바람러너");
+  assert(value.message.notification.body === "오늘 저녁에 같이 뛸래?");
+  // 이름·내용은 화면 표시용 알림에만 두고 앱으로 가는 데이터에는 넣지 않습니다.
+  assert(!JSON.stringify(value.message.data).includes("바람러너"));
+  const long = payload({ ...delivery, body: "가".repeat(300) });
+  assert([...long.message.notification.body].length === 120);
+});
+Deno.test("좋아요·크루 초대도 알림 종류로 받음", () => {
+  assert(
+    payload({ ...delivery, kind: "board_like" }).message.notification.body ===
+      "내 글에 좋아요가 달렸어요.",
+  );
+  assert(
+    payload({ ...delivery, kind: "crew_invite" }).message.notification.body ===
+      "크루 초대가 도착했어요.",
+  );
+});
 Deno.test("기기 등록 해제만 토큰을 폐기하고 설정 오류와 일시 장애는 구분함", async () => {
   const response = (status: number, code: string) =>
     (() =>

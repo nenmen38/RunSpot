@@ -23,6 +23,8 @@ class PushDestination {
           'board_comment',
           'friend_message',
           'room_message',
+          'board_like',
+          'crew_invite',
         ].contains(kind) ||
         target is! String ||
         !RegExp(

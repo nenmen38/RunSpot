@@ -242,6 +242,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       }
       _notifications?.refreshCount();
       if (destination.kind == 'group_invite') unawaited(_groups?.refresh());
+      if (destination.kind == 'crew_invite') unawaited(_crew?.refresh());
       if (destination.kind == 'friend_message' ||
           destination.kind == 'room_message') {
         // 대화 화면은 실시간으로 바뀌므로 알림 대신 배지만 갱신합니다.
@@ -251,11 +252,14 @@ class _RunQuestShellState extends State<RunQuestShell> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              destination.kind == 'group_invite'
-                  ? '함께 달리기 초대가 도착했어요.'
-                  : '새 활동 알림이 도착했어요.',
-            ),
+            content: Text(switch (destination.kind) {
+              'group_invite' => '함께 달리기 초대가 도착했어요.',
+              'crew_invite' => '크루 초대가 도착했어요.',
+              'board_like' => '내 글에 좋아요가 달렸어요.',
+              'board_comment' => '내 글에 새 댓글이 달렸어요.',
+              'friend_request' => '새 친구 요청이 도착했어요.',
+              _ => '새 활동 알림이 도착했어요.',
+            }),
             action: SnackBarAction(
               label: '확인',
               onPressed: () {
@@ -314,13 +318,19 @@ class _RunQuestShellState extends State<RunQuestShell> {
     }
     PushService.instance.pending = null;
     Navigator.of(context).popUntil((route) => route.isFirst);
-    if (destination.kind == 'board_comment') {
+    if (destination.kind == 'board_comment' ||
+        destination.kind == 'board_like') {
       unawaited(_openPost(destination.targetId));
       return;
     }
     setState(() {
       _socialRevision++;
-      _socialInitialTab = destination.kind == 'friend_request' ? 1 : 0;
+      // 크루 초대는 소셜의 크루 탭(-1)을, 친구 요청은 요청 탭을 엽니다.
+      _socialInitialTab = switch (destination.kind) {
+        'friend_request' => 1,
+        'crew_invite' => -1,
+        _ => 0,
+      };
       _openGroupOnStart = destination.kind == 'group_invite';
       // 메시지 알림을 누르면 소셜 탭의 대화 목록을 엽니다.
       _socialShowChat =

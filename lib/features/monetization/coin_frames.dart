@@ -496,10 +496,9 @@ class _FrameBadgeState extends State<FrameBadge>
               ]
             : const [],
       ),
-      child: Icon(
-        Icons.directions_run,
-        size: size * .52,
-        color: const Color(0xFF334155),
+      // 지도에서 내 위치에 쓰는 것과 같은 방향 화살표를 테두리 색으로 그립니다.
+      child: Center(
+        child: MapHeadingArrow(size: size * .5, color: widget.color),
       ),
     );
     final pulse = _pulse;
@@ -1211,4 +1210,42 @@ class FrameShop extends StatelessWidget {
     if (confirmed != true) return;
     onMessage(await controller.buyCrewTicket() ?? '크루 생성권을 보관함에 넣었어요.');
   }
+}
+
+/// 지도의 내 위치 화살표(카카오 지도 문서의 arrowIcon과 같은 모양)입니다. 위쪽(북쪽)을 가리킵니다.
+class MapHeadingArrow extends StatelessWidget {
+  const MapHeadingArrow({required this.size, required this.color, super.key});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: CustomPaint(
+      size: Size.square(size),
+      painter: _HeadingArrowPainter(color),
+    ),
+  );
+}
+
+class _HeadingArrowPainter extends CustomPainter {
+  const _HeadingArrowPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 24×24 기준 좌표: M12 2.5 L20 20.5 L12 16.3 L4 20.5 Z
+    final unit = size.width / 24;
+    final path = Path()
+      ..moveTo(12 * unit, 2.5 * unit)
+      ..lineTo(20 * unit, 20.5 * unit)
+      ..lineTo(12 * unit, 16.3 * unit)
+      ..lineTo(4 * unit, 20.5 * unit)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_HeadingArrowPainter old) => old.color != color;
 }
