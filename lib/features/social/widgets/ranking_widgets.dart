@@ -37,7 +37,7 @@ class RankRow extends StatelessWidget {
               children: [
                 TitledNickname(
                   runner.name,
-                  userId: runner.userId,
+                  badge: runner.titleBadge,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,

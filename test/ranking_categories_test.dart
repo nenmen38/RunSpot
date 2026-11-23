@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:runquest/features/monetization/cosmetics.dart';
 import 'package:runquest/features/social/data/ranking_service.dart';
 import 'package:runquest/features/social/models/weekly_ranking.dart';
 import 'package:runquest/features/social/widgets/friend_ranking.dart';
@@ -10,7 +11,7 @@ WeeklyRanking result(
   RankingCategory category,
   String name,
   int score, {
-  String? userId,
+  Map<String, dynamic>? titleBadge,
 }) => WeeklyRanking.fromJson({
   'can_interact': true,
   'week_started_at': '2026-11-02T00:00:00+09:00',
@@ -20,7 +21,7 @@ WeeklyRanking result(
       'nickname': name,
       'score': score,
       'is_me': false,
-      if (userId != null) 'user_id': userId,
+      if (titleBadge != null) 'title_badge': titleBadge,
     },
   ],
 }, category: category);
@@ -61,18 +62,18 @@ void main() {
       '25:00',
     );
   });
-  test('친구 랭킹 응답의 사용자 ID를 칭호 조회에 사용합니다', () {
+  test('친구 랭킹 응답의 배지 정보로 칭호를 표시합니다', () {
     expect(
       result(
         RankingCategory.distance,
         '러너',
         1200,
-        userId: 'friend',
-      ).entries.single.userId,
-      'friend',
+        titleBadge: {'title': 'ten_k'},
+      ).entries.single.titleBadge?.title,
+      RunnerTitle.tenK,
     );
     expect(
-      result(RankingCategory.distance, '러너', 1200).entries.single.userId,
+      result(RankingCategory.distance, '러너', 1200).entries.single.titleBadge,
       isNull,
     );
   });

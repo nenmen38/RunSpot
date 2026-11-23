@@ -1,3 +1,4 @@
+import '../../titles/title_service.dart';
 import 'runner_rank.dart';
 
 enum RankingCategory {
@@ -47,7 +48,7 @@ class WeeklyRanking {
           final nickname = row['nickname'];
           final distance = row['score'] ?? row['distance_m'];
           final isMe = row['is_me'];
-          final userId = row['user_id'];
+          final badge = row['title_badge'];
           if (rank is! int ||
               rank < 0 ||
               nickname is! String ||
@@ -76,7 +77,9 @@ class WeeklyRanking {
                     : '${distance ~/ 60000000}:${((distance ~/ 1000000) % 60).toString().padLeft(2, '0')}',
             },
             isMe,
-            userId: userId is String && userId.isNotEmpty ? userId : null,
+            titleBadge: badge is Map<String, dynamic>
+                ? UserBadge.fromJson(badge)
+                : null,
           );
         }),
       ),

@@ -1,3 +1,5 @@
+import '../../titles/title_service.dart';
+
 class RunnerRank {
   const RunnerRank(
     this.rank,
@@ -5,7 +7,7 @@ class RunnerRank {
     this.badge,
     this.value,
     this.isMe, {
-    this.userId,
+    this.titleBadge,
   });
 
   final int rank;
@@ -13,5 +15,5 @@ class RunnerRank {
   final String badge;
   final String value;
   final bool isMe;
-  final String? userId;
+  final UserBadge? titleBadge;
 }

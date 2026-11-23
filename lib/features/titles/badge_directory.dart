@@ -137,10 +137,17 @@ class UserTitle extends StatelessWidget {
 
 /// 목록에서 닉네임과 착용한 칭호를 한 줄로 보여줍니다.
 class TitledNickname extends StatelessWidget {
-  const TitledNickname(this.nickname, {this.userId, this.style, super.key});
+  const TitledNickname(
+    this.nickname, {
+    this.userId,
+    this.badge,
+    this.style,
+    super.key,
+  });
 
   final String nickname;
   final String? userId;
+  final UserBadge? badge;
   final TextStyle? style;
 
   @override
@@ -154,7 +161,14 @@ class TitledNickname extends StatelessWidget {
           style: style,
         ),
       ),
-      if (userId case final id?)
+      if (badge?.title case final title?)
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: TitleBadge(title: title, style: badge?.titleStyle, size: 10),
+          ),
+        )
+      else if (userId case final id?)
         Flexible(child: UserTitle(userId: id, size: 10)),
     ],
   );
