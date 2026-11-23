@@ -1,3 +1,4 @@
+import '../shared/data/account_rpc.dart';
 import 'package:runquest/features/titles/title_service.dart';
 import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
@@ -165,7 +166,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _records = SupabasePersonalRecordsService(client);
       _titles = SupabaseTitleService(client);
       BadgeDirectory.instance.bind(_titles!);
-      AvatarDirectory.instance.bind(SupabaseAvatarSource(client));
+      AvatarDirectory.instance.bind(SupabaseAvatarSource(client), reports: AccountRpc(client));
       _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
       _reviews = SupabaseReviewService(client);

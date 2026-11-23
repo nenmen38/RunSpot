@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:runquest/features/profile/avatar_directory.dart';
+import 'package:runquest/features/profile/reportable_avatar_header.dart';
 
 import '../../chat/friend_chat.dart';
 import '../data/block_service.dart';
@@ -106,13 +106,9 @@ class _UserMenuState extends State<_UserMenu> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: UserAvatar(
-                nickname: widget.nickname,
-                userId: widget.userId,
-                size: 40,
-              ),
-              title: Text(widget.nickname),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ReportableAvatarHeader(userId: widget.userId, nickname: widget.nickname, size: 40),
             ),
             if (_error != null)
               Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),

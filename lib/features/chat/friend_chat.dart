@@ -1,6 +1,6 @@
 import '../titles/badge_directory.dart';
 import 'chat_draft_store.dart';
-import '../moderation/moderation_screen.dart';
+import '../moderation/report_dialog.dart';
 
 import 'package:runquest/shared/widgets/status_view.dart';
 import 'package:runquest/shared/widgets/skeleton.dart';
@@ -553,11 +553,12 @@ class _FriendChatViewState extends State<FriendChatView>
               .showSnackBar(const SnackBar(content: Text('메시지를 복사했습니다.')));
         }
       case 'report':
-        final reason = await moderationReason(
-          context,
-          '메시지 신고',
-          explanation:
-              '신고한 메시지와 직전 세 메시지의 텍스트가 운영자에게 전달됩니다. 사진을 신고하면 해당 사진도 포함됩니다.',
+        final reason = await showDialog<String>(
+          context: context,
+          builder: (_) => const ReportDialog(
+            title: '메시지 신고',
+            explanation: '신고한 메시지와 직전 세 메시지의 텍스트가 운영자에게 전달됩니다. 사진을 신고하면 해당 사진도 포함됩니다.',
+          ),
         );
         if (!mounted || reason == null) return;
         try {

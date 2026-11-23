@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
+import '../../shared/data/account_rpc.dart';
 import 'data/profile_avatar_service.dart';
 
 /// 사람(사용자 ID)·글쓴이(글 ID)·댓글 작성자(댓글 ID)의 작은 프로필 사진을 서버에 묻습니다.
@@ -87,12 +88,17 @@ class AvatarDirectory extends ChangeNotifier {
   bool _scheduled = false;
   int _generation = 0;
 
-  void bind(AvatarSource source) {
+  AccountRpc? _reports;
+  AccountRpc? get reports => _reports;
+
+  void bind(AvatarSource source, {AccountRpc? reports}) {
+    _reports = reports;
     _source = source;
     _clear();
   }
 
   void unbind() {
+    _reports = null;
     _source = null;
     _clear();
   }

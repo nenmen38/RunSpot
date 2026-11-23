@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:runquest/features/chat/chat_room_style.dart';
+import 'package:runquest/features/profile/reportable_avatar_header.dart';
+import 'package:runquest/shared/data/account_rpc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:runquest/features/profile/avatar_directory.dart';
 import 'package:runquest/features/profile/data/profile_avatar_service.dart';
 
@@ -39,9 +42,71 @@ class _Source implements AvatarSource {
   }
 }
 
+class _ReportApi implements AccountRpc {
+  _ReportApi(this.current);
+  Map<String, dynamic> current;
+  Map<String, dynamic>? submitted;
+  @override
+  String get owner => 'reporter';
+  @override
+  SupabaseClient get client =>
+      throw UnsupportedError('테스트에서는 원격 연결을 사용하지 않습니다.');
+  @override
+  Future<dynamic> call(String method, Map<String, dynamic> params) async {
+    if (method == 'reportable_avatar') return current;
+    if (method == 'report_avatar') {
+      submitted = params;
+      return null;
+    }
+    throw UnsupportedError(method);
+  }
+}
+
 void main() {
   final photo = img.encodeJpg(img.Image(width: 8, height: 8));
   tearDown(AvatarDirectory.instance.unbind);
+
+  testWidgets('프로필 사진이 바뀌어도 신고 창을 열 때 본 사진과 분류를 전송합니다', (tester) async {
+    final original = base64Encode(photo);
+    final api = _ReportApi({'version': '처음', 'photo': original});
+    AvatarDirectory.instance.bind(_Source(photo), reports: api);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ReportableAvatarHeader(
+            userId: 'friend',
+            nickname: '친구',
+            size: 56,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('프로필 사진 신고'));
+    await tester.pumpAndSettle();
+    api.current = {
+      'version': '나중',
+      'photo': base64Encode(img.encodeJpg(img.Image(width: 5, height: 5))),
+    };
+    final preview = tester.widget<Image>(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(Image),
+      ),
+    );
+    expect((preview.image as MemoryImage).bytes, photo);
+    await tester.tap(find.widgetWithText(ChoiceChip, '개인정보 노출'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, '신고'));
+    await tester.pumpAndSettle();
+    expect(api.submitted, {
+      'target': 'friend',
+      'version_id': '처음',
+      'jpeg': original,
+      'reason': '개인정보 노출',
+    });
+    expect(find.text('프로필 사진 신고가 접수되었습니다.'), findsOneWidget);
+  });
 
   testWidgets('화면의 여러 얼굴을 한 번에 불러와 사진이 있는 사람만 사진으로 바꿉니다', (tester) async {
     final source = _Source(photo);

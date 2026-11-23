@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../chat/friend_chat_content.dart';
+import 'report_dialog.dart';
 
 /// 계정이 바뀌면 이전 계정의 신고와 제재 자료를 사용하지 않습니다.
 class ModerationService {
@@ -235,12 +236,18 @@ class _ModerationScreenState extends State<ModerationScreen> {
   Widget _case(Map<String, dynamic> row) {
     final evidence = row['evidence'] as Map;
     final contextRows = evidence['context'] as List? ?? [];
+    final reason = row['reason'] as String;
+    final firstLine = reason.split('\n').first;
+    final category = reportCategories.contains(firstLine) ? firstLine : null;
+    final detail = category == null ? reason : reason.substring(firstLine.length).trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           '${row['nickname'] ?? '탈퇴한 사용자'} · ${row['kind'] == 'chat'
               ? '채팅'
+              : row['kind'] == 'avatar'
+              ? '프로필 사진'
               : row['kind'] == 'meetup'
               ? '모임 모집'
               : row['kind'] == 'comment'
@@ -248,11 +255,13 @@ class _ModerationScreenState extends State<ModerationScreen> {
               : '게시글'}',
         ),
         if (evidence['title'] != null) Text(evidence['title'].toString()),
-        Text(evidence['body']?.toString() ?? ''),
+        if (evidence['body'] != null) Text(evidence['body'].toString()),
+        if (row['kind'] == 'avatar') const Text('신고 당시 프로필 사진'),
         if (evidence['run_summary'] case final Map summary)
           FriendChatRunCard(summary: summary, mine: false),
         if (row['has_photo'] == true)
           FriendChatPhoto(
+            key: ValueKey(row['id']),
             load: () async {
               final encoded = await widget.service.call('moderation_photo', {
                 'case_id': row['id'],
@@ -274,7 +283,8 @@ class _ModerationScreenState extends State<ModerationScreen> {
                 ),
             ],
           ),
-        Text('신고 사유 · ${row['reason']}'),
+        if (category != null) Text('신고 분류 · $category'),
+        if (detail.isNotEmpty) Text('신고 사유 · $detail'),
         Text('접수 · ${_time(row['created_at'])}'),
         Wrap(
           spacing: 8,

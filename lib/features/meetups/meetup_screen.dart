@@ -1,3 +1,4 @@
+import '../moderation/report_dialog.dart';
 import '../../shared/data/account_rpc.dart';
 import '../../shared/formatters/run_format.dart';
 
@@ -114,33 +115,10 @@ class _MeetupScreenState extends State<MeetupScreen> {
   }
 
   Future<void> _report(Map<String, dynamic> row) async {
-    final reason = TextEditingController();
     final text = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('모임 신고'),
-        content: TextField(
-          controller: reason,
-          maxLength: 500,
-          decoration: const InputDecoration(labelText: '신고 사유'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (reason.text.trim().isNotEmpty) {
-                Navigator.pop(context, reason.text.trim());
-              }
-            },
-            child: const Text('신고'),
-          ),
-        ],
-      ),
+      builder: (_) => const ReportDialog(title: '모임 신고'),
     );
-    reason.dispose();
     if (text == null || !mounted) return;
     try {
       await widget.service.call('report_meetup', {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:runquest/features/profile/avatar_directory.dart';
+import 'package:runquest/features/profile/reportable_avatar_header.dart';
 
 import '../../shared/widgets/account_query_panel.dart';
 import '../../shared/widgets/page_layout.dart';
@@ -63,7 +63,6 @@ class _ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final details = profile;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -72,20 +71,12 @@ class _ProfileContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  UserAvatar(nickname: nickname, userId: userId, size: 56),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(nickname, style: theme.textTheme.titleLarge),
-                  ),
-                ],
-              ),
+              ReportableAvatarHeader(userId: userId, nickname: nickname, size: 56),
               const SizedBox(height: 12),
               if (details != null) ...[
                 Text(
                   '${levelTitle(details.progress.level)} · 누적 ${details.progress.totalXp} XP',
-                  style: theme.textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
                 LevelProgressBar(progress: details.progress),
