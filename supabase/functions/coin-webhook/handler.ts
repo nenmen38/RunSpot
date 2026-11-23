@@ -6,15 +6,34 @@ type Config = {
   environment?: "PRODUCTION" | "SANDBOX";
 };
 
-type RevenueCatEvent = {
-  type?: string;
-  app_user_id?: string;
-  product_id?: string;
-  transaction_id?: string;
-  purchased_at_ms?: number;
-  environment?: string;
-  cancel_reason?: string;
-};
+const maxBodyBytes = 128 * 1024;
+
+async function readEvent(req: Request): Promise<Record<string, unknown>> {
+  const reader = req.body?.getReader();
+  if (!reader) throw new SyntaxError("본문 누락");
+  const bytes = new Uint8Array(maxBodyBytes);
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (length + value.byteLength > maxBodyBytes) {
+        await reader.cancel();
+        throw new RangeError("본문 크기 초과");
+      }
+      bytes.set(value, length);
+      length += value.byteLength;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const event = JSON.parse(new TextDecoder().decode(bytes.subarray(0, length)))
+    ?.event;
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    throw new SyntaxError("결제 이벤트 형식 오류");
+  }
+  return event;
+}
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -53,45 +72,67 @@ export function handler(config: Config, request = fetch) {
     if (!await sameSecret(supplied, config.webhookSecret)) {
       return new Response(null, { status: 401 });
     }
-    let event: RevenueCatEvent;
+    let event: Record<string, unknown>;
     try {
-      event = ((await req.json()) as { event?: RevenueCatEvent }).event ?? {};
-    } catch (_) {
+      event = await readEvent(req);
+    } catch (error) {
+      return new Response(null, {
+        status: error instanceof RangeError ? 413 : 400,
+      });
+    }
+    if (event.product_id != null && typeof event.product_id !== "string") {
       return new Response(null, { status: 400 });
     }
-    if (!event.product_id?.startsWith("coins_")) {
+    if (
+      typeof event.product_id !== "string" ||
+      !event.product_id.startsWith("coins_")
+    ) {
       return Response.json({ ignored: true });
     }
     if (event.environment !== (config.environment ?? "PRODUCTION")) {
       return Response.json({ ignored: true });
     }
+    const transaction = event.transaction_id;
+    if (
+      transaction != null &&
+      (typeof transaction !== "string" || transaction.length > 256)
+    ) {
+      return new Response(null, { status: 400 });
+    }
     try {
-      if (
-        event.type === "NON_RENEWING_PURCHASE" &&
-        event.product_id?.startsWith("coins_")
-      ) {
+      if (event.type === "NON_RENEWING_PURCHASE") {
         // 앱이 RevenueCat에 로그인한 무작위 결제 식별자만 사용자와 연결합니다.
-        if (!event.transaction_id || !uuid.test(event.app_user_id ?? "")) {
+        if (
+          !transaction || typeof event.app_user_id !== "string" ||
+          !uuid.test(event.app_user_id)
+        ) {
           return Response.json({ recorded: false });
         }
+        const timestamp = event.purchased_at_ms;
+        const purchased = typeof timestamp === "number"
+          ? new Date(timestamp)
+          : null;
+        if (
+          timestamp != null &&
+          (!purchased || !Number.isFinite(purchased.getTime()))
+        ) {
+          return new Response(null, { status: 400 });
+        }
         const recorded = await rpc("record_coin_purchase", {
-          transaction: event.transaction_id,
+          transaction,
           customer: event.app_user_id,
           product: event.product_id,
-          purchased: event.purchased_at_ms
-            ? new Date(event.purchased_at_ms).toISOString()
-            : null,
+          purchased: purchased?.toISOString() ?? null,
           store_environment: event.environment,
         });
         return Response.json({ recorded });
       }
       if (
-        event.type === "CANCELLATION" &&
-        event.product_id?.startsWith("coins_") && event.transaction_id
+        event.type === "CANCELLATION" && transaction
       ) {
         // 일회성 상품의 취소 알림은 스토어 환불입니다.
         const refunded = await rpc("refund_coin_purchase", {
-          transaction: event.transaction_id,
+          transaction,
           store_environment: event.environment,
         });
         return Response.json({ refunded });

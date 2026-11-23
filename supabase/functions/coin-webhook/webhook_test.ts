@@ -108,3 +108,21 @@ Deno.test("운영 웹훅은 테스트·누락 환경의 구매와 환불을 제�
   }
   assert(calls.length === 0);
 });
+
+Deno.test("잘못된 결제 필드와 큰 본문은 서버 호출 전에 거부합니다", async () => {
+  const { calls, post } = setup();
+  const event = {
+    type: "NON_RENEWING_PURCHASE",
+    app_user_id: customer,
+    product_id: "coins_1100",
+    transaction_id: "GPA.9",
+    environment: "PRODUCTION",
+  };
+  assert((await post({ ...event, product_id: 1 })).status === 400);
+  assert((await post({ ...event, transaction_id: {} })).status === 400);
+  assert((await post({ ...event, purchased_at_ms: 1e20 })).status === 400);
+  assert(
+    (await post({ ...event, extra: "x".repeat(128 * 1024) })).status === 413,
+  );
+  assert(calls.length === 0);
+});

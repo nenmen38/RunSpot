@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -69,8 +71,9 @@ String _requiredSupabaseUrl(String value, String? fallback) {
   final uri = Uri.tryParse(trimmed);
   if (uri == null ||
       !uri.hasScheme ||
-      !uri.hasAuthority ||
-      (uri.scheme != 'https' && uri.scheme != 'http')) {
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      (uri.scheme != 'https' && !(kDebugMode && uri.scheme == 'http'))) {
     throw const AppStartupException(
       'Supabase URL 설정이 필요합니다. config/dev.json 값을 확인하거나 --dart-define-from-file=config/dev.json으로 앱을 다시 실행해 주세요.',
     );
@@ -86,6 +89,22 @@ String _requiredSupabasePublishableKey(String value, String? fallback) {
     throw const AppStartupException(
       'Supabase 공개 키 설정이 필요합니다. config/dev.json 값을 확인하거나 --dart-define-from-file=config/dev.json으로 앱을 다시 실행해 주세요.',
     );
+  }
+  if (!trimmed.startsWith('sb_publishable_')) {
+    Object? claims;
+    final parts = trimmed.split('.');
+    if (parts.length == 3) {
+      try {
+        claims = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+        );
+      } on FormatException {
+        // 공개 키 형식이 아니면 앱 시작 전에 거부합니다.
+      }
+    }
+    if (claims is! Map<String, dynamic> || claims['role'] != 'anon') {
+      throw const AppStartupException('앱에는 Supabase 공개 키만 설정할 수 있습니다.');
+    }
   }
   return trimmed;
 }
