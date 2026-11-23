@@ -85,7 +85,12 @@ const pushPreferenceGroups = [
 ];
 
 class PushSettingsScreen extends StatefulWidget {
-  const PushSettingsScreen({this.update, this.enable, super.key});
+  const PushSettingsScreen({
+    this.update,
+    this.enable,
+    this.notificationsAllowed,
+    super.key,
+  });
 
   /// 테스트에서 바꿔 끼울 수 있게 합니다. 없으면 서버 설정을 씁니다.
   final PushPreferencesUpdate? update;
@@ -93,11 +98,15 @@ class PushSettingsScreen extends StatefulWidget {
   /// 휴대폰 알림 권한을 요청합니다. 없으면 기기 알림 서비스를 씁니다.
   final Future<void> Function()? enable;
 
+  /// 기기 설정에서 알림이 켜져 있는지 확인합니다. 없으면 기기 알림 서비스를 씁니다.
+  final Future<bool> Function()? notificationsAllowed;
+
   @override
   State<PushSettingsScreen> createState() => _PushSettingsScreenState();
 }
 
-class _PushSettingsScreenState extends State<PushSettingsScreen> {
+class _PushSettingsScreenState extends State<PushSettingsScreen>
+    with WidgetsBindingObserver {
   SupabaseClient get _client => Supabase.instance.client;
   late final String? _owner = widget.update == null
       ? _client.auth.currentUser?.id
@@ -110,10 +119,38 @@ class _PushSettingsScreenState extends State<PushSettingsScreen> {
   /// 저장 중인 항목입니다. 같은 항목을 연달아 눌러도 한 번씩만 보냅니다.
   final _saving = <String>{};
 
+  /// 기기에서 알림이 꺼져 있으면 false입니다. 확인 전(null)에는 안내를 띄우지 않습니다.
+  bool? _deviceAllowed;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _checkDevice();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // 휴대폰 설정에서 알림을 켜고 돌아오면 바로 다시 확인해 안내를 없앱니다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkDevice();
+  }
+
+  Future<void> _checkDevice() async {
+    try {
+      final allowed =
+          await (widget.notificationsAllowed ??
+              PushService.instance.notificationsAllowed)();
+      if (mounted) setState(() => _deviceAllowed = allowed);
+    } catch (_) {
+      // 확인하지 못하면 안내를 띄우지 않습니다.
+    }
   }
 
   Future<Map<String, dynamic>> _call(Map<String, dynamic>? changes) async {
@@ -174,12 +211,16 @@ class _PushSettingsScreenState extends State<PushSettingsScreen> {
     try {
       await (widget.enable ??
           () => PushService.instance.sync(requestPermission: true))();
+      await _checkDevice();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('권한을 허용하면 알림을 받을 수 있어요. 이미 거부했다면 휴대폰 설정에서 알림을 켜 주세요.'),
-        ),
-      );
+      // 권한을 허용했으면 안내가 사라지고, 여전히 꺼져 있으면 휴대폰 설정 방법을 알려줍니다.
+      if (_deviceAllowed == false) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('휴대폰 설정 > 애플리케이션 > 뜀터 > 알림에서 알림을 켜 주세요.'),
+          ),
+        );
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -200,38 +241,39 @@ class _PushSettingsScreenState extends State<PushSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          // 휴대폰 알림 권한 안내 상자입니다.
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-            decoration: BoxDecoration(
-              color: AppColors.blueSoft,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.notifications_active_outlined,
-                  color: AppColors.blueText,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '앱을 닫아도 휴대폰으로 알림을 받으려면 알림 권한을 켜 주세요.',
-                    style: text.bodySmall?.copyWith(height: 1.4),
+          // 휴대폰(기기) 설정에서 알림이 꺼져 있을 때만 켜기 안내를 보여줍니다.
+          if (_deviceAllowed == false)
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+              decoration: BoxDecoration(
+                color: AppColors.blueSoft,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.notifications_active_outlined,
+                    color: AppColors.blueText,
                   ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _enabling ? null : _enable,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '앱을 닫아도 휴대폰으로 알림을 받으려면 알림 권한을 켜 주세요.',
+                      style: text.bodySmall?.copyWith(height: 1.4),
+                    ),
                   ),
-                  child: const Text('휴대폰 알림 켜기'),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _enabling ? null : _enable,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 38),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                    ),
+                    child: const Text('휴대폰 알림 켜기'),
+                  ),
+                ],
+              ),
             ),
-          ),
           if (_error case final error?)
             Padding(
               padding: const EdgeInsets.only(top: 16),

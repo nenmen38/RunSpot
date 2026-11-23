@@ -1,5 +1,8 @@
 import 'package:runquest/features/auth/data/nickname_service.dart';
 import 'package:runquest/features/auth/data/email_verification_service.dart';
+
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,6 +12,7 @@ import '../auth/phone_verification.dart';
 import '../auth/data/phone_verification_service.dart';
 import '../home/live_map_controller.dart';
 import 'widgets/run_sharing_control.dart';
+import 'data/profile_avatar_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../titles/badge_directory.dart';
@@ -33,6 +37,7 @@ class _PrivacyControlsState extends State<PrivacyControls> {
   String _visibility = 'private';
   bool _verified = false;
   String? _nickname;
+  Uint8List? _photo;
   bool _busy = true;
   String? _error;
 
@@ -64,6 +69,13 @@ class _PrivacyControlsState extends State<PrivacyControls> {
           .select('visibility,nickname')
           .eq('id', _client.auth.currentUser!.id)
           .single();
+      if (widget.showIdentity) {
+        // 사진을 못 불러와도 나머지 설정은 그대로 보여줍니다.
+        final photo = await SupabaseProfileAvatarService(_client)
+            .load()
+            .catchError((Object _) => null);
+        if (mounted) setState(() => _photo = photo);
+      }
       if (mounted) {
         setState(() {
           _verified = verified;
@@ -122,11 +134,16 @@ class _PrivacyControlsState extends State<PrivacyControls> {
     }
   }
 
-  Future<void> _editNickname() async {
+  /// 닉네임 등록 안내에서는 닉네임만, 연필 버튼에서는 프로필 사진도 함께 바꾸는 화면을 엽니다.
+  Future<void> _editNickname({bool withPhoto = false}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) =>
-            NicknameScreen(service: SupabaseNicknameService(_client)),
+        builder: (_) => NicknameScreen(
+          service: SupabaseNicknameService(_client),
+          avatarService: withPhoto
+              ? SupabaseProfileAvatarService(_client)
+              : null,
+        ),
       ),
     );
     if (mounted) await _load();
@@ -150,10 +167,12 @@ class _PrivacyControlsState extends State<PrivacyControls> {
             userId: _client.auth.currentUser?.id,
             loading: _busy && _nickname == null,
             verified: _verified,
-            onEdit: _verified && !_busy && _error == null
-                ? _editNickname
+            photo: _photo,
+            // 연필 버튼으로 닉네임과 프로필 사진을 함께 바꿉니다(사진은 인증 전에도 바꿀 수 있어요).
+            onEdit: !_busy && _error == null
+                ? () => _editNickname(withPhoto: true)
                 : null,
-            editLabel: _nickname == null ? '닉네임 등록' : '닉네임 변경',
+            editLabel: '프로필 편집',
           ),
         if (!widget.identityOnly)
           SegmentedButton<String>(
@@ -213,6 +232,7 @@ class ProfileIdentityHeader extends StatelessWidget {
   const ProfileIdentityHeader({
     required this.name,
     required this.verified,
+    this.photo,
     this.userId,
     this.loading = false,
     this.onEdit,
@@ -221,6 +241,9 @@ class ProfileIdentityHeader extends StatelessWidget {
   });
 
   final String name;
+
+  /// 프로필 사진입니다. 없으면 닉네임 첫 글자를 보여줍니다.
+  final Uint8List? photo;
   final String? userId;
   final bool verified;
   final bool loading;
@@ -256,6 +279,7 @@ class ProfileIdentityHeader extends StatelessWidget {
             width: 56,
             height: 56,
             alignment: Alignment.center,
+            clipBehavior: Clip.antiAlias,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -264,14 +288,22 @@ class ProfileIdentityHeader extends StatelessWidget {
                 colors: [Color(0xFF5B9BFF), AppColors.blueDark],
               ),
             ),
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            child: photo != null
+                ? Image.memory(
+                    photo!,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                  )
+                : Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
           ),
         ),
         const SizedBox(width: 14),

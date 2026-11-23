@@ -134,6 +134,14 @@ class PushService with WidgetsBindingObserver {
   }
 
   /// 권한 요청은 설정 화면에서 사용자가 알림 켜기를 선택했을 때만 실행합니다.
+  /// 휴대폰(기기) 설정에서 이 앱의 알림이 켜져 있는지 확인합니다. 지원하지 않는 기기는 켜진 것으로 봅니다.
+  Future<bool> notificationsAllowed() async {
+    if (!supported) return true;
+    final settings = await FirebaseMessaging.instance.getNotificationSettings();
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+  }
+
   Future<void> sync({bool requestPermission = false}) {
     final owner = _client.auth.currentUser?.id;
     final session = _client.auth.currentSession;

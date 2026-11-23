@@ -56,6 +56,40 @@ void main() {
     expect(find.text('알림 설정을 저장하지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
   });
 
+  testWidgets('기기에서 알림이 꺼져 있을 때만 켜기 안내를 보여줍니다', (tester) async {
+    var allowed = true;
+    Future<Map<String, dynamic>> update(Map<String, dynamic>? _) async => {};
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PushSettingsScreen(
+          update: update,
+          notificationsAllowed: () async => allowed,
+          enable: () async => allowed = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('휴대폰 알림 켜기'), findsNothing);
+
+    allowed = false;
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PushSettingsScreen(
+          update: update,
+          notificationsAllowed: () async => allowed,
+          enable: () async => allowed = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('휴대폰 알림 켜기'), findsOneWidget);
+    // 권한을 허용하면 안내가 사라집니다.
+    await tester.tap(find.text('휴대폰 알림 켜기'));
+    await tester.pumpAndSettle();
+    expect(find.text('휴대폰 알림 켜기'), findsNothing);
+  });
+
   test('좋아요·크루 초대 알림도 눌러서 열 수 있습니다', () {
     const target = '11111111-1111-4111-8111-111111111111';
     for (final kind in ['board_like', 'crew_invite']) {
