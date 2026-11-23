@@ -1,4 +1,5 @@
 import '../monetization/cosmetics.dart';
+import '../profile/avatar_directory.dart';
 
 import 'package:flutter/material.dart';
 
@@ -13,27 +14,22 @@ String formatChatTime(DateTime time, bool use24Hours) {
   return '$period $hour:$minutes';
 }
 
+/// 대화에 쓰는 동그란 얼굴입니다. [userId]가 있으면 프로필 사진을, 없으면 닉네임 첫 글자를 보여줍니다.
 class ChatAvatar extends StatelessWidget {
-  const ChatAvatar({required this.nickname, this.size = 38, super.key});
+  const ChatAvatar({
+    required this.nickname,
+    this.userId,
+    this.size = 38,
+    super.key,
+  });
 
   final String nickname;
+  final String? userId;
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final initials = nickname.trim().characters;
-    return ExcludeSemantics(
-      child: CircleAvatar(
-        radius: size / 2,
-        backgroundColor: AppColors.blueSoft,
-        foregroundColor: AppColors.blueDark,
-        child: Text(
-          initials.isEmpty ? '?' : initials.first,
-          style: TextStyle(fontSize: size * .38, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      UserAvatar(nickname: nickname, userId: userId, size: size);
 }
 
 class ChatMessageBubble extends StatelessWidget {
@@ -53,8 +49,12 @@ class ChatMessageBubble extends StatelessWidget {
     this.onLongPress,
     this.onReply,
     this.bubble,
+    this.senderId,
     super.key,
   });
+
+  /// 보낸 사람 ID입니다. 있으면 말풍선 옆 얼굴에 프로필 사진을 보여줍니다.
+  final String? senderId;
 
   /// 보낸 사람이 착용한 말풍선 아이템입니다. 있으면 그 색으로 그립니다.
   final CosmeticItem? bubble;
@@ -186,7 +186,11 @@ class ChatMessageBubble extends StatelessWidget {
                   child: showAvatar
                       ? Align(
                           alignment: Alignment.topLeft,
-                          child: ChatAvatar(nickname: nickname, size: 32),
+                          child: ChatAvatar(
+                            nickname: nickname,
+                            userId: senderId,
+                            size: 32,
+                          ),
                         )
                       : null,
                 ),

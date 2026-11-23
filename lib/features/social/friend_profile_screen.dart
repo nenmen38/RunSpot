@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/features/profile/avatar_directory.dart';
 
 import '../../shared/widgets/account_query_panel.dart';
 import '../../shared/widgets/page_layout.dart';
@@ -37,6 +38,7 @@ class FriendProfileScreen extends StatelessWidget {
               isCurrentOwner: () => service.isCurrentOwner,
               errorMessage: '친구 프로필을 불러오지 못했습니다.',
               builder: (context, result) => _ProfileContent(
+                userId: friend.userId,
                 nickname: result.profile?.nickname ?? friend.nickname,
                 profile: result.profile,
               ),
@@ -49,8 +51,13 @@ class FriendProfileScreen extends StatelessWidget {
 }
 
 class _ProfileContent extends StatelessWidget {
-  const _ProfileContent({required this.nickname, required this.profile});
+  const _ProfileContent({
+    required this.userId,
+    required this.nickname,
+    required this.profile,
+  });
 
+  final String userId;
   final String nickname;
   final FriendProfile? profile;
 
@@ -67,12 +74,7 @@ class _ProfileContent extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    foregroundColor: theme.colorScheme.onPrimaryContainer,
-                    child: const Icon(Icons.person_outline),
-                  ),
+                  UserAvatar(nickname: nickname, userId: userId, size: 56),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(nickname, style: theme.textTheme.titleLarge),

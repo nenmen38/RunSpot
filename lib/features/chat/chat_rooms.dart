@@ -418,7 +418,11 @@ class _ChatRoomViewState extends State<ChatRoomView>
             ListTile(title: Text('참여자 ${page.members.length}명')),
             for (final member in page.members)
               ListTile(
-                leading: ChatAvatar(nickname: member.nickname, size: 34),
+                leading: ChatAvatar(
+                  nickname: member.nickname,
+                  userId: member.id,
+                  size: 34,
+                ),
                 title: Row(
                   children: [
                     Flexible(child: Text(member.nickname)),
@@ -522,6 +526,7 @@ class _ChatRoomViewState extends State<ChatRoomView>
                             key: ValueKey(message.id),
                             listenable: BadgeDirectory.instance,
                             builder: (context, _) => ChatMessageBubble(
+                              senderId: message.senderId,
                               body: message.body,
                               nickname: message.nickname,
                               mine: message.senderId == owner,

@@ -80,7 +80,7 @@ class ChatConversationTile extends StatelessWidget {
                   child: Icon(icon, color: groupColor ?? AppColors.blueText),
                 )
               else
-                ChatAvatar(nickname: nickname, size: 46),
+                ChatAvatar(nickname: nickname, userId: peerId, size: 46),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

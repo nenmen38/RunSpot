@@ -54,7 +54,7 @@ class _NewChatScreenState extends State<NewChatScreen> {
     key: ValueKey('pick-$id'),
     value: _selected.containsKey(id),
     onChanged: (on) => _toggle(id, nickname, on ?? false),
-    secondary: ChatAvatar(nickname: nickname, size: 36),
+    secondary: ChatAvatar(nickname: nickname, userId: id, size: 36),
     title: Text(nickname),
     controlAffinity: ListTileControlAffinity.trailing,
   );

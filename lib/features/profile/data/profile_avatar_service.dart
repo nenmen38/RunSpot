@@ -25,9 +25,15 @@ class SupabaseProfileAvatarService implements ProfileAvatarService {
     return value is String && value.isNotEmpty ? base64Decode(value) : null;
   }
 
+  // 목록에서 쓸 작은 사진(120×120)을 함께 올려 다른 화면의 데이터 사용량을 줄입니다.
   @override
-  Future<void> save(Uint8List jpeg) =>
-      client.rpc('set_my_avatar', params: {'jpeg': base64Encode(jpeg)});
+  Future<void> save(Uint8List jpeg) async {
+    final thumb = await compute(profileThumbnail, jpeg);
+    await client.rpc(
+      'set_my_avatar',
+      params: {'jpeg': base64Encode(jpeg), 'thumb': base64Encode(thumb)},
+    );
+  }
 
   @override
   Future<void> remove() => client.rpc('remove_my_avatar');
@@ -74,6 +80,20 @@ Uint8List squareProfilePhoto(Uint8List bytes) {
   for (final quality in [86, 76, 64, 50]) {
     final jpeg = img.encodeJpg(square, quality: quality);
     if (jpeg.length <= 300 * 1024) return jpeg;
+  }
+  throw const ProfilePhotoException('사진을 줄이지 못했어요. 다른 사진을 선택해 주세요.');
+}
+
+/// 목록·채팅에 쓰는 120×120 작은 사진(40KB 이하)입니다.
+Uint8List profileThumbnail(Uint8List jpeg) {
+  final decoded = img.decodeImage(jpeg);
+  if (decoded == null) {
+    throw const ProfilePhotoException('사진을 읽을 수 없어요. 다른 사진을 선택해 주세요.');
+  }
+  final small = img.copyResizeCropSquare(decoded, size: 120);
+  for (final quality in [82, 68, 50]) {
+    final thumb = img.encodeJpg(small, quality: quality);
+    if (thumb.length <= 40 * 1024) return thumb;
   }
   throw const ProfilePhotoException('사진을 줄이지 못했어요. 다른 사진을 선택해 주세요.');
 }

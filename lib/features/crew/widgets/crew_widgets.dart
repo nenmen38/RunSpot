@@ -1,4 +1,7 @@
 import 'crew_challenge_screen.dart';
+
+import 'package:runquest/features/profile/avatar_directory.dart';
+
 import '../data/crew_service.dart';
 
 import 'package:flutter/material.dart';
@@ -369,9 +372,10 @@ class CrewTab extends StatelessWidget {
                 ListTile(
                   key: ValueKey('crew-member-${member.userId}'),
                   contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(
-                    radius: 18,
-                    child: Icon(Icons.person_outline, size: 20),
+                  leading: UserAvatar(
+                    nickname: member.nickname,
+                    userId: member.userId,
+                    size: 36,
                   ),
                   title: TitledNickname(member.nickname, userId: member.userId),
                   trailing: member.isOwner

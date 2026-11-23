@@ -1,5 +1,7 @@
 import '../../../shared/widgets/status_view.dart';
 
+import 'package:runquest/features/profile/avatar_directory.dart';
+
 import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:flutter/material.dart';
 
@@ -288,9 +290,10 @@ class FriendRow extends StatelessWidget {
                 constraints: const BoxConstraints(minHeight: 48),
                 child: Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 18,
-                      child: Icon(Icons.person_outline, size: 20),
+                    UserAvatar(
+                      nickname: entry.nickname,
+                      userId: entry.userId,
+                      size: 36,
                     ),
                     const SizedBox(width: 10),
                     Expanded(

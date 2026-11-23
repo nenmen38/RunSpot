@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/features/profile/avatar_directory.dart';
 
 import '../../chat/friend_chat.dart';
 import '../data/block_service.dart';
@@ -106,7 +107,11 @@ class _UserMenuState extends State<_UserMenu> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.person_outline),
+              leading: UserAvatar(
+                nickname: widget.nickname,
+                userId: widget.userId,
+                size: 40,
+              ),
               title: Text(widget.nickname),
             ),
             if (_error != null)

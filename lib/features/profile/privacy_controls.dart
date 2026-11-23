@@ -13,6 +13,7 @@ import '../auth/data/phone_verification_service.dart';
 import '../home/live_map_controller.dart';
 import 'widgets/run_sharing_control.dart';
 import 'data/profile_avatar_service.dart';
+import 'avatar_directory.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../titles/badge_directory.dart';
@@ -136,7 +137,7 @@ class _PrivacyControlsState extends State<PrivacyControls> {
 
   /// 닉네임 등록 안내에서는 닉네임만, 연필 버튼에서는 프로필 사진도 함께 바꾸는 화면을 엽니다.
   Future<void> _editNickname({bool withPhoto = false}) async {
-    await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => NicknameScreen(
           service: SupabaseNicknameService(_client),
@@ -147,6 +148,12 @@ class _PrivacyControlsState extends State<PrivacyControls> {
       ),
     );
     if (mounted) await _load();
+    // 사진을 바꿨으면 친구 목록·채팅·게시판의 내 사진도 바로 바꿉니다.
+    if (saved == true && withPhoto && mounted) {
+      if (_client.auth.currentUser?.id case final me?) {
+        AvatarDirectory.instance.updateMine(me, _photo);
+      }
+    }
   }
 
   Future<void> _verifyPhone() => Navigator.of(context).push<void>(

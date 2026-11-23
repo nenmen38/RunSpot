@@ -355,7 +355,11 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
         borderRadius: BorderRadius.circular(12),
         child: Row(
           children: [
-            BoardAuthorAvatar(nickname: post.nickname, size: 40),
+            BoardAuthorAvatar(
+              nickname: post.nickname,
+              postId: post.id,
+              size: 40,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -519,6 +523,7 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                 padding: const EdgeInsets.only(right: 10, top: 2),
                 child: BoardAuthorAvatar(
                   nickname: comment.nickname,
+                  commentId: comment.id,
                   size: isReply ? 28 : 32,
                 ),
               ),

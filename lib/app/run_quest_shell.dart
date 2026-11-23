@@ -13,6 +13,7 @@ import '../features/monetization/profile_cosmetics.dart';
 import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
+import 'package:runquest/features/profile/avatar_directory.dart';
 import 'package:flutter/services.dart';
 import 'package:runquest/features/chat/chat_sync.dart';
 import 'package:runquest/features/profile/data/personal_records_service.dart';
@@ -164,6 +165,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _records = SupabasePersonalRecordsService(client);
       _titles = SupabaseTitleService(client);
       BadgeDirectory.instance.bind(_titles!);
+      AvatarDirectory.instance.bind(SupabaseAvatarSource(client));
       _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
       _reviews = SupabaseReviewService(client);
@@ -295,7 +297,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
     _watch?.dispose();
     _inviteLinks?.cancel();
     if (widget.mapController == null) WeeklyGoal.instance.unbind();
-    if (_titles != null) BadgeDirectory.instance.unbind();
+    if (_titles != null) {
+      BadgeDirectory.instance.unbind();
+      AvatarDirectory.instance.unbind();
+    }
     _pushSubscription?.cancel();
     _pushMessages?.cancel();
     _groups?.removeListener(_groupStateChanged);

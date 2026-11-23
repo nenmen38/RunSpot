@@ -55,6 +55,7 @@
 38. `migrations/20261122000100_remove_aura_effects.sql`: 상점에서 오라 효과(별가루·불꽃·물결)를 없앱니다. 이미 산 오라 효과는 지워지고(잔액은 산 기록으로 계산하므로 코인이 돌아옵니다), 더 이상 살 수 없습니다.
 39. `migrations/20261123000100_push_all_notifications.sql`: 앱 알림창의 좋아요·크루 초대도 휴대폰 알림으로 보냅니다. 알림 제목·내용에 보낸 사람 이름과 메시지·댓글 내용을 넣고(`push_text`), `my_push_preferences`로 1:1 메시지·단체 대화방·친구 요청·함께 달리기 초대·크루 초대·댓글·좋아요·내용 미리보기를 항목별로 켜고 끕니다. 서버 함수 `operations-worker`를 다시 배포해야 새 문구가 적용됩니다.
 40. `migrations/20261123000200_profile_avatars.sql`: 프로필 사진을 정사각형 JPEG(300KB 이하)로 저장합니다(`set_my_avatar`, `remove_my_avatar`). `user_avatar(target)`로 사진을 읽으며, 차단 관계면 보이지 않습니다. 12초에 한 번만 바꿀 수 있습니다.
+41. `migrations/20261123000300_profile_avatar_everywhere.sql`: 프로필 사진을 친구 목록·채팅·크루원·게시판 글쓴이·댓글 작성자 등 사람이 보이는 모든 곳에 보여줍니다. 목록용 작은 사진(`thumb`, 120×120)을 함께 저장하고, `profile_avatars(user_ids, post_ids, comment_ids)`로 한 번에 100개까지 묶어 조회합니다(차단 관계면 빠짐).
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.

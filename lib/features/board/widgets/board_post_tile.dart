@@ -1,4 +1,5 @@
 import 'package:runquest/features/titles/badge_directory.dart';
+import 'package:runquest/features/profile/avatar_directory.dart';
 import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
@@ -216,7 +217,10 @@ class BoardPostTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: Row(
                           children: [
-                            BoardAuthorAvatar(nickname: post.nickname),
+                            BoardAuthorAvatar(
+                              nickname: post.nickname,
+                              postId: post.id,
+                            ),
                             const SizedBox(width: 6),
                             Flexible(
                               child: ListenableBuilder(
@@ -389,25 +393,27 @@ class _RaceDate extends StatelessWidget {
 
 /// 글쓴이 닉네임 첫 글자가 든 작은 동그라미입니다.
 class BoardAuthorAvatar extends StatelessWidget {
-  const BoardAuthorAvatar({required this.nickname, this.size = 20, super.key});
+  const BoardAuthorAvatar({
+    required this.nickname,
+    this.postId,
+    this.commentId,
+    this.size = 20,
+    super.key,
+  });
 
   final String nickname;
+
+  /// 글쓴이 사진은 글 ID로, 댓글 작성자 사진은 댓글 ID로 찾습니다(게시판은 사용자 ID를 주지 않습니다).
+  final String? postId;
+  final String? commentId;
   final double size;
 
   @override
-  Widget build(BuildContext context) => ExcludeSemantics(
-    child: CircleAvatar(
-      radius: size / 2,
-      backgroundColor: AppColors.blueSoft,
-      child: Text(
-        nickname.trim().characters.firstOrNull ?? '?',
-        style: TextStyle(
-          color: AppColors.blueText,
-          fontSize: size * .45,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    ),
+  Widget build(BuildContext context) => UserAvatar(
+    nickname: nickname,
+    postId: postId,
+    commentId: commentId,
+    size: size,
   );
 }
 

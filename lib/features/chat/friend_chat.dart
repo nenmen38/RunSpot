@@ -666,6 +666,7 @@ class _FriendChatViewState extends State<FriendChatView>
                       key: ValueKey(row['id']),
                       listenable: BadgeDirectory.instance,
                       builder: (context, _) => ChatMessageBubble(
+                        senderId: sender,
                         bubble: sender == null
                             ? null
                             : BadgeDirectory.instance.user(sender)?.chatBubble,
@@ -754,7 +755,7 @@ class _FriendChatViewState extends State<FriendChatView>
         titleSpacing: 4,
         title: Row(
           children: [
-            ChatAvatar(nickname: widget.nickname ?? ''),
+            ChatAvatar(nickname: widget.nickname ?? '', userId: widget.peer),
             const SizedBox(width: 10),
             Flexible(
               child: Text(
