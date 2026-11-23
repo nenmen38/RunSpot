@@ -31,13 +31,27 @@ class _NicknameScreenState extends State<NicknameScreen> {
   NicknameState? _state;
   bool _busy = true;
   String? _error;
+
+  /// 화면에 보이는 사진입니다. [_photoChanged]면 아직 저장하지 않은 사진(또는 지운 상태)입니다.
   Uint8List? _photo;
+  bool _photoChanged = false;
   bool _photoBusy = false;
+
+  bool get _editingProfile => widget.avatarService != null;
+
+  bool get _nicknameChanged =>
+      _state != null && _controller.text.trim() != (_state!.nickname ?? '');
 
   @override
   void initState() {
     super.initState();
+    // 닉네임을 고치면 '변경사항 저장' 버튼을 바로 켜고 끕니다.
+    _controller.addListener(_onTextChanged);
     _load();
+  }
+
+  void _onTextChanged() {
+    if (mounted && _editingProfile) setState(() {});
   }
 
   @override
@@ -57,7 +71,7 @@ class _NicknameScreenState extends State<NicknameScreen> {
       avatars
           .load()
           .then((photo) {
-            if (mounted) setState(() => _photo = photo);
+            if (mounted && !_photoChanged) setState(() => _photo = photo);
           })
           .catchError((Object _) {});
     }
@@ -74,6 +88,7 @@ class _NicknameScreenState extends State<NicknameScreen> {
   }
 
   Future<void> _save() async {
+    if (_editingProfile) return _saveProfile();
     if (_busy || _state?.canChange(DateTime.now()) != true) return;
     final error = validateNickname(_controller.text);
     if (error != null) {
@@ -106,14 +121,91 @@ class _NicknameScreenState extends State<NicknameScreen> {
     }
   }
 
+  /// 프로필 편집: 바꾼 사진과 닉네임을 '변경사항 저장' 한 번으로 함께 저장합니다.
+  Future<void> _saveProfile() async {
+    final avatars = widget.avatarService!;
+    final nickname = _controller.text.trim();
+    final saveNickname = _nicknameChanged;
+    if (_busy || _photoBusy || (!_photoChanged && !saveNickname)) return;
+    if (saveNickname) {
+      if (_state?.canChange(DateTime.now()) != true) {
+        setState(() => _error = '닉네임은 30일에 한 번 변경할 수 있습니다.');
+        return;
+      }
+      final error = validateNickname(nickname);
+      if (error != null) {
+        setState(() => _error = error);
+        return;
+      }
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      if (_photoChanged) {
+        try {
+          final photo = _photo;
+          photo == null ? await avatars.remove() : await avatars.save(photo);
+          if (mounted) setState(() => _photoChanged = false);
+        } on PostgrestException catch (error) {
+          if (mounted) {
+            setState(
+              () => _error = switch (error.code) {
+                'P0001' => '사진은 잠시 후 다시 바꿔 주세요.',
+                '22023' => '사진 형식을 확인해 주세요. 다른 사진을 골라 주세요.',
+                // 서버에 프로필 사진 기능이 아직 반영되지 않은 경우입니다.
+                'PGRST202' => '서버에 프로필 사진 기능이 아직 준비되지 않았어요. 잠시 후 다시 시도해 주세요.',
+                _ => '프로필 사진을 저장하지 못했어요. 다시 시도해 주세요.',
+              },
+            );
+          }
+          return;
+        } catch (_) {
+          if (mounted) {
+            setState(() => _error = '프로필 사진을 저장하지 못했어요. 연결을 확인해 주세요.');
+          }
+          return;
+        }
+      }
+      if (saveNickname) {
+        try {
+          await widget.service.save(nickname);
+        } on PostgrestException catch (error) {
+          if (mounted) {
+            setState(
+              () => _error = switch (error.code) {
+                '23505' => '이미 사용 중인 닉네임입니다.',
+                '42501' => '이메일 인증 상태를 확인해 주세요.',
+                'P0001' => '닉네임은 30일에 한 번 변경할 수 있습니다.',
+                '22023' => '닉네임 형식을 확인해 주세요.',
+                _ => '닉네임을 저장하지 못했습니다. 다시 시도해 주세요.',
+              },
+            );
+          }
+          return;
+        } catch (_) {
+          if (mounted) setState(() => _error = '닉네임을 저장하지 못했습니다. 다시 시도해 주세요.');
+          return;
+        }
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('프로필을 저장했어요.')));
+      Navigator.of(context).pop(true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _tell(String message) => ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
 
-  /// 사진을 누르면 앨범에서 고르거나 기본 이미지로 되돌릴 수 있습니다. 고르면 바로 저장합니다.
+  /// 사진을 누르면 앨범에서 고르거나 기본 이미지로 되돌릴 수 있습니다.
+  /// 고른 사진은 화면에만 먼저 보여주고 '변경사항 저장'을 누르면 저장합니다.
   Future<void> _changePhoto() async {
-    final avatars = widget.avatarService;
-    if (avatars == null || _photoBusy) return;
+    if (!_editingProfile || _photoBusy || _busy) return;
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -137,30 +229,26 @@ class _NicknameScreenState extends State<NicknameScreen> {
       ),
     );
     if (action == null || !mounted) return;
+    if (action == 'remove') {
+      setState(() {
+        _photo = null;
+        _photoChanged = true;
+      });
+      return;
+    }
     setState(() => _photoBusy = true);
     try {
-      if (action == 'remove') {
-        await avatars.remove();
-        if (mounted) setState(() => _photo = null);
-      } else {
-        final photo = await widget.pickPhoto();
-        if (photo == null) return;
-        await avatars.save(photo);
-        if (mounted) setState(() => _photo = photo);
+      final photo = await widget.pickPhoto();
+      if (photo != null && mounted) {
+        setState(() {
+          _photo = photo;
+          _photoChanged = true;
+        });
       }
-      if (mounted) _tell('프로필 사진을 바꿨어요.');
     } on ProfilePhotoException catch (error) {
       if (mounted) _tell(error.message);
-    } on PostgrestException catch (error) {
-      if (mounted) {
-        _tell(
-          error.code == 'P0001'
-              ? '잠시 후 다시 바꿔 주세요.'
-              : '프로필 사진을 저장하지 못했어요. 다시 시도해 주세요.',
-        );
-      }
     } catch (_) {
-      if (mounted) _tell('프로필 사진을 저장하지 못했어요. 다시 시도해 주세요.');
+      if (mounted) _tell('사진을 불러오지 못했어요. 다른 사진을 골라 주세요.');
     } finally {
       if (mounted) setState(() => _photoBusy = false);
     }
@@ -244,7 +332,13 @@ class _NicknameScreenState extends State<NicknameScreen> {
   Widget build(BuildContext context) {
     final canChange = _state?.canChange(DateTime.now()) == true;
     final next = _state?.nextChangeAt?.toLocal();
-    final editingProfile = widget.avatarService != null;
+    final editingProfile = _editingProfile;
+    // 프로필 편집은 사진이나 닉네임을 바꿨을 때만 저장할 수 있습니다.
+    final canSave = editingProfile
+        ? !_busy &&
+              !_photoBusy &&
+              (_photoChanged || (_nicknameChanged && canChange))
+        : !_busy && canChange;
     return Scaffold(
       appBar: AppBar(title: Text(editingProfile ? '프로필 편집' : '닉네임')),
       body: SafeArea(
@@ -257,7 +351,9 @@ class _NicknameScreenState extends State<NicknameScreen> {
                 _photoEditor(),
                 const SizedBox(height: 8),
                 Text(
-                  '사진을 눌러 앨범에서 바꿀 수 있어요.',
+                  _photoChanged
+                      ? '아래 변경사항 저장을 눌러야 사진이 바뀌어요.'
+                      : '사진을 눌러 앨범에서 바꿀 수 있어요.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: AppColors.gray),
@@ -289,9 +385,10 @@ class _NicknameScreenState extends State<NicknameScreen> {
                 ),
               if (_state == null && !_busy)
                 TextButton(onPressed: _load, child: const Text('다시 시도')),
+              const SizedBox(height: 8),
               FilledButton(
-                onPressed: !_busy && canChange ? _save : null,
-                child: Text(editingProfile ? '닉네임 저장' : '저장'),
+                onPressed: canSave ? _save : null,
+                child: Text(editingProfile ? '변경사항 저장' : '저장'),
               ),
             ],
           ),
