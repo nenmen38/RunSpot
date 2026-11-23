@@ -7,10 +7,11 @@ begin execute statement; return false; exception when others then return sqlstat
 \set writer '00000000-0000-0000-0000-000000000381'
 \set reader '00000000-0000-0000-0000-000000000382'
 \set staff '00000000-0000-0000-0000-000000000383'
+\set moderator '00000000-0000-0000-0000-000000000384'
 insert into auth.users(id,email,email_confirmed_at) values
-(:'writer','mod381@example.com',now()),(:'reader','mod382@example.com',now()),(:'staff','mod383@example.com',now());
+(:'writer','mod381@example.com',now()),(:'reader','mod382@example.com',now()),(:'staff','mod383@example.com',now()),(:'moderator','mod384@example.com',now());
 update public.profiles set nickname='제재검증'||right(id::text,3) where id in (:'writer',:'reader',:'staff');
-insert into runspot_private.user_roles(user_id,role) values(:'staff','admin'),(:'writer','admin');
+insert into runspot_private.user_roles(user_id,role) values(:'staff','admin'),(:'writer','admin'),(:'moderator','moderator');
 insert into public.friendships(user_low,user_high,requested_by,status) values(:'writer',:'reader',:'writer','accepted');
 
 set local role authenticated;
@@ -30,8 +31,15 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub',:'staff',true);
 select pg_temp.check_moderation(pg_temp.fails('select public.moderation_list(''cases'')','42501'),'관리자 다중 인증 필요');
 select set_config('request.jwt.claims','{"aal":"aal2"}',true);
+select pg_temp.check_moderation(public.admin_pending_notification_count()=1,'관리자 홈 알림에 미처리 신고 표시');
+select set_config('request.jwt.claim.sub',:'moderator',true);
+select pg_temp.check_moderation(public.admin_pending_notification_count()=0,'운영 담당자에게 관리자 홈 알림 비공개');
+select set_config('request.jwt.claim.sub',:'reader',true);
+select pg_temp.check_moderation(public.admin_pending_notification_count()=0,'일반 사용자에게 관리자 홈 알림 비공개');
+select set_config('request.jwt.claim.sub',:'staff',true);
 select public.moderation_decide(:case_id,'day','상대방에게 반복적으로 괴롭히는 메시지를 보냄');
 select pg_temp.check_moderation(pg_temp.fails(format('select public.moderation_decide(%s,''week'',''중복 처리'')',:case_id),'22023'),'중복 제재 차단');
+select pg_temp.check_moderation(public.admin_pending_notification_count()=0,'처리한 신고는 홈 알림에서 제외');
 select public.moderation_list('history',:'writer')->0->>'id' as action_id \gset
 
 select set_config('request.jwt.claim.sub',:'writer',true);
@@ -50,6 +58,7 @@ select pg_temp.check_moderation(pg_temp.fails(format('select public.moderation_a
 
 select set_config('request.jwt.claim.sub',:'staff',true);
 select pg_temp.check_moderation(jsonb_array_length(public.moderation_list('appeals'))=1,'이의신청 관리자 조회');
+select pg_temp.check_moderation(public.admin_pending_notification_count()=1,'대기 중인 이의신청을 홈 알림에 표시');
 select public.moderation_revoke(:action_id,true,'맥락 확인 후 조치를 취소함');
 select set_config('request.jwt.claim.sub',:'writer',true);
 select public.friend_chat_send(:'reader','취소 후 전송',gen_random_uuid());

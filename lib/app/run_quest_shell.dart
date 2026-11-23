@@ -169,7 +169,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       AvatarDirectory.instance.bind(SupabaseAvatarSource(client), reports: AccountRpc(client));
       _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
-      _reviews = SupabaseReviewService(client);
+      final reviews = SupabaseReviewService(client);
+      _reviews = reviews;
       _conditions =
           widget.conditionsController ??
           ConditionsController(SupabaseConditionsService(client));
@@ -206,6 +207,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
           widget.notificationController ??
           NotificationController(
             SupabaseNotificationService(client),
+            reviewService: reviews,
             onGroupChanged: () => unawaited(_groups?.refresh()),
             onCrewChanged: () {
               unawaited(_crew?.refresh());

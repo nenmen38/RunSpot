@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:runquest/shared/errors/server_error.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../admin/data/review_service.dart';
 import 'data/notification_service.dart';
 import 'models/app_notification.dart';
 
@@ -13,11 +14,39 @@ class NotificationController extends ChangeNotifier {
     this.service, {
     this.pollInterval = const Duration(seconds: 10),
     this.onGroupChanged,
+    this.reviewService,
     this.onCrewChanged,
   });
 
   final NotificationService service;
   final Duration pollInterval;
+  final SupabaseReviewService? reviewService;
+  Future<void>? _reviewRefresh;
+  int _pendingReviewCount = 0;
+
+  int get pendingReviewCount =>
+      reviewService?.isCurrentOwner == true ? _pendingReviewCount : 0;
+
+  /// 검토 대기 건수는 알림의 읽음 및 삭제 상태와 별도로 갱신합니다.
+  Future<void> refreshPendingReviews() {
+    final reviews = reviewService;
+    if (_disposed || reviews == null) return Future.value();
+    return _reviewRefresh ??= _loadPendingReviews(reviews).whenComplete(() {
+      _reviewRefresh = null;
+    });
+  }
+
+  Future<void> _loadPendingReviews(SupabaseReviewService reviews) async {
+    var count = 0;
+    try {
+      count = await reviews.pendingNotificationCount().timeout(_timeout);
+    } catch (_) {
+      // 조회 실패 시 이전 권한으로 받은 건수를 감춥니다.
+    }
+    if (_disposed || count == _pendingReviewCount) return;
+    _pendingReviewCount = count;
+    notifyListeners();
+  }
 
   /// 초대에 응답한 뒤 함께 달리기 화면을 새로 고칩니다.
   final VoidCallback? onGroupChanged;
@@ -63,6 +92,7 @@ class NotificationController extends ChangeNotifier {
 
   /// 알림 수 확인은 화면을 방해하지 않도록 실패해도 조용히 넘어갑니다.
   Future<void> refreshCount() async {
+    unawaited(refreshPendingReviews());
     if (_disposed || loading || _refreshingCount || responding != null) return;
     if (!_checkOwner()) {
       notifyListeners();
@@ -110,6 +140,7 @@ class NotificationController extends ChangeNotifier {
   /// 알림창을 열 때 목록을 불러오고, 보여준 알림까지 읽음으로 바꿉니다.
   Future<void> open() async {
     if (_disposed) return;
+    unawaited(refreshPendingReviews());
     final generation = ++_generation;
     loading = true;
     error = null;

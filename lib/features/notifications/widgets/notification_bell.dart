@@ -8,6 +8,7 @@ import 'package:runquest/shared/theme/app_colors.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../admin/admin_screen.dart';
 import '../../board/widgets/board_post_tile.dart';
 import '../../moderation/moderation_screen.dart';
 import '../models/app_notification.dart';
@@ -28,7 +29,7 @@ class NotificationBell extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
-      final count = controller.unreadCount;
+      final count = controller.unreadCount + controller.pendingReviewCount;
       return IconButton.filled(
         tooltip: count == 0 ? '알림' : '알림 $count개',
         onPressed: () => showNotificationSheet(context, controller, onOpenPost),
@@ -151,13 +152,43 @@ class NotificationSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              Expanded(child: _body()),
+              if (controller.pendingReviewCount > 0)
+                ListTile(
+                  leading: const Icon(Icons.pending_actions_outlined),
+                  title: Text('신고·검토 대기 ${controller.pendingReviewCount}건'),
+                  subtitle: const Text('관리 화면에서 확인해 주세요.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openManagement(context),
+                ),
+              Expanded(
+                child:
+                    controller.pendingReviewCount > 0 &&
+                        controller.items.isEmpty &&
+                        !controller.loading &&
+                        controller.error == null
+                    ? const SizedBox.shrink()
+                    : _body(),
+              ),
             ],
           );
         },
       ),
     ),
   );
+
+  Future<void> _openManagement(BuildContext context) async {
+    await controller.refreshPendingReviews();
+    if (!context.mounted || controller.pendingReviewCount == 0) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('관리')),
+          body: AdminScreen(service: controller.reviewService),
+        ),
+      ),
+    );
+    await controller.refreshPendingReviews();
+  }
 
   Future<void> _clearAll(BuildContext context) async {
     final confirmed = await showDialog<bool>(

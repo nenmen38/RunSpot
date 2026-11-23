@@ -50,6 +50,9 @@ class SupabaseReviewService implements ReviewService {
     return result;
   }
 
+  Future<int> pendingNotificationCount() async =>
+      await _rpc('admin_pending_notification_count') as int;
+
   Future<bool> canAccessManagement() async =>
       await _rpc('can_access_management') == true;
 
