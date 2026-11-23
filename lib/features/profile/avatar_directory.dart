@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/theme/app_colors.dart';
+import 'data/profile_avatar_service.dart';
 
 /// 사람(사용자 ID)·글쓴이(글 ID)·댓글 작성자(댓글 ID)의 작은 프로필 사진을 서버에 묻습니다.
 /// 결과는 종류별로 {ID: 사진 바이트}이며 사진이 없거나 볼 수 없는 사람은 빠집니다.
@@ -58,7 +58,7 @@ class SupabaseAvatarSource implements AvatarSource {
         result[key] as Map? ?? const {},
       ).entries)
         if ((entry.value as Map?)?['photo'] case final String photo)
-          entry.key: base64Decode(photo),
+          entry.key: decodeAvatarBase64(photo),
     };
     return (
       users: photos('users'),

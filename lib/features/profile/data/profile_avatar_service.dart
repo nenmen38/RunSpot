@@ -22,7 +22,9 @@ class SupabaseProfileAvatarService implements ProfileAvatarService {
     final owner = client.auth.currentUser?.id;
     if (owner == null) return null;
     final value = await client.rpc('user_avatar', params: {'target': owner});
-    return value is String && value.isNotEmpty ? base64Decode(value) : null;
+    return value is String && value.isNotEmpty
+        ? decodeAvatarBase64(value)
+        : null;
   }
 
   // 목록에서 쓸 작은 사진(120×120)을 함께 올려 다른 화면의 데이터 사용량을 줄입니다.
@@ -38,6 +40,11 @@ class SupabaseProfileAvatarService implements ProfileAvatarService {
   @override
   Future<void> remove() => client.rpc('remove_my_avatar');
 }
+
+/// 서버(PostgreSQL)가 보내는 base64에는 76글자마다 줄바꿈이 들어 있어 지운 뒤 풉니다.
+/// 줄바꿈을 지우지 않으면 풀기에 실패해 저장한 사진이 화면에 보이지 않습니다.
+Uint8List decodeAvatarBase64(String value) =>
+    base64Decode(value.replaceAll(RegExp(r'\s'), ''));
 
 class ProfilePhotoException implements Exception {
   const ProfilePhotoException(this.message);

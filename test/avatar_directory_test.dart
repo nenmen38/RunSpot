@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -90,6 +91,17 @@ void main() {
       tester.widget<CircleAvatar>(find.byType(CircleAvatar)).foregroundImage,
       isNotNull,
     );
+  });
+
+  test('서버가 줄바꿈을 넣어 보낸 사진(base64)도 풉니다', () {
+    // PostgreSQL encode(...,'base64')는 76글자마다 줄바꿈을 넣습니다.
+    final encoded = base64Encode(photo);
+    final wrapped = [
+      for (var i = 0; i < encoded.length; i += 76)
+        encoded.substring(i, (i + 76).clamp(0, encoded.length)),
+    ].join('\n');
+    expect(wrapped, contains('\n'));
+    expect(decodeAvatarBase64(wrapped), photo);
   });
 
   test('목록용 작은 사진은 120×120으로 줄입니다', () {
