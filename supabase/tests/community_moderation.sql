@@ -10,7 +10,7 @@ begin execute statement; return false; exception when others then return sqlstat
 insert into auth.users(id,email,email_confirmed_at) values
 (:'writer','mod381@example.com',now()),(:'reader','mod382@example.com',now()),(:'staff','mod383@example.com',now());
 update public.profiles set nickname='제재검증'||right(id::text,3) where id in (:'writer',:'reader',:'staff');
-insert into runspot_private.user_roles(user_id,role) values(:'staff','admin');
+insert into runspot_private.user_roles(user_id,role) values(:'staff','admin'),(:'writer','admin');
 insert into public.friendships(user_low,user_high,requested_by,status) values(:'writer',:'reader',:'writer','accepted');
 
 set local role authenticated;
@@ -64,12 +64,16 @@ reset role;
 insert into runspot_private.board_posts(author_id,client_post_id,board,topic,title,body)
 values(:'writer',gen_random_uuid(),'national','tip','검토 대상','운영 검토할 본문입니다.') returning id as post_id \gset
 set local role authenticated;
-select set_config('request.jwt.claim.sub',:'reader',true);
+select set_config('request.jwt.claim.sub',:'staff',true);
 select public.report_board_post(:'post_id','게시글 신고');
 reset role;
 select c.id as board_case_id from runspot_private.moderation_cases c join runspot_private.board_reports r on r.id=c.board_report_id where r.post_id=:'post_id' \gset
 set local role authenticated;
+select set_config('request.jwt.claim.sub',:'writer',true);
+select pg_temp.check_moderation((public.moderation_list('cases')->0->>'conflict')::boolean,'신고 대상 관리자에게 처리 제한 표시');
+select pg_temp.check_moderation(pg_temp.fails(format('select public.moderation_decide(%s,%L,%L)',:board_case_id,'dismissed','본인 신고 종결'),'42501'),'신고 대상 관리자 처리 금지');
 select set_config('request.jwt.claim.sub',:'staff',true);
+select pg_temp.check_moderation(not (public.moderation_list('cases')->0->>'conflict')::boolean,'신고를 접수한 관리자는 처리 가능');
 select public.moderation_decide(:board_case_id,'warning','부적절한 글로 경고');
 reset role;
 select pg_temp.check_moderation(not exists(select 1 from runspot_private.board_posts where id=:'post_id'),'확정 위반 게시글 삭제');

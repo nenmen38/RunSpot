@@ -114,7 +114,12 @@ void main() {
     expect(find.text('수정'), findsNothing);
     await tester.tap(find.text('신고'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, '스팸·광고'));
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    for (final category in ['욕설·비방', '스팸·광고', '음란·불법 콘텐츠', '개인정보 노출', '기타']) {
+      expect(find.text(category).hitTestable(), findsOneWidget);
+    }
+    await tester.tap(find.text('스팸·광고').last);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../chat/friend_chat_content.dart';
+import 'moderation_decision_dialog.dart';
 import 'report_dialog.dart';
 
 /// 계정이 바뀌면 이전 계정의 신고와 제재 자료를 사용하지 않습니다.
@@ -98,14 +99,6 @@ class _ReasonDialogState extends State<_ReasonDialog> {
   );
 }
 
-const moderationLabels = {
-  'warning': '경고',
-  'day': '24시간 작성 제한',
-  'week': '7일 작성 제한',
-  'indefinite': '무기한 작성 제한',
-  'dismissed': '문제없음',
-};
-
 class ModerationScreen extends StatefulWidget {
   const ModerationScreen({
     required this.service,
@@ -172,12 +165,22 @@ class _ModerationScreenState extends State<ModerationScreen> {
   }) async {
     final note = await moderationReason(context, title, maxLength: maxLength);
     if (!mounted || note == null) return;
+    await _submit(method, {
+      ...params,
+      method == 'moderation_appeal' ? 'reason' : 'note': note,
+    });
+  }
+
+  Future<void> _submit(String method, Map<String, dynamic> params) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
-      await widget.service.call(method, {
-        ...params,
-        method == 'moderation_appeal' ? 'reason' : 'note': note,
-      });
+      await widget.service.call(method, params);
+      if (!mounted) return;
+      if (method == 'moderation_decide') {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('신고 처리를 완료했습니다.')));
+      }
       await _load();
     } on PostgrestException catch (error) {
       _showError(error.message);
@@ -196,34 +199,19 @@ class _ModerationScreenState extends State<ModerationScreen> {
   }
 
   Future<void> _decide(Map<String, dynamic> row) async {
-    final decision = await showModalBottomSheet<String>(
+    final result = await showDialog<ModerationDecision>(
       context: context,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  '위반으로 판단하면 해당 콘텐츠를 삭제하고 선택한 조치를 기록합니다. 작성 제한은 게시글·댓글·채팅에 적용됩니다.',
-                ),
-              ),
-              for (final entry in moderationLabels.entries)
-                ListTile(
-                  title: Text(entry.value),
-                  onTap: () => Navigator.pop(context, entry.key),
-                ),
-            ],
-          ),
-        ),
+      builder: (_) => ModerationDecisionDialog(
+        nickname: row['nickname'] as String? ?? '닉네임 없음',
+        kind: row['kind'] as String,
       ),
     );
-    if (!mounted || decision == null) return;
-    await _mutate('moderation_decide', {
+    if (!mounted || result == null) return;
+    await _submit('moderation_decide', {
       'case_id': row['id'],
-      'decision': decision,
-    }, '${moderationLabels[decision]} 처리 사유');
+      'decision': result.decision,
+      'note': result.note,
+    });
   }
 
   String _time(dynamic value) {
@@ -239,55 +227,79 @@ class _ModerationScreenState extends State<ModerationScreen> {
     final reason = row['reason'] as String;
     final firstLine = reason.split('\n').first;
     final category = reportCategories.contains(firstLine) ? firstLine : null;
-    final detail = category == null ? reason : reason.substring(firstLine.length).trim();
+    final detail = category == null
+        ? reason
+        : reason.substring(firstLine.length).trim();
+    final theme = Theme.of(context);
+    final kind = switch (row['kind']) {
+      'avatar' => '프로필 사진',
+      'chat' => '채팅',
+      'meetup' => '모임 모집',
+      'comment' => '댓글',
+      _ => '게시글',
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '${row['nickname'] ?? '탈퇴한 사용자'} · ${row['kind'] == 'chat'
-              ? '채팅'
-              : row['kind'] == 'avatar'
-              ? '프로필 사진'
-              : row['kind'] == 'meetup'
-              ? '모임 모집'
-              : row['kind'] == 'comment'
-              ? '댓글'
-              : '게시글'}',
+          '$kind 신고 · ${_time(row['created_at'])}',
+          style: theme.textTheme.bodySmall,
         ),
-        if (evidence['title'] != null) Text(evidence['title'].toString()),
-        if (evidence['body'] != null) Text(evidence['body'].toString()),
-        if (row['kind'] == 'avatar') const Text('신고 당시 프로필 사진'),
-        if (evidence['run_summary'] case final Map summary)
-          FriendChatRunCard(summary: summary, mine: false),
-        if (row['has_photo'] == true)
-          FriendChatPhoto(
-            key: ValueKey(row['id']),
-            load: () async {
-              final encoded = await widget.service.call('moderation_photo', {
-                'case_id': row['id'],
-              }) as String?;
-              if (encoded == null) throw StateError('사진이 없습니다.');
-              return base64Decode(encoded.replaceAll('\n', ''));
-            },
-          ),
-        if (contextRows.isNotEmpty)
-          ExpansionTile(
-            title: const Text('신고 직전 대화'),
-            children: [
-              for (final item in contextRows)
-                ListTile(
-                  title: Text(
-                    item['sender_id'] == row['author_id'] ? '신고 대상자' : '신고자',
-                  ),
-                  subtitle: Text(item['body'].toString()),
-                ),
-            ],
-          ),
-        if (category != null) Text('신고 분류 · $category'),
-        if (detail.isNotEmpty) Text('신고 사유 · $detail'),
-        Text('접수 · ${_time(row['created_at'])}'),
-        Wrap(
+        const SizedBox(height: 6),
+        Text(category ?? '신고 사유', style: theme.textTheme.titleLarge),
+        if (detail.isNotEmpty) Text(detail),
+        const SizedBox(height: 12),
+        Text(
+          '신고 대상 · ${row['nickname'] ?? '탈퇴한 사용자'}',
+          style: theme.textTheme.titleMedium,
+        ),
+        const Divider(height: 24),
+        ExpansionTile(
+          key: PageStorageKey('evidence-${row['id']}'),
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: 12),
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          title: Text(row['kind'] == 'avatar' ? '신고 당시 프로필 사진' : '신고 증거 보기'),
+          children: [
+            if (evidence['title'] != null) Text(evidence['title'].toString()),
+            if (evidence['body'] != null) Text(evidence['body'].toString()),
+            if (evidence['run_summary'] case final Map summary)
+              FriendChatRunCard(summary: summary, mine: false),
+            if (row['has_photo'] == true)
+              FriendChatPhoto(
+                key: ValueKey(row['id']),
+                load: () async {
+                  final encoded = await widget.service.call(
+                    'moderation_photo',
+                    {'case_id': row['id']},
+                  ) as String?;
+                  if (encoded == null) throw StateError('사진이 없습니다.');
+                  return base64Decode(encoded.replaceAll('\n', ''));
+                },
+              ),
+            if (contextRows.isNotEmpty)
+              ExpansionTile(
+                title: const Text('신고 직전 대화'),
+                children: [
+                  for (final item in contextRows)
+                    ListTile(
+                      title: Text(
+                        item['sender_id'] == row['author_id']
+                            ? '신고 대상자'
+                            : '신고자',
+                      ),
+                      subtitle: Text(item['body'].toString()),
+                    ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        OverflowBar(
+          alignment: MainAxisAlignment.end,
+          overflowAlignment: OverflowBarAlignment.end,
           spacing: 8,
+          overflowSpacing: 8,
           children: [
             if (row['author_id'] != null)
               TextButton(
@@ -307,13 +319,18 @@ class _ModerationScreenState extends State<ModerationScreen> {
               ),
             if (row['conflict'] != true && row['author_id'] != null)
               FilledButton(
-                onPressed: _busy ? null : () => _decide(row),
-                child: const Text('검토·조치'),
+                onPressed: _busy || _loading ? null : () => _decide(row),
+                child: const Text('신고 대상자 조치'),
               ),
           ],
         ),
-        if (row['conflict'] == true)
-          const Text('본인과 관련된 신고는 다른 관리자가 처리해야 합니다.'),
+        if (row['author_id'] == null)
+          const Text('신고 대상 계정이 삭제되어 사용자 조치를 적용할 수 없습니다.')
+        else if (row['conflict'] == true) ...[
+          Text('내 계정이 신고된 건입니다.', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          const Text('증거는 여기서 확인하세요. 최종 조치는 다른 관리자가 통합 신고 관리에서 이 건을 열어 결정합니다.'),
+        ],
       ],
     );
   }
@@ -332,7 +349,9 @@ class _ModerationScreenState extends State<ModerationScreen> {
           moderationLabels[row['kind']] ?? '이용 제한',
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        Text(row['reason'] as String),
+        const SizedBox(height: 8),
+        Text('처리 사유 · ${row['reason']}'),
+        const SizedBox(height: 8),
         Text('조치 · ${_time(row['created_at'])}'),
         if (row['kind'] != 'warning') ...[
           const Text('제한 기능 · 게시글·댓글·채팅 작성'),
@@ -347,6 +366,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
         ] else if (row['revoked_at'] != null)
           const Text('취소된 경고'),
         if (row['appeal'] != null) ...[
+          const Divider(height: 24),
           Text('이의신청 · ${row['appeal']}'),
           Text(switch (row['appeal_status']) {
             'accepted' => '이의신청 수용',
@@ -372,8 +392,11 @@ class _ModerationScreenState extends State<ModerationScreen> {
         if (widget.mode != 'mine' &&
             row['conflict'] != true &&
             row['revoked_at'] == null)
-          Wrap(
+          OverflowBar(
+            alignment: MainAxisAlignment.end,
+            overflowAlignment: OverflowBarAlignment.end,
             spacing: 8,
+            overflowSpacing: 8,
             children: [
               TextButton(
                 onPressed: _busy
@@ -426,16 +449,24 @@ class _ModerationScreenState extends State<ModerationScreen> {
             children: [
               if (_error != null) Text(_error!),
               if (!_loading && _error == null && _rows.isEmpty)
-                const Text('표시할 내역이 없습니다.'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Text(switch (widget.mode) {
+                    'cases' => '검토할 신고가 없습니다.',
+                    'appeals' => '검토할 이의신청이 없습니다.',
+                    _ => '표시할 내역이 없습니다.',
+                  }, textAlign: TextAlign.center),
+                ),
               for (final row in _rows)
                 Card(
                   key: ValueKey(row['id']),
+                  margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: widget.mode == 'cases' ? _case(row) : _action(row),
                   ),
                 ),
-              if (_more && !_loading && _error == null)
+              if (_more && !_loading && !_busy && _error == null)
                 TextButton(
                   onPressed: () => _load(more: true),
                   child: const Text('더 보기'),

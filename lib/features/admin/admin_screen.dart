@@ -1,7 +1,6 @@
-import '../moderation/moderation_screen.dart';
-
 import 'package:flutter/material.dart';
 
+import '../moderation/moderation_screen.dart';
 import '../run_history/widgets/run_splits_panel.dart';
 import '../run_history/widgets/run_motion_evidence_panel.dart';
 
@@ -51,14 +50,56 @@ class _AdminScreenState extends State<AdminScreen> {
     final service = widget.service;
     return ListView(
       children: [
-        Text('관리', style: Theme.of(context).textTheme.titleLarge),
-        const Text('확인이 필요한 기록'),
         if (service is SupabaseReviewService)
           StaffMfaControl(
             client: service.client,
             isCurrentOwner: () => service.isCurrentOwner,
             onVerified: () => setState(() => _revision++),
           ),
+        if (service is SupabaseReviewService) ...[
+          Text('커뮤니티 관리', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (final (mode, label, hint, icon) in const [
+                  (
+                    'cases',
+                    '통합 신고 관리',
+                    '신고 증거 검토 및 사용자 조치',
+                    Icons.flag_outlined,
+                  ),
+                  ('appeals', '이의신청 관리', '접수된 이의신청 검토', Icons.forum_outlined),
+                  ('history', '전체 위반 이력', '사용자별 경고 및 작성 제한 내역', Icons.history),
+                ]) ...[
+                  if (mode != 'cases') const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: Icon(
+                      icon,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    title: Text(label),
+                    subtitle: Text(hint),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ModerationScreen(
+                          service: ModerationService(service.client),
+                          mode: mode,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+        ],
+        Text('러닝 기록 검토', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
         if (_busy) const LinearProgressIndicator(),
         if (service != null)
           AccountQueryPanel<List<IntegrityReview>>(
@@ -76,12 +117,17 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                 for (final item in items)
                   Card(
+                    margin: const EdgeInsets.only(bottom: 12),
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.nickname),
+                          Text(
+                            item.nickname,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
                           Text(
                             '${(item.distance / 1000).toStringAsFixed(2)}km · ${item.seconds}초 · 위험도 ${item.risk}',
                           ),
@@ -108,8 +154,12 @@ class _AdminScreenState extends State<AdminScreen> {
                                 motionEvidence: const [],
                               ),
                             ),
-                          Wrap(
+                          const SizedBox(height: 12),
+                          OverflowBar(
+                            alignment: MainAxisAlignment.end,
+                            overflowAlignment: OverflowBarAlignment.end,
                             spacing: 8,
+                            overflowSpacing: 8,
                             children: [
                               OutlinedButton(
                                 onPressed: _busy
@@ -134,50 +184,6 @@ class _AdminScreenState extends State<AdminScreen> {
           )
         else
           const Text('관리 기능에 연결할 수 없습니다.'),
-        if (service is SupabaseReviewService)
-          Column(
-            children: [
-              ListTile(
-                title: const Text('전체 위반 이력'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ModerationScreen(
-                      service: ModerationService(service.client),
-                      mode: 'history',
-                    ),
-                  ),
-                ),
-              ),
-              ListTile(
-                title: const Text('통합 신고 관리'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ModerationScreen(
-                      service: ModerationService(service.client),
-                      mode: 'cases',
-                    ),
-                  ),
-                ),
-              ),
-              ListTile(
-                title: const Text('이의신청 관리'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ModerationScreen(
-                      service: ModerationService(service.client),
-                      mode: 'appeals',
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
       ],
     );
   }

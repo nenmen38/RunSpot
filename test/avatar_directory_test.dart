@@ -95,8 +95,10 @@ void main() {
       ),
     );
     expect((preview.image as MemoryImage).bytes, photo);
-    await tester.tap(find.widgetWithText(ChoiceChip, '개인정보 노출'));
-    await tester.pump();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('개인정보 노출').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '신고'));
     await tester.pumpAndSettle();
     expect(api.submitted, {

@@ -33,7 +33,9 @@ void main() {
     FilledButton button() =>
         tester.widget(find.widgetWithText(FilledButton, '신고'));
     expect(button().onPressed, isNull);
-    await tester.tap(find.widgetWithText(ChoiceChip, '기타'));
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('기타').last);
     await tester.pumpAndSettle();
     expect(button().onPressed, isNull);
     await tester.enterText(find.byType(TextField), '개인정보가 포함돼 있어요.');
@@ -42,6 +44,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(submitted, '기타\n개인정보가 포함돼 있어요.');
   });
+
+  for (final width in [320.0, 393.0, 768.0]) {
+    testWidgets('화면 너비 ${width.toInt()}에서 게시글 신고 입력란이 정렬됩니다', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 640);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(1.5)),
+            child: const BoardReportDialog(),
+          ),
+        ),
+      );
+      final dropdown = find.byType(DropdownButtonFormField<String>);
+      final bounds = tester.getRect(dropdown);
+      expect(bounds.left, greaterThan(0));
+      expect(bounds.right, lessThan(width));
+      expect(tester.getRect(find.byType(TextField)).right, bounds.right);
+      for (final finder in [
+        find.text('게시글 신고'),
+        find.text('신고 분류'),
+        find.text('상세 설명 (선택)'),
+        find.byType(TextField),
+      ]) {
+        expect(tester.getRect(finder).left, bounds.left);
+      }
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('음란·불법 콘텐츠').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNotNull,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('댓글 메뉴에서 사유만 골라도 신고할 수 있고 본인 댓글은 제외합니다', (tester) async {
     final service = FakeBoardService()
@@ -64,7 +105,9 @@ void main() {
     await tester.tap(find.text('신고'));
     await tester.pumpAndSettle();
     expect(find.text('댓글 신고'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ChoiceChip, '욕설·비방'));
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('욕설·비방').last);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '신고'));
     await tester.pumpAndSettle();
