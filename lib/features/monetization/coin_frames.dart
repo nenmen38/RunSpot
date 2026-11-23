@@ -529,11 +529,15 @@ class CoinBalance extends StatelessWidget {
     listenable: controller,
     builder: (context, _) {
       final coins = controller.wallet?.coins;
+      // 밝은 화면은 옅은 노랑 바탕에 진한 글씨, 어두운 화면은 어두운 황금 바탕에 밝은 노랑 글씨로
+      // 바탕과 글씨의 대비를 지킵니다(다크 모드에서 밝은 바탕에 밝은 글씨가 되지 않게).
+      final dark = AppColors.dark;
       return Container(
         padding: const EdgeInsets.only(left: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7DB),
+          color: dark ? const Color(0xFF3A3013) : const Color(0xFFFFF7DB),
           borderRadius: BorderRadius.circular(20),
+          border: dark ? Border.all(color: const Color(0xFF5C4B1A)) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -549,7 +553,10 @@ class CoinBalance extends StatelessWidget {
               semanticsLabel: coins == null
                   ? '코인 정보 없음'
                   : '보유 코인 ${formatNumber(coins)}',
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: dark ? const Color(0xFFFFE08A) : const Color(0xFF4A3A00),
+              ),
             ),
             IconButton(
               tooltip: '코인 충전',

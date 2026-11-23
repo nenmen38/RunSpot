@@ -339,7 +339,11 @@ class _ItemRow extends StatelessWidget {
               if (subtitle case final value?)
                 Text(
                   value,
-                  style: TextStyle(color: AppColors.blueText, fontSize: 12),
+                  style: TextStyle(
+                    color: AppColors.blueText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
             ],
           ),
