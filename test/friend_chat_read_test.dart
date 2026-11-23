@@ -93,7 +93,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('말풍선을 오른쪽으로 밀면 답장 대상이 표시되고 입력창이 열립니다', (tester) async {
+  testWidgets('말풍선을 왼쪽으로 밀면 답장 대상이 표시되고 입력창이 열립니다', (tester) async {
     final chat = _Chat()
       ..room = [
         message(3, 'friend'),
@@ -109,18 +109,18 @@ void main() {
     final input = find.byType(TextField);
     final preview = find.byTooltip('답장 취소');
 
-    await tester.drag(find.text('메시지3'), const Offset(-100, 0));
-    await tester.drag(find.text('메시지3'), const Offset(32, 0));
+    await tester.drag(find.text('메시지3'), const Offset(100, 0));
+    await tester.drag(find.text('메시지3'), const Offset(-32, 0));
     await tester.drag(find.text('메시지3'), const Offset(0, -85));
-    await tester.drag(find.text('메시지2'), const Offset(100, 0));
+    await tester.drag(find.text('메시지2'), const Offset(-100, 0));
     await tester.pumpAndSettle();
     expect(preview, findsNothing);
     expect(tester.widget<TextField>(input).focusNode!.hasFocus, isFalse);
 
     final messageBubble = find.text('메시지3');
     final swipe = await tester.startGesture(tester.getCenter(messageBubble));
-    await swipe.moveBy(const Offset(25, 0));
-    await swipe.moveBy(const Offset(75, 0));
+    await swipe.moveBy(const Offset(-25, 0));
+    await swipe.moveBy(const Offset(-75, 0));
     await tester.pump();
     final arrow = find.byIcon(Icons.reply_rounded);
     expect(arrow, findsOneWidget);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 말풍선을 오른쪽으로 충분히 밀었다 놓으면 답장을 시작합니다.
+/// 말풍선을 왼쪽으로 충분히 밀었다 놓으면 답장을 시작합니다.
 class SwipeToReply extends StatefulWidget {
   const SwipeToReply({
     required this.onReply,
@@ -32,12 +32,12 @@ class _SwipeToReplyState extends State<SwipeToReply> {
 
   @override
   Widget build(BuildContext context) {
-    // 받은 말풍선 옆의 화살표가 긴 메시지에서도 화면 안에 남도록 이동 폭을 줄입니다.
+    // 받은 말풍선은 왼쪽 프로필 영역을 가리지 않도록 이동 폭을 줄입니다.
     final slide = widget.incoming ? _offset / 6 : _offset;
     return GestureDetector(
       onHorizontalDragStart: (_) => setState(() => _dragging = true),
       onHorizontalDragUpdate: (details) => setState(
-        () => _offset = (_offset + details.delta.dx).clamp(0.0, _maxOffset),
+        () => _offset = (_offset - details.delta.dx).clamp(0.0, _maxOffset),
       ),
       onHorizontalDragCancel: _reset,
       onHorizontalDragEnd: (_) {
@@ -51,8 +51,7 @@ class _SwipeToReplyState extends State<SwipeToReply> {
         children: [
           if (_offset > 0)
             Positioned(
-              left: widget.incoming ? null : 8,
-              right: widget.incoming ? -(28 + slide) : null,
+              right: widget.incoming ? slide - 28 : 8,
               child: Opacity(
                 opacity: (_offset / _threshold).clamp(0.0, 1.0),
                 child: Icon(
@@ -63,7 +62,7 @@ class _SwipeToReplyState extends State<SwipeToReply> {
               ),
             ),
           TweenAnimationBuilder<double>(
-            tween: Tween(end: slide),
+            tween: Tween(end: -slide),
             duration: _dragging
                 ? Duration.zero
                 : const Duration(milliseconds: 150),
