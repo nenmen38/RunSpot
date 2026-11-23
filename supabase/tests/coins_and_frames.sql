@@ -129,4 +129,14 @@ update public.runs set integrity_status='rejected' where id=:'reviewed_run';
 select pg_temp.assert_true((select array_agg(coins order by id)=array[10,-10]
   from runspot_private.level_coin_activity
   where user_id='00000000-0000-0000-0000-000000000202'),'레벨 지급과 검토 차감 내역');
+-- 기존 보상은 유지하고 각 새 퀘스트는 같은 주에 한 번만 적립합니다.
+insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
+values ('00000000-0000-0000-0000-000000000202',gen_random_uuid(),:'sunday'::timestamptz+interval '2 hours',:'sunday'::timestamptz+interval '3 hours',6000,3600,'verified');
+update runspot_private.run_rewards set xp=20
+where user_id='00000000-0000-0000-0000-000000000202'
+  and run_id in (select id from public.runs where distance_m=6000);
+update runspot_private.run_rewards set xp=xp
+where user_id='00000000-0000-0000-0000-000000000202';
+select pg_temp.assert_true((select count(*)=3 and sum(coins)=30
+  from runspot_private.weekly_coin_rewards),'한 주에 3가지 퀘스트와 총 30코인, 재처리 중복 방지');
 rollback;

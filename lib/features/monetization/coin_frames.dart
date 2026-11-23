@@ -84,12 +84,22 @@ class Wallet {
       },
       weeklyQuest = switch (json['weekly_quest']) {
         final Map quest => WeeklyCoinQuest(
-          days: quest['days'] as int,
+          progress: quest['days'] as int,
           reward: quest['reward'] as int,
           awarded: quest['awarded'] as bool,
         ),
         _ => null,
       },
+      weeklyQuests = [
+        for (final Map quest in json['weekly_quests'] as List? ?? const [])
+          WeeklyCoinQuest(
+            code: quest['code'] as String,
+            progress: quest['progress'] as int,
+            goal: quest['goal'] as int,
+            reward: quest['reward'] as int,
+            awarded: quest['awarded'] as bool,
+          ),
+      ],
       transactions = [
         for (final Map entry in json['transactions'] as List? ?? const [])
           CoinActivity(
@@ -145,6 +155,7 @@ class Wallet {
   final int level;
   final int levelCoins;
   final WeeklyCoinQuest? weeklyQuest;
+  final List<WeeklyCoinQuest> weeklyQuests;
   final List<CoinActivity> transactions;
   final Map<CosmeticItem, int> cosmeticPrices;
   final bool hasServerCosmeticPrices;
@@ -175,12 +186,26 @@ class Wallet {
 
 class WeeklyCoinQuest {
   const WeeklyCoinQuest({
-    required this.days,
+    required this.progress,
     required this.reward,
     required this.awarded,
+    this.code = 'two_days',
+    this.goal = 2,
   });
-  final int days;
+  final String code;
+  final int progress;
+  final int goal;
   final int reward;
+
+  String get label => switch (code) {
+    'single_3k' => '한 번에 3km 달리기',
+    'total_8k' => '이번 주 누적 8km 달리기',
+    _ => '서로 다른 이틀에 한 번씩 1km 이상 달리기',
+  };
+
+  String get progressLabel => code == 'two_days'
+      ? '$progress/$goal일'
+      : '${((progress ~/ 100) / 10).toStringAsFixed(1)}/${goal ~/ 1000}km';
   final bool awarded;
 }
 
