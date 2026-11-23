@@ -1,6 +1,13 @@
-enum NotificationKind { like, comment, reply, groupInvite, crewInvite }
+enum NotificationKind {
+  like,
+  comment,
+  reply,
+  groupInvite,
+  crewInvite,
+  moderationAction,
+}
 
-/// 내 게시글에 달린 좋아요·댓글, 내 댓글에 달린 답글과 함께 달리기 초대 알림입니다.
+/// 커뮤니티 활동, 초대, 신고 처리 결과를 담는 앱 알림입니다.
 class AppNotification {
   AppNotification.fromJson(Map<String, dynamic> json)
     : id = json['id'] as String,
@@ -9,6 +16,7 @@ class AppNotification {
         'reply' => NotificationKind.reply,
         'group_invite' => NotificationKind.groupInvite,
         'crew_invite' => NotificationKind.crewInvite,
+        'moderation_action' => NotificationKind.moderationAction,
         _ => NotificationKind.like,
       },
       postId = json['post_id'] as String?,
@@ -18,6 +26,8 @@ class AppNotification {
       crewName = json['crew_name'] as String?,
       inviteStatus = json['invite_status'] as String?,
       canRespond = json['can_respond'] as bool? ?? false,
+      moderationKind = json['moderation_kind'] as String?,
+      moderationReason = json['moderation_reason'] as String?,
       nickname = json['nickname'] as String,
       comment = json['comment'] as String?,
       createdAt = DateTime.parse(json['created_at'] as String),
@@ -46,12 +56,15 @@ class AppNotification {
   final bool canRespond;
   final String nickname;
   final String? comment;
+  final String? moderationKind;
+  final String? moderationReason;
 
   /// 읽음 처리 기준으로 서버에 다시 보내므로 서버 시각 그대로 둡니다.
   final DateTime createdAt;
   final bool read;
 
   String get message => switch (kind) {
+    NotificationKind.moderationAction => _moderationMessage,
     NotificationKind.like => '$nickname님이 내 글을 좋아해요.',
     NotificationKind.comment => '$nickname님이 댓글을 남겼어요: $comment',
     NotificationKind.reply => '$nickname님이 내 댓글에 답글을 남겼어요: $comment',
@@ -59,6 +72,20 @@ class AppNotification {
     NotificationKind.crewInvite =>
       '$nickname님이 \'${crewName ?? '크루'}\' 크루에 초대했어요.',
   };
+
+  String get _moderationMessage {
+    final reason = moderationReason?.trim();
+    final cause = reason == null || reason.isEmpty
+        ? '신고 검토 결과'
+        : '‘$reason’ 사유로';
+    return switch (moderationKind) {
+      'warning' => '$cause 경고 조치되었습니다.',
+      'day' => '$cause 24시간 동안 작성이 제한되었습니다.',
+      'week' => '$cause 7일 동안 작성이 제한되었습니다.',
+      'indefinite' => '$cause 작성이 무기한 제한되었습니다.',
+      _ => '신고 검토 결과가 도착했습니다.',
+    };
+  }
 
   /// 알림 아래 줄에 보여줄 글 제목이나 초대 응답 상태입니다.
   String get detail => isInvite

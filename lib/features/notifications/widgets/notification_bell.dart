@@ -6,7 +6,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../board/widgets/board_post_tile.dart';
+import '../../moderation/moderation_screen.dart';
 import '../models/app_notification.dart';
 import '../notification_controller.dart';
 
@@ -225,12 +228,15 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final invite = item.isInvite;
+    final isModeration = item.kind == NotificationKind.moderationAction;
+    final time = formatBoardTime(item.createdAt.toLocal());
     final busy = controller.loading || controller.responding != null;
     return ListTile(
       tileColor: item.read ? null : AppColors.blueSoft,
       leading: Icon(
         switch (item.kind) {
           NotificationKind.like => Icons.favorite,
+          NotificationKind.moderationAction => Icons.policy_outlined,
           NotificationKind.groupInvite => Icons.directions_run,
           NotificationKind.crewInvite => Icons.groups,
           _ => Icons.chat_bubble_outline,
@@ -239,12 +245,16 @@ class _NotificationTile extends StatelessWidget {
             ? Colors.redAccent
             : AppColors.blue,
       ),
-      title: Text(item.message, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text(
+        item.message,
+        maxLines: isModeration ? null : 2,
+        overflow: isModeration ? TextOverflow.clip : TextOverflow.ellipsis,
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${item.detail} · ${formatBoardTime(item.createdAt.toLocal())}',
+            item.detail.isEmpty ? time : '${item.detail} · $time',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -277,7 +287,18 @@ class _NotificationTile extends StatelessWidget {
             ),
         ],
       ),
-      onTap: item.postId == null
+      onTap: isModeration
+          ? () {
+              if (!controller.service.isCurrentOwner) return;
+              Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => ModerationScreen(
+                    service: ModerationService(Supabase.instance.client),
+                  ),
+                ),
+              );
+            }
+          : item.postId == null
           ? null
           : () => Navigator.of(context).pop(item.postId),
     );

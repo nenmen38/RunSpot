@@ -35,6 +35,13 @@ select pg_temp.check_moderation(pg_temp.fails(format('select public.moderation_d
 select public.moderation_list('history',:'writer')->0->>'id' as action_id \gset
 
 select set_config('request.jwt.claim.sub',:'writer',true);
+select pg_temp.check_moderation(public.unread_notification_count()=1,'조치 대상자에게 읽지 않은 알림 한 건');
+select pg_temp.check_moderation(
+  public.my_notifications() @> '[{"kind":"moderation_action","moderation_kind":"day","moderation_reason":"상대방에게 반복적으로 괴롭히는 메시지를 보냄"}]'::jsonb
+    and not (public.my_notifications()::text like '%반복 괴롭힘%'),
+  '관리자 처리 사유만 알림에 표시');
+select public.mark_notifications_read(now());
+select pg_temp.check_moderation(public.unread_notification_count()=0,'조치 알림 읽음 처리');
 select pg_temp.check_moderation((public.moderation_list('mine')->0->>'active')::boolean,'본인 활성 제재 조회');
 select pg_temp.check_moderation(pg_temp.fails(format('select public.friend_chat_send(%L,''제재 중 전송'',gen_random_uuid())',:'reader'),'42501'),'제재 중 채팅 차단');
 select pg_temp.check_moderation(pg_temp.fails('select public.create_board_post(gen_random_uuid(),''national'',''제재 중 글'',''작성 차단 확인'',''tip'')','42501'),'제재 중 게시글 차단');
@@ -57,6 +64,7 @@ select public.friend_chat_send(:'reader','기간 만료 후 전송',gen_random_u
 select pg_temp.check_moderation(not (public.moderation_list('mine')->0->>'active')::boolean,'기간 만료 자동 해제');
 select set_config('request.jwt.claim.sub',:'reader',true);
 select pg_temp.check_moderation(jsonb_array_length(public.moderation_list('mine'))=0,'타인의 제재 내역 비공개');
+select pg_temp.check_moderation(jsonb_array_length(public.my_notifications())=0,'신고자에게 대상자의 조치 알림 비공개');
 select pg_temp.check_moderation(pg_temp.fails(format('select public.moderation_revoke(%s,true,''권한 우회'')',:action_id),'42501'),'일반 사용자 해제 금지');
 
 -- 게시판 신고도 통합 목록으로 연결하고 검토 결과를 기존 신고에 반영합니다.
@@ -75,6 +83,19 @@ select pg_temp.check_moderation(pg_temp.fails(format('select public.moderation_d
 select set_config('request.jwt.claim.sub',:'staff',true);
 select pg_temp.check_moderation(not (public.moderation_list('cases')->0->>'conflict')::boolean,'신고를 접수한 관리자는 처리 가능');
 select public.moderation_decide(:board_case_id,'warning','부적절한 글로 경고');
+select set_config('request.jwt.claim.sub',:'writer',true);
+select pg_temp.check_moderation(public.unread_notification_count()=1
+  and public.my_notifications() @> '[{"kind":"moderation_action","moderation_kind":"warning","moderation_reason":"부적절한 글로 경고"}]'::jsonb,
+  '게시글이 삭제되어도 경고 알림 표시');
+select public.friend_chat_send(:'reader','문제없음 처리 대상',gen_random_uuid());
+select public.friend_chat_read(:'reader')->0->>'id' as dismissed_message_id \gset
+select set_config('request.jwt.claim.sub',:'reader',true);
+select public.report_chat(:dismissed_message_id,'문제없음 검증');
+select set_config('request.jwt.claim.sub',:'staff',true);
+select public.moderation_list('cases')->0->>'id' as dismissed_case_id \gset
+select public.moderation_decide(:dismissed_case_id,'dismissed','위반 내용 없음');
+select set_config('request.jwt.claim.sub',:'writer',true);
+select pg_temp.check_moderation(public.unread_notification_count()=1,'문제없음 처리 시 새 알림 없음');
 reset role;
 select pg_temp.check_moderation(not exists(select 1 from runspot_private.board_posts where id=:'post_id'),'확정 위반 게시글 삭제');
 select pg_temp.check_moderation((select status='removed' from runspot_private.board_reports where post_id=:'post_id'),'기존 신고 상태 동기화');

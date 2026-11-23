@@ -197,6 +197,33 @@ void main() {
     expect(find.text('알림'), findsNothing);
   });
 
+  testWidgets('신고 조치 알림에 경고와 관리자 사유를 표시합니다', (tester) async {
+    final service = FakeNotificationService()
+      ..rows = [
+        {
+          ...notificationJson('1', kind: 'moderation_action'),
+          'post_id': null,
+          'post_title': null,
+          'moderation_kind': 'warning',
+          'moderation_reason': '다른 이용자 비하',
+        },
+      ];
+    final controller = NotificationController(service);
+    addTearDown(controller.dispose);
+    await controller.open();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: NotificationSheet(controller: controller)),
+      ),
+    );
+
+    expect(
+      find.text('‘다른 이용자 비하’ 사유로 경고 조치되었습니다.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('러너1'), findsNothing);
+  });
+
   testWidgets('모두 지우기를 확인하면 알림이 모두 사라집니다', (tester) async {
     final service = FakeNotificationService()
       ..unread = 2

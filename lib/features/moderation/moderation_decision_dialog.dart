@@ -78,7 +78,13 @@ class _ModerationDecisionDialogState extends State<ModerationDecisionDialog> {
             minLines: 2,
             maxLines: 4,
             maxLength: 500,
-            decoration: const InputDecoration(labelText: '처리 사유 (필수)'),
+            decoration: InputDecoration(
+              labelText: '처리 사유 (필수)',
+              helperText: _decision == null || _decision == 'dismissed'
+                  ? null
+                  : '알림에 표시할 위반 사유를 적어 주세요. 예를 들어 다른 이용자 비하처럼 적고, 신고자 정보는 제외해 주세요.',
+              helperMaxLines: 3,
+            ),
             onChanged: (value) => setState(() => _note = value.trim()),
           ),
         ],
