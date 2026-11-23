@@ -103,6 +103,30 @@ void main() {
     expect(find.text('검토할 신고가 없습니다.'), findsOneWidget);
   });
 
+  testWidgets('문제없음은 처리 사유 없이 확정할 수 있습니다', (tester) async {
+    final service = _CaseService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ModerationScreen(service: service, mode: 'cases'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('신고 대상자 조치'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('문제없음').last);
+    await tester.pumpAndSettle();
+    expect(find.text('처리 사유 (선택)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '처리 확정'));
+    await tester.pumpAndSettle();
+    expect(service.decision, {
+      'case_id': 17,
+      'decision': 'dismissed',
+      'note': '',
+    });
+  });
+
   for (final (owner, message) in [('runner', '내 계정이 신고된 건입니다.')]) {
     testWidgets('관련 신고를 열면 역할에 맞게 안내합니다 · $owner', (tester) async {
       await tester.pumpWidget(

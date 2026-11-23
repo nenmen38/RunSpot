@@ -145,7 +145,9 @@ class _ReportDecisionDialogState extends State<_ReportDecisionDialog> {
       minLines: 2,
       maxLines: 4,
       maxLength: 500,
-      decoration: const InputDecoration(hintText: '처리 사유'),
+      decoration: InputDecoration(
+        labelText: widget.remove ? '처리 사유 (필수)' : '처리 사유 (선택)',
+      ),
       onChanged: (_) => setState(() {}),
     ),
     actions: [
@@ -154,7 +156,7 @@ class _ReportDecisionDialogState extends State<_ReportDecisionDialog> {
         child: const Text('취소'),
       ),
       FilledButton(
-        onPressed: _note.text.trim().isEmpty
+        onPressed: widget.remove && _note.text.trim().isEmpty
             ? null
             : () => Navigator.pop(context, _note.text.trim()),
         child: Text(widget.remove ? '삭제' : '종결'),

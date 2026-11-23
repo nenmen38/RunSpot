@@ -102,12 +102,30 @@ select set_config('request.jwt.claim.sub',:'reader',true);
 select public.report_chat(:dismissed_message_id,'문제없음 검증');
 select set_config('request.jwt.claim.sub',:'staff',true);
 select public.moderation_list('cases')->0->>'id' as dismissed_case_id \gset
-select public.moderation_decide(:dismissed_case_id,'dismissed','위반 내용 없음');
+select pg_temp.check_moderation(pg_temp.fails(format('select public.moderation_decide(%s,%L,%L)',:dismissed_case_id,'warning',''),'22023'),'경고는 사유 필수');
+select public.moderation_decide(:dismissed_case_id,'dismissed','');
+reset role;
+select pg_temp.check_moderation(
+  (select status='dismissed' and resolution_note is null from runspot_private.moderation_cases where id=:dismissed_case_id),
+  '문제없음은 사유 없이 종결');
+set local role authenticated;
 select set_config('request.jwt.claim.sub',:'writer',true);
 select pg_temp.check_moderation(public.unread_notification_count()=1,'문제없음 처리 시 새 알림 없음');
 reset role;
 select pg_temp.check_moderation(not exists(select 1 from runspot_private.board_posts where id=:'post_id'),'확정 위반 게시글 삭제');
 select pg_temp.check_moderation((select status='removed' from runspot_private.board_reports where post_id=:'post_id'),'기존 신고 상태 동기화');
+insert into runspot_private.board_posts(author_id,client_post_id,board,topic,title,body)
+values(:'writer',gen_random_uuid(),'national','tip','문제없는 글','글이 유지되는지 확인합니다.') returning id as kept_post_id \gset
+set local role authenticated;
+select set_config('request.jwt.claim.sub',:'staff',true);
+select public.report_board_post(:'kept_post_id','게시글 종결 검증');
+select public.moderation_list('cases')->0->>'id' as kept_case_id \gset
+select public.moderation_decide(:kept_case_id,'dismissed',null);
+reset role;
+select pg_temp.check_moderation(
+  exists(select 1 from runspot_private.board_posts where id=:'kept_post_id')
+  and (select status='dismissed' and resolution_note is null from runspot_private.board_reports where post_id=:'kept_post_id'),
+  '게시글 신고도 사유 없이 종결하고 글 유지');
 set local role anon;
 select pg_temp.check_moderation(pg_temp.fails('select public.moderation_list(''mine'')','42501'),'익명 조회 금지');
 rollback;

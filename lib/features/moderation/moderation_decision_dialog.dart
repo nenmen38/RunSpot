@@ -79,10 +79,8 @@ class _ModerationDecisionDialogState extends State<ModerationDecisionDialog> {
             maxLines: 4,
             maxLength: 500,
             decoration: InputDecoration(
-              labelText: '처리 사유 (필수)',
-              helperText: _decision == null || _decision == 'dismissed'
-                  ? null
-                  : '알림에 표시할 위반 사유를 적어 주세요. 예를 들어 다른 이용자 비하처럼 적고, 신고자 정보는 제외해 주세요.',
+              labelText: _decision == 'dismissed' ? '처리 사유 (선택)' : '처리 사유 (필수)',
+              helperText: _decision == null || _decision == 'dismissed' ? null : '알림에 표시할 위반 사유를 적어 주세요. 예를 들어 다른 이용자 비하처럼 적고, 신고자 정보는 제외해 주세요.',
               helperMaxLines: 3,
             ),
             onChanged: (value) => setState(() => _note = value.trim()),
@@ -96,7 +94,8 @@ class _ModerationDecisionDialogState extends State<ModerationDecisionDialog> {
         child: const Text('취소'),
       ),
       FilledButton(
-        onPressed: _decision == null || _note.isEmpty
+        onPressed:
+            _decision == null || (_decision != 'dismissed' && _note.isEmpty)
             ? null
             : () => Navigator.pop(context, (decision: _decision!, note: _note)),
         child: const Text('처리 확정'),
