@@ -148,7 +148,17 @@ class RunnerIntroPainter extends CustomPainter {
       crossedAt,
     );
     if (!still) {
-      _paintPrints(canvas, start, route, side, heading, steps, scale, t);
+      _paintPrints(
+        canvas,
+        start,
+        route,
+        forward,
+        side,
+        heading,
+        steps,
+        scale,
+        t,
+      );
     }
     if (travelled < 1) {
       _paintRunner(canvas, runnerAt, heading, phase, scale);
@@ -159,6 +169,7 @@ class RunnerIntroPainter extends CustomPainter {
     Canvas canvas,
     Offset start,
     Offset route,
+    Offset forward,
     Offset side,
     double heading,
     int steps,
@@ -167,23 +178,40 @@ class RunnerIntroPainter extends CustomPainter {
   ) {
     final paint = Paint();
     for (var step = 0; step < steps; step++) {
-      // 발이 땅에 닿는 순간(다리가 가장 멀리 뻗었을 때) 그 자리에 발자국을 남깁니다.
+      // 발이 땅에 닿는 순간(다리를 가장 멀리 뻗었을 때) 그 신발이 있는 바로 그 자리에 찍습니다.
+      // 러너를 그리는 계산(_footLocal)을 그대로 써서 발자국과 신발 위치가 정확히 겹칩니다.
       final along = (step + 0.5) / steps;
       final placed = along * runShare;
       final age = t - placed;
       if (age < 0 || age > printLife) continue;
       final fade = (age / printLife).clamp(0.0, 1.0);
-      final left = step.isEven;
-      final at = start + route * along + side * (left ? -7.0 : 7.0) * scale;
-      paint.color = _white.withValues(alpha: 0.55 * (1 - fade) * (1 - fade));
+      // 이 순간 앞으로 뻗은 발: 짝수 걸음은 오른발(+1), 홀수 걸음은 왼발(-1)입니다.
+      final foot = step.isEven ? 1.0 : -1.0;
+      final local =
+          _shoeLocal(foot, 1) * (scale * _bodyScale * (1 + _bounceLift));
+      final at = start + route * along + side * local.dx + forward * -local.dy;
+      paint.color = _white.withValues(alpha: 0.6 * (1 - fade) * (1 - fade));
       canvas.save();
       canvas.translate(at.dx, at.dy);
       canvas.rotate(heading);
-      canvas.scale(scale * (left ? -1.25 : 1.25), scale * 1.25);
+      // 신발 크기에 맞추고, 왼발은 좌우를 뒤집어 찍습니다.
+      final size = scale * _bodyScale * 0.8;
+      canvas.scale(foot < 0 ? -size : size, size);
       canvas.drawPath(_sole, paint);
       canvas.restore();
     }
   }
+
+  /// 러너 몸 크기 배율과 발을 찰 때 떠오르는 정도입니다. 발자국 위치 계산과 함께 씁니다.
+  static const _bodyScale = 1.7;
+  static const _bounceLift = 0.05;
+
+  /// 러너 기준 좌표에서 엉덩이·발·신발 위치입니다([reach]: 1이면 앞으로 가장 멀리 뻗음).
+  static Offset _hipLocal(double side) => Offset(4.5 * side, 2);
+  static Offset _footLocal(double side, double reach) =>
+      _hipLocal(side) + Offset(1.5 * side, -17 * reach + 2);
+  static Offset _shoeLocal(double side, double reach) =>
+      _footLocal(side, reach) + const Offset(0, -2.5);
 
   /// 결승선: 양쪽 기둥과 노란 테이프. 러너가 지나가면 가운데가 끊어져 양쪽으로 날리며 늘어집니다.
   void _paintFinish(
@@ -284,7 +312,7 @@ class RunnerIntroPainter extends CustomPainter {
     final swing = math.sin(phase);
     // 발이 땅을 찰 때마다 몸이 살짝 떠오릅니다(위에서 보면 조금 커지고 그림자가 멀어짐).
     final bounce = math.sin(phase).abs();
-    final lift = 1 + 0.05 * bounce;
+    final lift = 1 + _bounceLift * bounce;
     // 화면 기준 빛 방향을 러너 기준으로 돌립니다.
     final light = Offset(
       _light.dx * math.cos(-heading) - _light.dy * math.sin(-heading),
@@ -313,7 +341,7 @@ class RunnerIntroPainter extends CustomPainter {
     canvas.translate(at.dx, at.dy);
     canvas.rotate(heading);
     // 캐릭터는 화면에서 잘 보이도록 크게 그립니다.
-    canvas.scale(scale * lift * 1.7);
+    canvas.scale(scale * lift * _bodyScale);
 
     Paint limb(double width, Color color) => Paint()
       ..color = color
@@ -326,8 +354,8 @@ class RunnerIntroPainter extends CustomPainter {
     // 뒤로 찬 발은 몸 그늘에 들어가 조금 어둡습니다. 무릎은 바깥으로 살짝 굽습니다.
     for (final side in [-1.0, 1.0]) {
       final reach = swing * side;
-      final hip = Offset(4.5 * side, 2);
-      final foot = hip + Offset(1.5 * side, -17 * reach + 2);
+      final hip = _hipLocal(side);
+      final foot = _footLocal(side, reach);
       final knee =
           Offset.lerp(hip, foot, 0.5)! + Offset(2.5 * side, reach > 0 ? -1 : 2);
       final color = Color.lerp(_white, _shade, reach < 0 ? 0.6 : 0.15)!;
@@ -338,7 +366,7 @@ class RunnerIntroPainter extends CustomPainter {
       // 신발: 발끝 쪽으로 길쭉한 타원(밑창 색을 살짝 어둡게).
       canvas.drawOval(
         Rect.fromCenter(
-          center: foot + const Offset(0, -2.5),
+          center: _shoeLocal(side, reach),
           width: 6.5,
           height: 10,
         ),
