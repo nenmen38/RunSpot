@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/social/friend_controller.dart';
-import 'package:runquest/features/social/search_history.dart';
+import 'package:runquest/shared/search_history.dart';
 import 'package:runquest/features/social/widgets/friend_search.dart';
 
 import 'support/friend_fakes.dart';
