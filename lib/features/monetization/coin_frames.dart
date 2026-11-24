@@ -207,6 +207,8 @@ class WeeklyCoinQuest {
       ? '$progress/$goal일'
       : '${((progress ~/ 100) / 10).toStringAsFixed(1)}/${goal ~/ 1000}km';
   final bool awarded;
+
+  bool get completed => awarded || progress >= goal;
 }
 
 class CoinActivity {
@@ -241,6 +243,7 @@ class CoinPurchaseStatus {
 abstract interface class WalletService {
   bool get isCurrentOwner;
   Future<Wallet> load();
+  Future<Wallet> claimWeeklyQuest(String code);
   Future<CoinPurchaseStatus> coinPurchaseStatus(String transactionId);
   Future<Wallet> buyFrame(FrameKind kind);
   Future<Wallet> buyCrewTicket();
@@ -278,6 +281,10 @@ class SupabaseWalletService implements WalletService {
 
   @override
   Future<Wallet> load() => _rpc('my_wallet');
+
+  @override
+  Future<Wallet> claimWeeklyQuest(String code) =>
+      _rpc('claim_weekly_coin_quest', {'requested_quest': code});
 
   @override
   Future<CoinPurchaseStatus> coinPurchaseStatus(String transactionId) async {
@@ -350,7 +357,7 @@ class WalletController extends ChangeNotifier {
   };
 
   Future<void> refresh() async {
-    if (_disposed) return;
+    if (_disposed || busy) return;
     final generation = ++_generation;
     loading = true;
     error = null;
@@ -376,6 +383,7 @@ class WalletController extends ChangeNotifier {
   ) async {
     if (_disposed || busy) return null;
     busy = true;
+    loading = false;
     ++_generation;
     notifyListeners();
     String? failure;
@@ -390,6 +398,9 @@ class WalletController extends ChangeNotifier {
     notifyListeners();
     return failure;
   }
+
+  Future<String?> claimWeeklyQuest(String code) =>
+      _change(() => service.claimWeeklyQuest(code), '퀘스트 보상을 받지 못했습니다.');
 
   Future<String?> buy(FrameKind kind) =>
       _change(() => service.buyFrame(kind), '테두리를 사지 못했습니다.');

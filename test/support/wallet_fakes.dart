@@ -11,6 +11,8 @@ class FakeWalletService implements WalletService {
   String color = '#3182F6';
   final calls = <String>[];
   final purchaseStatuses = <String, CoinPurchaseStatus>{};
+  final weeklyQuests = <WeeklyCoinQuest>[];
+  final claimedQuests = <String>{};
 
   static const prices = {FrameKind.basic: 300, FrameKind.aura: 1400};
 
@@ -20,6 +22,16 @@ class FakeWalletService implements WalletService {
     'level_coins': 10 * (level - 1) + 50 * (level ~/ 5),
     'next_reward_level': level + 1,
     'next_reward_coins': 10,
+    'weekly_quests': [
+      for (final quest in weeklyQuests)
+        {
+          'code': quest.code,
+          'progress': quest.progress,
+          'goal': quest.goal,
+          'reward': quest.reward,
+          'awarded': quest.awarded || claimedQuests.contains(quest.code),
+        },
+    ],
     'prices': {'basic': 300, 'aura': 1400},
     'owned': [for (final kind in owned) kind.code],
     'equipped': equipped?.code,
@@ -95,6 +107,20 @@ class FakeWalletService implements WalletService {
 
   @override
   Future<Wallet> load() async => _wallet;
+
+  @override
+  Future<Wallet> claimWeeklyQuest(String code) async {
+    calls.add('claim:$code');
+    final quest = weeklyQuests.firstWhere((quest) => quest.code == code);
+    if (!quest.completed) {
+      throw const PostgrestException(
+        message: '이번 주 퀘스트를 아직 완료하지 않았습니다.',
+        code: 'P0001',
+      );
+    }
+    if (!quest.awarded && claimedQuests.add(code)) coins += quest.reward;
+    return _wallet;
+  }
 
   @override
   Future<Wallet> buyFrame(FrameKind kind) async {

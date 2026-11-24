@@ -25,6 +25,7 @@ import 'package:runquest/shared/widgets/panel.dart';
 
 import 'profile_detail_screens.dart';
 import 'widgets/recent_runs.dart';
+import 'widgets/weekly_quest_panel.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
@@ -106,62 +107,7 @@ class ProfileScreen extends StatelessWidget {
               WeeklyGoalSummary(service: service),
             ],
             if (wallet case final controller?)
-              ListenableBuilder(
-                listenable: controller,
-                builder: (context, _) {
-                  final wallet = controller.wallet;
-                  if (wallet == null) return const SizedBox.shrink();
-                  final quests = wallet.weeklyQuests.isNotEmpty
-                      ? wallet.weeklyQuests
-                      : [if (wallet.weeklyQuest case final quest?) quest];
-                  if (quests.isEmpty) return const SizedBox.shrink();
-                  final completed = quests
-                      .where((quest) => quest.awarded)
-                      .length;
-                  final reward = quests.fold(
-                    0,
-                    (total, quest) => total + quest.reward,
-                  );
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Panel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SectionHeader(
-                            title: '이번 주 퀘스트',
-                            subtitle:
-                                '$completed/${quests.length}개 완료 · 최대 ${reward}코인',
-                            icon: Icons.task_alt_outlined,
-                          ),
-                          for (final quest in quests) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    quest.label,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  quest.awarded
-                                      ? '${quest.reward}코인 지급 완료'
-                                      : '${quest.progressLabel} · ${quest.reward}코인',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+              WeeklyQuestPanel(controller: controller),
             if (commerceClient case final client?) ...[
               const SizedBox(height: 8),
               _ProfileLink(

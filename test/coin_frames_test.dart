@@ -4,6 +4,7 @@ import 'package:runquest/features/home/home_screen.dart';
 import 'package:runquest/features/home/live_map_controller.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
 import 'package:runquest/features/monetization/profile_cosmetics.dart';
+import 'package:runquest/features/profile/widgets/weekly_quest_panel.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/shared/maps/run_map.dart';
 
@@ -32,6 +33,40 @@ ButtonStyleButton button(WidgetTester tester, String key, String label) =>
     );
 
 void main() {
+  testWidgets('완료한 퀘스트의 보상을 누르면 수령 완료와 새 잔액을 반영합니다', (tester) async {
+    final service = FakeWalletService()
+      ..weeklyQuests.addAll(const [
+        WeeklyCoinQuest(progress: 2, reward: 20, awarded: false),
+        WeeklyCoinQuest(
+          code: 'single_3k',
+          progress: 2000,
+          goal: 3000,
+          reward: 5,
+          awarded: false,
+        ),
+      ]);
+    final wallet = WalletController(service);
+    addTearDown(wallet.dispose);
+    await wallet.refresh();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: WeeklyQuestPanel(controller: wallet)),
+      ),
+    );
+
+    expect(find.text('1/2개 완료 · 최대 25 코인'), findsOneWidget);
+    final claim = find.widgetWithText(FilledButton, '보상 받기');
+    expect(claim, findsOneWidget);
+    await tester.tap(claim);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(service.calls, ['claim:two_days']);
+    expect(wallet.wallet?.coins, 20);
+    expect(find.text('수령 완료'), findsOneWidget);
+    expect(claim, findsNothing);
+  });
+
   test('충전 확인은 전체 잔액이 아닌 요청한 거래의 실제 지급량을 사용합니다', () async {
     final service = FakeWalletService()
       ..coins = 800

@@ -18,6 +18,7 @@ select pg_temp.assert_true(runspot_private.coin_pack_coins('coins_1100')=100
 
 set local role anon;
 select pg_temp.assert_true(pg_temp.fails('select public.my_wallet()','42501'),'비로그인 지갑 거부');
+select pg_temp.assert_true(pg_temp.fails('select public.claim_weekly_coin_quest(''single_3k'')','42501'),'비로그인 수령 거부');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000201',true);
 select pg_temp.assert_true((select (w->>'coins')::int=0 and (w->>'level')::int=1
@@ -100,7 +101,7 @@ select pg_temp.assert_true(not exists (
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000202',true);
 select pg_temp.assert_true(public.my_coin_purchase_status('early-refund')->>'state'='pending','타인 거래 비공개');
 
--- 한국 시간 기준 서로 다른 날짜의 적격 러닝만 자동으로 정산합니다.
+-- 한국 시간 기준 서로 다른 날짜의 적격 러닝만 진행률에 반영합니다.
 reset role;
 update runspot_private.coin_economy_settings set quests_start_at=now()-interval '14 days';
 select (date_trunc('week', (now()-interval '7 days') at time zone 'Asia/Seoul')
@@ -113,14 +114,19 @@ from (values (:'friday'::timestamptz), (:'friday'::timestamptz+interval '1 hour'
 -- 날짜를 고정한 테스트에서 지연 저장 XP 제한은 별도 테스트가 검증합니다.
 update runspot_private.run_rewards set xp=20
 where user_id='00000000-0000-0000-0000-000000000202';
-select pg_temp.assert_true(not exists (select 1 from runspot_private.weekly_coin_rewards),'같은 날짜 중복 제외');
+select pg_temp.assert_true((select progress=1 from runspot_private.weekly_coin_quests(
+  '00000000-0000-0000-0000-000000000202', (:'friday'::timestamptz at time zone 'Asia/Seoul')::date-4)
+  where quest='two_days'),'같은 날짜 중복 제외');
 insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
 select '00000000-0000-0000-0000-000000000202',gen_random_uuid(),run_day,run_day+interval '10 minutes',1000,600,'verified'
 from (values (:'sunday'::timestamptz), (:'sunday'::timestamptz+interval '1 hour')) d(run_day);
 update runspot_private.run_rewards set xp=20
 where user_id='00000000-0000-0000-0000-000000000202';
-select pg_temp.assert_true((select count(*)=1 and sum(coins)=20
-  from runspot_private.weekly_coin_rewards),'다른 날짜 러닝 두 번에 주간 보상 한 번');
+select pg_temp.assert_true(not exists (select 1 from runspot_private.weekly_coin_rewards),'퀘스트 자동 지급 중단');
+-- 전환 전에 지급된 보상을 장부에 재현합니다.
+insert into runspot_private.weekly_coin_rewards(user_id,week_start,quest,coins)
+values ('00000000-0000-0000-0000-000000000202',
+  date_trunc('week', :'sunday'::timestamptz at time zone 'Asia/Seoul')::date,'two_days',20);
 -- 검토로 레벨 보상이 달라져도 차감 사유가 장부에 남습니다.
 select id as reviewed_run from public.runs
 where user_id='00000000-0000-0000-0000-000000000202' order by started_at limit 1 \gset
@@ -129,14 +135,23 @@ update public.runs set integrity_status='rejected' where id=:'reviewed_run';
 select pg_temp.assert_true((select array_agg(coins order by id)=array[10,-10]
   from runspot_private.level_coin_activity
   where user_id='00000000-0000-0000-0000-000000000202'),'레벨 지급과 검토 차감 내역');
--- 기존 보상은 유지하고 각 새 퀘스트는 같은 주에 한 번만 적립합니다.
+-- 지난주 보상은 유지하고, 이번 주 완료한 퀘스트만 한 번씩 수령합니다.
 insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
-values ('00000000-0000-0000-0000-000000000202',gen_random_uuid(),:'sunday'::timestamptz+interval '2 hours',:'sunday'::timestamptz+interval '3 hours',6000,3600,'verified');
+values ('00000000-0000-0000-0000-000000000202',gen_random_uuid(),
+  greatest(now()-interval '1 hour', date_trunc('week', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'),
+  now(),8000,3600,'verified');
 update runspot_private.run_rewards set xp=20
 where user_id='00000000-0000-0000-0000-000000000202'
-  and run_id in (select id from public.runs where distance_m=6000);
-update runspot_private.run_rewards set xp=xp
-where user_id='00000000-0000-0000-0000-000000000202';
+  and run_id in (select id from public.runs where distance_m=8000);
+select pg_temp.assert_true((select count(*)=1 from runspot_private.weekly_coin_rewards),'수령 전에는 적립하지 않음');
+set local role authenticated;
+select pg_temp.assert_true(pg_temp.fails('select public.claim_weekly_coin_quest(''two_days'')','P0001'),'미완료 수령 거부');
+select pg_temp.assert_true(pg_temp.fails('select public.claim_weekly_coin_quest(''invalid'')','22023'),'잘못된 퀘스트 거부');
+select pg_temp.assert_true(public.claim_weekly_coin_quest('single_3k')->'weekly_quests'
+  @> '[{"code":"single_3k","awarded":true}]','수령 결과를 지갑에 반영');
+select public.claim_weekly_coin_quest('single_3k');
+select public.claim_weekly_coin_quest('total_8k');
+reset role;
 select pg_temp.assert_true((select count(*)=3 and sum(coins)=30
-  from runspot_private.weekly_coin_rewards),'한 주에 3가지 퀘스트와 총 30코인, 재처리 중복 방지');
+  from runspot_private.weekly_coin_rewards),'지난주 보상 유지 및 중복 수령 방지');
 rollback;
