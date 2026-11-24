@@ -49,10 +49,15 @@ class RunSummary {
 }
 
 class RunSession {
-  RunSession(LocationFix start, {DateTime Function()? paceNow})
-    : _pace = RunPace(now: paceNow),
-      _clientRunId = const Uuid().v4(),
-      _startedAt = DateTime.now().toUtc() {
+  RunSession(
+    LocationFix start, {
+    DateTime Function()? paceNow,
+    DateTime Function()? now,
+    this.autoPauseEnabled,
+  }) : _pace = RunPace(now: paceNow),
+       _now = now ?? DateTime.now,
+       _clientRunId = const Uuid().v4(),
+       _startedAt = (now ?? DateTime.now)().toUtc() {
     _analysis = RunAnalysisTracker(_startedAt)
       ..resume(_startedAt, Duration.zero);
     _splits = RunSplitTracker();
@@ -60,6 +65,23 @@ class RunSession {
     _startSegment(start);
     _clock.start();
   }
+
+  /// 자동 일시정지를 쓸지 매번 확인합니다. 없으면 쓰지 않습니다.
+  bool Function()? autoPauseEnabled;
+
+  /// 이 시간 동안 움직이지 않으면 자동으로 일시정지합니다.
+  static const autoPauseAfter = Duration(seconds: 10);
+
+  /// 이만큼 넘게 움직여야 '움직였다'고 봅니다(GPS 흔들림 제외).
+  static const autoPauseMoveMeters = 10.0;
+
+  /// 자동 일시정지 뒤 이보다 멀리 떨어진 위치는 차량 이동 등으로 보고 선을 잇지 않습니다.
+  static const autoResumeMaxJumpMeters = 300.0;
+
+  final DateTime Function() _now;
+  bool _autoPaused = false;
+  LocationFix? _stillAnchor;
+  DateTime? _lastMovedAt;
 
   RunAnalysisTracker? _analysis;
   RunSplitTracker? _splits;
@@ -76,12 +98,16 @@ class RunSession {
   LocationFix? _previous;
   double _distanceMeters = 0;
 
-  bool get isRunning => _clock.isRunning;
+  /// 러닝 중인지입니다. 자동 일시정지 중에도 측정(위치 기록·공유)은 계속하므로 true입니다.
+  bool get isRunning => _clock.isRunning || _autoPaused;
+
+  /// 멈춰 있어서 시간 측정을 잠시 멈춘 상태입니다. 다시 달리면 같은 경로로 이어집니다.
+  bool get isAutoPaused => _autoPaused;
   String get clientRunId => _clientRunId;
   bool get isFinished => _summary != null;
   Duration get duration => _restoredDuration + _clock.elapsed;
   double get distanceMeters => _distanceMeters;
-  Duration? get currentPace => isRunning ? _pace.current : null;
+  Duration? get currentPace => _clock.isRunning ? _pace.current : null;
   Duration? get averagePace => calculateRunPace(distanceMeters, duration);
 
   /// 다 달린 1km 구간입니다. 1km마다 음성 안내에 씁니다.
@@ -91,10 +117,14 @@ class RunSession {
         _segments.map((segment) => List<LocationFix>.unmodifiable(segment)),
       );
 
-  RunSession.restore(RunSummary checkpoint, {bool finished = false})
-    : _pace = RunPace(),
-      _clientRunId = checkpoint.clientRunId,
-      _startedAt = checkpoint.startedAt {
+  RunSession.restore(
+    RunSummary checkpoint, {
+    bool finished = false,
+    this.autoPauseEnabled,
+  }) : _pace = RunPace(),
+       _now = DateTime.now,
+       _clientRunId = checkpoint.clientRunId,
+       _startedAt = checkpoint.startedAt {
     _motion = checkpoint.motionSamples == null
         ? null
         : RunMotionTracker(
@@ -173,10 +203,85 @@ class RunSession {
     _segments.add(_segment!);
     _routeSnapshot = null;
     _pace.reset(_distanceMeters, fix.recordedAt);
+    _markMoved(fix);
+  }
+
+  void _markMoved(LocationFix fix) {
+    _stillAnchor = fix;
+    _lastMovedAt = fix.recordedAt;
+  }
+
+  bool get _autoPauseOn => autoPauseEnabled?.call() == true;
+
+  /// 1초마다 불립니다. 위치가 오지 않아도 멈춘 지 10초가 지나면 자동 일시정지합니다.
+  void tick() {
+    if (!_clock.isRunning || _autoPaused || !_autoPauseOn) return;
+    final moved = _lastMovedAt;
+    if (moved != null && _now().toUtc().difference(moved) >= autoPauseAfter) {
+      _autoPause();
+    }
+  }
+
+  /// 시간만 멈춥니다. 경로(마지막 위치와 현재 구간)는 그대로 두어 다시 달리면 선이 이어집니다.
+  void _autoPause() {
+    _clock.stop();
+    _autoPaused = true;
+    _analysis?.pause(_now().toUtc(), duration, 0);
+    _pace.clear();
+  }
+
+  /// 다시 움직이면 시간을 이어서 재고, 멈췄던 자리에서 새 위치까지 같은 선으로 잇습니다.
+  void _autoResume(LocationFix fix) {
+    _autoPaused = false;
+    _analysis?.resume(_now().toUtc(), duration);
+    _clock.start();
+    final previous = _previous;
+    if (previous == null || _segment == null) {
+      _startSegment(fix);
+      return;
+    }
+    final distance = Geolocator.distanceBetween(
+      previous.latitude,
+      previous.longitude,
+      fix.latitude,
+      fix.longitude,
+    );
+    if (distance > autoResumeMaxJumpMeters + previous.accuracy + fix.accuracy) {
+      // 멈춘 사이 차량 등으로 멀리 옮겨졌으면 그 사이 거리는 넣지 않고 새로 그립니다.
+      _startSegment(fix);
+      return;
+    }
+    _distanceMeters += distance;
+    _analysis?.altitude(fix, _distanceMeters);
+    _splits?.advance(_distanceMeters, duration);
+    _previous = fix;
+    _segment!.add(fix);
+    _routeSnapshot = null;
+    _pace.reset(_distanceMeters, fix.recordedAt);
+    _markMoved(fix);
   }
 
   void accept(LocationFix fix) {
     if (!isRunning) return;
+    if (_autoPaused) {
+      // 자동 일시정지 중에는 거리·경로를 늘리지 않고, 확실히 움직였을 때만 다시 시작합니다.
+      if (!RunMotionTracker.usable(fix)) return;
+      final anchor = _previous ?? _stillAnchor;
+      if (anchor == null) {
+        _autoResume(fix);
+        return;
+      }
+      final moved = Geolocator.distanceBetween(
+        anchor.latitude,
+        anchor.longitude,
+        fix.latitude,
+        fix.longitude,
+      );
+      if (moved > math.max(autoPauseMoveMeters * 1.5, fix.accuracy)) {
+        _autoResume(fix);
+      }
+      return;
+    }
     _analysis?.observe(
       fix,
       _distanceMeters,
@@ -188,6 +293,23 @@ class RunSession {
     if (!RunMotionTracker.usable(fix)) {
       // 건물·나무 사이에서 잠깐 부정확한 위치가 와도 경로는 끊지 않고 그 위치만 버립니다.
       _pace.clear();
+      return;
+    }
+    // 멈춰 있는지 확인합니다. 기준점에서 일정 거리 넘게 벗어나면 움직인 것으로 봅니다.
+    final anchor = _stillAnchor;
+    if (anchor == null ||
+        Geolocator.distanceBetween(
+              anchor.latitude,
+              anchor.longitude,
+              fix.latitude,
+              fix.longitude,
+            ) >
+            math.max(autoPauseMoveMeters, fix.accuracy)) {
+      _markMoved(fix);
+    } else if (_autoPauseOn &&
+        fix.recordedAt.difference(_lastMovedAt!) >= autoPauseAfter) {
+      // 화면이 꺼져 1초 확인이 멈춰도, 위치가 올 때마다 멈춘 지 10초가 지났는지 봅니다.
+      _autoPause();
       return;
     }
     final previous = _previous;
@@ -247,15 +369,26 @@ class RunSession {
 
   void pause({int reason = 0}) {
     _motion?.breakSegment();
+    final wasAutoPaused = _autoPaused;
+    _autoPaused = false;
     _clock.stop();
-    _analysis?.pause(DateTime.now().toUtc(), duration, reason);
+    // 자동 일시정지로 이미 멈춘 시간 구간은 다시 닫지 않습니다.
+    if (!wasAutoPaused || reason == 4) {
+      _analysis?.pause(DateTime.now().toUtc(), duration, reason);
+    }
     _previous = null;
     _segment = null;
     _pace.clear();
   }
 
   void resume(LocationFix fix) {
-    if (isFinished || isRunning) return;
+    if (isFinished) return;
+    // 자동 일시정지 중에 '다시 시작'을 눌러도 같은 경로로 이어갑니다.
+    if (_autoPaused) {
+      _autoResume(fix);
+      return;
+    }
+    if (isRunning) return;
     _analysis?.resume(DateTime.now().toUtc(), duration);
     _startSegment(fix);
     _clock.start();

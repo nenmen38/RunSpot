@@ -96,7 +96,10 @@ void main() {
       expect(footprints, findsOneWidget);
       if (restored) expect(tester.state(footprints), same(initial));
       registrationCheck!.complete();
-      await tester.pump(const Duration(milliseconds: 900));
+      // 러너가 결승선 테이프를 끊을 때까지 로딩 화면을 보여준 뒤 앱을 켭니다.
+      await tester.pump(
+        FootprintLoaderState.finishDelay - const Duration(milliseconds: 100),
+      );
       expect(footprints, findsOneWidget);
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();

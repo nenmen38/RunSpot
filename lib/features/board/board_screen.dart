@@ -1,5 +1,7 @@
 import 'package:runquest/shared/widgets/status_view.dart';
 import 'package:runquest/shared/widgets/skeleton.dart';
+import 'package:runquest/shared/widgets/recent_searches.dart';
+import 'package:runquest/shared/search_history.dart';
 
 import 'dart:async';
 
@@ -26,12 +28,16 @@ class BoardScreen extends StatefulWidget {
     this.service,
     this.photoService,
     this.marathonService,
+    this.searchHistory,
     super.key,
   });
 
   final BoardService? service;
   final BoardPhotoService? photoService;
   final MarathonService? marathonService;
+
+  /// 게시판 종류별 최근 검색어를 만듭니다. 테스트에서 바꿔 끼울 수 있게 합니다.
+  final SearchHistory Function(String scope)? searchHistory;
 
   @override
   State<BoardScreen> createState() => _BoardScreenState();
@@ -44,7 +50,29 @@ class _BoardScreenState extends State<BoardScreen> {
   late final BoardPhotoService _photos =
       widget.photoService ?? GalleryBoardPhotoService();
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   bool _searching = false;
+
+  /// 검색창을 눌렀을 때만 최근 검색어를 펼칩니다.
+  bool _historyOpen = false;
+
+  /// 게시판 종류마다 최근 검색어를 따로 둡니다(러닝 소식·대회·크루 홍보).
+  final _histories = <String, SearchHistory>{};
+
+  SearchHistory get _history {
+    final scope = switch (_controller.kind) {
+      BoardKind.race => 'board-race',
+      BoardKind.crew => 'board-crew',
+      _ => 'board-news',
+    };
+    return _histories.putIfAbsent(scope, () {
+      final history =
+          widget.searchHistory?.call(scope) ?? SearchHistory(scope: scope);
+      unawaited(history.load());
+      return history;
+    });
+  }
+
   late final MarathonService? _marathons =
       widget.marathonService ??
       (_controller.service is SupabaseBoardService
@@ -56,6 +84,12 @@ class _BoardScreenState extends State<BoardScreen> {
   @override
   void initState() {
     super.initState();
+    // 검색창에서 포커스가 빠지면 최근 검색어를 닫습니다.
+    _searchFocus.addListener(() {
+      if (!_searchFocus.hasFocus && _historyOpen && mounted) {
+        setState(() => _historyOpen = false);
+      }
+    });
     unawaited(_controller.refresh());
   }
 
@@ -63,7 +97,28 @@ class _BoardScreenState extends State<BoardScreen> {
   void dispose() {
     _controller.dispose();
     _search.dispose();
+    _searchFocus.dispose();
+    for (final history in _histories.values) {
+      history.dispose();
+    }
     super.dispose();
+  }
+
+  /// 검색하고 최근 검색어에 남긴 뒤 최근 검색어를 닫습니다.
+  void _submitSearch(String value) {
+    final query = value.trim();
+    if (query.isNotEmpty) unawaited(_history.add(query));
+    _searchFocus.unfocus();
+    setState(() => _historyOpen = false);
+    _controller.search(query);
+  }
+
+  void _searchAgain(String query) {
+    _search.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
+    );
+    _submitSearch(query);
   }
 
   void _showMessage(String? message) {
@@ -111,7 +166,10 @@ class _BoardScreenState extends State<BoardScreen> {
   }
 
   void _toggleSearch() {
-    setState(() => _searching = !_searching);
+    setState(() {
+      _searching = !_searching;
+      _historyOpen = false;
+    });
     if (!_searching) {
       _search.clear();
       _controller.search('');
@@ -189,6 +247,7 @@ class _BoardScreenState extends State<BoardScreen> {
               onSelectionChanged: (value) {
                 // 게시판을 바꾸면 검색도 새로 시작합니다.
                 _search.clear();
+                _historyOpen = false;
                 controller.select(value.single);
               },
             ),
@@ -251,10 +310,14 @@ class _BoardScreenState extends State<BoardScreen> {
               TextField(
                 key: const ValueKey('board-search'),
                 controller: _search,
+                focusNode: _searchFocus,
                 autofocus: true,
                 maxLength: 50,
                 textInputAction: TextInputAction.search,
-                onSubmitted: controller.search,
+                // 검색창을 눌러야 최근 검색어가 펼쳐집니다.
+                onTap: () => setState(() => _historyOpen = true),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: _submitSearch,
                 decoration: InputDecoration(
                   hintText: '${controller.kind.label} 게시판에서 제목·내용 검색',
                   prefixIcon: const Icon(Icons.search),
@@ -262,11 +325,28 @@ class _BoardScreenState extends State<BoardScreen> {
                   isDense: true,
                   suffixIcon: IconButton(
                     tooltip: '검색',
-                    onPressed: () => controller.search(_search.text),
+                    onPressed: () => _submitSearch(_search.text),
                     icon: const Icon(Icons.arrow_forward),
                   ),
                 ),
               ),
+              // 검색창을 누르고 아직 아무것도 입력하지 않았을 때만 최근 검색어를 보여줍니다.
+              if (_historyOpen && _search.text.trim().isEmpty)
+                TextFieldTapRegion(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 360),
+                    child: SingleChildScrollView(
+                      child: ListenableBuilder(
+                        listenable: _history,
+                        builder: (context, _) => RecentSearches(
+                          key: const ValueKey('board-recent-searches'),
+                          history: _history,
+                          onSearch: _searchAgain,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
             if (controller.kind == BoardKind.crew &&
                 controller.loaded &&

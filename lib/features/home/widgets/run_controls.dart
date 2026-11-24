@@ -77,11 +77,16 @@ class _RunControlsState extends State<RunControls> {
             child: Text(
               finished
                   ? '저장 대기'
+                  : session.isAutoPaused
+                  // 멈춰 있어 시간을 잠시 멈춘 상태입니다. 다시 달리면 바로 이어집니다.
+                  ? '자동 일시정지 · 달리면 이어서 측정'
                   : running
                   ? (locked ? '러닝 중 · 조작 잠김' : '러닝 중')
                   : '일시 정지',
               style: TextStyle(
-                color: running
+                color: session.isAutoPaused
+                    ? AppColors.orange
+                    : running
                     ? (AppColors.dark
                           ? AppColors.green
                           : const Color(0xFF16836F))

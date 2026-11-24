@@ -26,7 +26,11 @@ class LiveMapController extends ChangeNotifier {
     this.sharingPreferenceService,
     this.checkpointStore,
     this.runGuide,
+    this.autoPauseEnabled,
   });
+
+  /// 10초 이상 멈추면 자동 일시정지할지 매번 확인합니다. 없으면 자동 일시정지를 쓰지 않습니다.
+  final bool Function()? autoPauseEnabled;
 
   /// 러닝 중 알림 내용과 1km 음성 안내를 맡습니다. 없으면 안내하지 않습니다.
   final RunGuide? runGuide;
@@ -60,6 +64,7 @@ class LiveMapController extends ChangeNotifier {
         runSession = RunSession.restore(
           checkpoint.summary,
           finished: checkpoint.finished,
+          autoPauseEnabled: autoPauseEnabled,
         );
         recoveredRun = true;
       }
@@ -189,7 +194,7 @@ class LiveMapController extends ChangeNotifier {
       return null;
     }
     groupPrepared = false;
-    runSession = RunSession(fix!);
+    runSession = RunSession(fix!, autoPauseEnabled: autoPauseEnabled);
     final clientRunId = runSession!.clientRunId;
     _startTimers();
     await _saveCheckpoint();
@@ -435,7 +440,16 @@ class LiveMapController extends ChangeNotifier {
     if (!_active || _disposed) return;
     _heartbeat = Timer.periodic(const Duration(seconds: 15), (_) => _tick());
     if (runSession?.isRunning == true) {
-      _runTimer = Timer.periodic(const Duration(seconds: 1), (_) => _notify());
+      _runTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        // 위치가 오지 않아도 멈춘 지 10초가 지나면 자동 일시정지합니다.
+        final session = runSession;
+        final wasAutoPaused = session?.isAutoPaused == true;
+        session?.tick();
+        if (session != null && session.isAutoPaused != wasAutoPaused) {
+          unawaited(_saveCheckpoint());
+        }
+        _notify();
+      });
     }
   }
 
@@ -483,7 +497,11 @@ class LiveMapController extends ChangeNotifier {
 
   void _acceptPosition(LocationFix fix) {
     if (_disposed || (!_active && runSession?.isRunning != true)) return;
+    final wasAutoPaused = runSession?.isAutoPaused == true;
     runSession?.accept(fix);
+    if (wasAutoPaused && runSession?.isAutoPaused == false) {
+      unawaited(_saveCheckpoint());
+    }
     // 화면이 꺼져 있어도 위치가 들어올 때마다 알림과 음성 안내를 갱신합니다.
     if (runSession case final session?) runGuide?.update(session);
     if (!fix.isUsable) {
@@ -586,7 +604,7 @@ class LiveMapController extends ChangeNotifier {
       }
       _acceptPosition(ready);
       if (runSession == null) {
-        runSession = RunSession(ready);
+        runSession = RunSession(ready, autoPauseEnabled: autoPauseEnabled);
       } else {
         runSession!.resume(ready);
       }
