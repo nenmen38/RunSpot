@@ -108,7 +108,7 @@ void main() {
   });
 
   for (final distance in [299.99, 300.0, 820.0]) {
-    test('$distance미터 복구 러닝은 저장 후 복구 원본을 제거합니다', () async {
+    test('$distance미터 복구 러닝은 최소 거리 판정 후 복구 원본을 제거합니다', () async {
       final dir = await Directory.systemTemp.createTemp('runspot-controller-');
       addTearDown(() => dir.delete(recursive: true));
       final store = SqliteRunCheckpointStore(
@@ -135,7 +135,11 @@ void main() {
       expect(controller.sharing, isFalse);
       final summary = await controller.finishRun();
       expect(summary!.distanceMeters, distance);
-      expect(records.records.length, 1);
+      // 300m 미만은 기록으로 저장하지 않지만(691291b) 복구 원본은 지웁니다.
+      expect(
+        records.records.length,
+        distance >= RunSummary.minimumRecordDistanceMeters ? 1 : 0,
+      );
       expect(await store.load(), isNull);
       controller.dispose();
       history.dispose();
