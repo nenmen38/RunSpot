@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 이상의 시작 화면 아이콘입니다. 시스템은 이 그림을 288dp로 그리므로
+     가운데 120dp 발자국이 되도록 둘레에 84dp씩 여백을 둡니다(아이콘 배경 없이 파란 바탕과 하나로 보임). -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/splash_footprints"
+    android:inset="84dp" />

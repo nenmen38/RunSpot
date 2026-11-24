@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- 시작 화면: 파란 바탕 가운데에 앱 아이콘의 발자국만 둡니다(네모난 아이콘 테두리 없이).
+     앱 첫 화면(BrandIntro)이 같은 위치·크기(120dp)로 이어받습니다. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+    <item android:drawable="@color/splash_blue" />
 
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/ic_launcher" />
+            android:src="@drawable/splash_footprints" />
     </item>
 </layer-list>

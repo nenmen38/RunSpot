@@ -13,6 +13,7 @@
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- 시작 화면에서 앱 첫 화면으로 넘어가는 사이에도 흰 화면이 번쩍이지 않게 같은 파란 화면을 둡니다. -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
     </style>
 </resources>

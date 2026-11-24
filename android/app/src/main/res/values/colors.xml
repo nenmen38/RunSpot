@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱 아이콘 바탕과 같은 파란색입니다. 시작 화면과 앱 첫 화면이 이어지도록 같은 색을 씁니다. -->
+    <color name="splash_blue">#3182F6</color>
+</resources>

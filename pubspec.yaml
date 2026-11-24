@@ -88,6 +88,7 @@ flutter:
   assets:
     - assets/maps/kakao_map.html
     - assets/branding/app_icon.png
+    - assets/branding/splash_footprints.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

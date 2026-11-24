@@ -5,6 +5,7 @@ import 'package:runquest/features/auth/auth_gate.dart';
 import 'package:runquest/features/settings/appearance/app_appearance.dart';
 import 'package:runquest/shared/layout/readable_width.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
+import 'package:runquest/shared/widgets/brand_intro.dart';
 
 /// 라이트·다크 테마를 만듭니다. 공통 색(AppColors)을 해당 밝기로 잠시 바꿔 계산합니다.
 ThemeData buildAppTheme({required bool dark}) {
@@ -247,7 +248,10 @@ class RunQuestApp extends StatelessWidget {
         themeAnimationDuration: Duration.zero,
         builder: (context, child) =>
             AppearanceScope(textScale: settings.textSize.scale, child: child!),
-        home: const MobileAppViewport(child: AuthGate(child: RunQuestShell())),
+        // 폰 시작 화면 → 발자국과 '뜀터' 첫 화면 → 러너 로딩 화면 → 앱 순서로 이어집니다.
+        home: const BrandIntro(
+          child: MobileAppViewport(child: AuthGate(child: RunQuestShell())),
+        ),
       ),
     );
   }
