@@ -2,14 +2,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../shared/widgets/panel.dart';
 import '../run_history/models/run_record.dart';
 import '../run_history/run_history_controller.dart';
 import '../run_share/data/share_image_renderer.dart';
 import '../run_share/models/share_card_catalog.dart';
 import 'coin_frames.dart';
+import 'cosmetic_shop.dart';
 import 'cosmetics.dart';
-import 'shop_item_actions.dart';
 
 class ShareCardShop extends StatelessWidget {
   const ShareCardShop({
@@ -132,77 +131,44 @@ class ShareCardShop extends StatelessWidget {
           ? shareCardLayouts.keys.where(current.cosmetics.contains)
           : shareCardLayouts.keys;
       if (items.isEmpty) return const SizedBox.shrink();
-      return Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 12),
-        child: Panel(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Material(
-            type: MaterialType.transparency,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-                  child: Text(
-                    ownedOnly ? '내 공유 카드' : '러닝 공유 카드',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                for (final item in items)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          item == CosmeticItem.shareNight
-                              ? Icons.nights_stay_outlined
-                              : Icons.photo_outlined,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.label,
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              Text(
-                                current.cosmetics.contains(item)
-                                    ? '보유 중 · 러닝 공유 화면에서 사용'
-                                    : current.listedCosmetics.contains(item)
-                                    ? '${formatNumber(current.priceOf(item))}코인'
-                                    : '${item.defaultPrice}코인 · 판매 준비 중',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ShopItemActions(
-                          onPreview: () => _open(context, item),
-                          purchase:
-                              !ownedOnly &&
-                                  !current.cosmetics.contains(item) &&
-                                  current.listedCosmetics.contains(item)
-                              ? FilledButton(
-                                  onPressed: wallet.busy
-                                      ? null
-                                      : () => _open(context, item, buy: true),
-                                  child: const Text('구매'),
-                                )
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+      final text = Theme.of(context).textTheme;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 20),
+          Text(
+            ownedOnly ? '내 공유 카드' : '러닝 공유 카드',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-        ),
+          if (!ownedOnly) ...[
+            const SizedBox(height: 2),
+            Text(CosmeticSlot.shareCard.description, style: text.bodySmall),
+          ],
+          const SizedBox(height: 10),
+          for (final item in items)
+            CosmeticItemRow(
+              key: ValueKey('${ownedOnly ? 'inventory' : 'shop'}-${item.code}'),
+              item: item,
+              subtitle: ownedOnly
+                  ? '러닝 공유 화면에서 사용'
+                  : current.listedCosmetics.contains(item) ||
+                        current.cosmetics.contains(item)
+                  ? '${formatNumber(current.priceOf(item))}코인'
+                  : '${formatNumber(item.defaultPrice)}코인 · 판매 준비 중',
+              onPreview: () => _open(context, item),
+              trailing: ownedOnly
+                  ? null
+                  : current.cosmetics.contains(item)
+                  ? const OutlinedButton(onPressed: null, child: Text('보유 중'))
+                  : FilledButton(
+                      onPressed:
+                          wallet.busy || !current.listedCosmetics.contains(item)
+                          ? null
+                          : () => _open(context, item, buy: true),
+                      child: const Text('구매'),
+                    ),
+            ),
+        ],
       );
     },
   );

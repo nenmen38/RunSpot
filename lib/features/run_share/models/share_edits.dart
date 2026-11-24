@@ -26,6 +26,7 @@ class ShareEdits {
   ShareEdits({
     required Iterable<ShareSticker> visible,
     Map<ShareSticker, StickerPlacement> placements = const {},
+    this.useTemplatePlacement = false,
     this.heartRate,
     this.cadence,
   }) : visible = Set.unmodifiable(visible),
@@ -33,6 +34,7 @@ class ShareEdits {
 
   final Set<ShareSticker> visible;
   final Map<ShareSticker, StickerPlacement> placements;
+  final bool useTemplatePlacement;
   final int? heartRate;
   final int? cadence;
 
@@ -45,15 +47,23 @@ class ShareEdits {
 
   /// 템플릿의 지표 이름, 숫자, 단위를 한 묶음으로 서식과 함께 옮깁니다.
   ShareComposition compose(ShareLayout layout, double height) {
-    final template = layout.compose(height, hasRoute: false);
+    final template = _template(layout, height);
     final texts = <ShareTextSlot>[];
     Rect? route;
     for (final sticker in visible) {
       final slots = _slots(sticker, template, height);
-      final bounds = _bounds(sticker, height, slots);
+      final bounds = _bounds(sticker, height, slots, template.route);
       final adjusted = boundsFor(sticker, bounds, height);
       final scale = adjusted.width / bounds.width;
       if (sticker == ShareSticker.route) route = adjusted;
+      if (useTemplatePlacement &&
+          !placements.containsKey(sticker) &&
+          templateMetrics.contains(sticker)) {
+        texts.addAll(
+          template.texts.where((slot) => sticker.fields.contains(slot.field)),
+        );
+        continue;
+      }
       for (final slot in slots) {
         texts.add(
           ShareTextSlot(
@@ -80,9 +90,20 @@ class ShareEdits {
   }
 
   Rect originalBounds(ShareSticker sticker, ShareLayout layout, double height) {
-    final template = layout.compose(height, hasRoute: false);
-    return _bounds(sticker, height, _slots(sticker, template, height));
+    final template = _template(layout, height);
+    return _bounds(
+      sticker,
+      height,
+      _slots(sticker, template, height),
+      template.route,
+    );
   }
+
+  ShareComposition _template(ShareLayout layout, double height) =>
+      layout.compose(
+        height,
+        hasRoute: useTemplatePlacement && visible.contains(ShareSticker.route),
+      );
 
   Rect boundsFor(ShareSticker sticker, Rect bounds, double height) {
     final placement = placements[sticker];
@@ -144,8 +165,14 @@ class ShareEdits {
     ];
   }
 
-  Rect _bounds(ShareSticker sticker, double height, List<ShareTextSlot> slots) {
+  Rect _bounds(
+    ShareSticker sticker,
+    double height,
+    List<ShareTextSlot> slots,
+    Rect? templateRoute,
+  ) {
     if (sticker == ShareSticker.route) {
+      if (templateRoute != null) return templateRoute;
       final side = (height * .26).clamp(320.0, 500.0);
       return Rect.fromCenter(
         center: Offset(540, height * .2),

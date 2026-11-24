@@ -18,6 +18,7 @@ class ShareStickerEditor extends StatefulWidget {
     required this.paint,
     required this.loadRoute,
     required this.loadCadence,
+    this.title = '직접 수정',
     this.initial,
     this.heartRate,
     this.ownerChanges,
@@ -30,6 +31,7 @@ class ShareStickerEditor extends StatefulWidget {
   final void Function(Canvas, EditedShare) paint;
   final Future<ShareRoute?> Function(BuildContext) loadRoute;
   final Future<int?> Function(bool Function()) loadCadence;
+  final String title;
   final EditedShare? initial;
   final int? heartRate;
   final Stream<Object?>? ownerChanges;
@@ -64,11 +66,12 @@ class _ShareStickerEditorState extends State<ShareStickerEditor> {
   EditedShare get _draft => (
     edits: ShareEdits(
       visible: _visible,
+      useTemplatePlacement: widget.initial?.edits.useTemplatePlacement ?? false,
       placements: _placements,
       cadence: _cadence,
       heartRate: _heartRate,
     ),
-    route: _route,
+    route: _visible.contains(ShareSticker.route) ? _route : null,
   );
 
   @override
@@ -244,14 +247,14 @@ class _ShareStickerEditorState extends State<ShareStickerEditor> {
   Widget build(BuildContext context) {
     if (!_canEdit) {
       return Scaffold(
-        appBar: AppBar(title: const Text('직접 수정')),
+        appBar: AppBar(title: Text(widget.title)),
         body: const Center(child: Text('로그인 상태를 확인해 주세요.')),
       );
     }
     final draft = _draft;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('직접 수정'),
+        title: Text(widget.title),
         actions: [
           TextButton(
             onPressed: _busy ? null : () => Navigator.pop(context, draft),

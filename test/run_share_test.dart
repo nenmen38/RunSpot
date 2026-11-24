@@ -237,6 +237,46 @@ void main() {
     }
   }
 
+  testWidgets('선택한 템플릿에만 편집 내용을 적용합니다', (tester) async {
+    final renderer = Renderer();
+    await show(tester, renderer, settings: true);
+    await tester.tap(find.widgetWithText(ChoiceChip, '포스터'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('설정 닫기'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('템플릿 수정'));
+    await tester.pumpAndSettle();
+    expect(find.text('포스터 수정'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilterChip, '기온'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('적용'));
+    await tester.pumpAndSettle();
+    final posterEdits = renderer.edits!;
+    expect(posterEdits.visible, isNot(contains(ShareSticker.temperature)));
+
+    await tester.tap(find.byTooltip('공유 설정'));
+    await tester.pumpAndSettle();
+    final headline = find.widgetWithText(ChoiceChip, '헤드라인');
+    final templates = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.right,
+    );
+    await tester.scrollUntilVisible(headline, 100, scrollable: templates);
+    await tester.pumpAndSettle();
+    await tester.tap(headline);
+    await tester.pumpAndSettle();
+    expect(renderer.selectedLayout, ShareLayout.headline);
+    expect(renderer.edits, isNull);
+
+    final poster = find.widgetWithText(ChoiceChip, '포스터');
+    tester.state<ScrollableState>(templates).position.jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.tap(poster);
+    await tester.pumpAndSettle();
+    expect(renderer.edits, same(posterEdits));
+  });
+
   testWidgets('직접 수정 템플릿에서 지표를 켜고 끄며 끌어서 배치합니다', (tester) async {
     final renderer = Renderer();
     await show(

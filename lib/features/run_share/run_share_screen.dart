@@ -14,6 +14,7 @@ import 'data/share_image_renderer.dart';
 import 'data/share_photo_service.dart';
 import 'models/share_route.dart';
 import 'models/share_layout.dart';
+import 'models/share_edits.dart';
 import 'models/share_card_catalog.dart';
 import 'widgets/share_sticker_editor.dart';
 import 'widgets/share_text_color_control.dart';
@@ -56,6 +57,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
   ShareLayout _layout = ShareLayout.centered;
   bool _includeRoute = false;
   EditedShare? _customDraft;
+  final _templateDrafts = <ShareLayout, EditedShare>{};
   bool _customSelected = false;
   bool _busy = false;
   bool _confirming = false;
@@ -77,6 +79,9 @@ class _RunShareScreenState extends State<RunShareScreen> {
                 widget.wallet!.wallet?.cosmetics.contains(entry.key) == true,
           ));
 
+  EditedShare? get _activeDraft =>
+      _customSelected ? _customDraft : _templateDrafts[_layout];
+
   bool get _darkPreview => _photo == null
       ? (_dark || (!_customSelected && _layout == ShareLayout.nightCard))
       : (_textColor ?? Colors.white).computeLuminance() > .179;
@@ -92,6 +97,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
           _png = null;
           _route = null;
           _customDraft = null;
+          _templateDrafts.clear();
           _customSelected = false;
           _photo?.dispose();
           _photo = null;
@@ -124,7 +130,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
     if (_busy || !widget.isCurrentOwner()) return;
     if (!_customSelected && !_canUse(_layout)) _layout = ShareLayout.centered;
     final height = _imageHeight;
-    final draft = _customSelected ? _customDraft : null;
+    final draft = _activeDraft;
     setState(() {
       _busy = true;
       _error = null;
@@ -140,7 +146,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
         height: height,
         textColor: _textColor,
         photoOverlay: _photoOverlay,
-        layout: draft == null ? _layout : ShareLayout.centered,
+        layout: _customSelected ? ShareLayout.centered : _layout,
       );
       if (mounted && widget.isCurrentOwner() && height == _imageHeight) {
         setState(() => _png = bytes);
@@ -227,19 +233,34 @@ class _RunShareScreenState extends State<RunShareScreen> {
     ),
   );
 
-  Future<void> _edit() async {
-    if (_busy || !widget.isCurrentOwner()) return;
+  Future<void> _edit({required bool custom}) async {
+    final layout = custom ? ShareLayout.centered : _layout;
+    if (_busy || !widget.isCurrentOwner() || !_canUse(layout)) return;
+    final initial = custom
+        ? _customDraft
+        : _templateDrafts[layout] ??
+              (
+                edits: ShareEdits(
+                  visible: [
+                    ...ShareEdits.templateMetrics,
+                    if (_includeRoute && _route != null) ShareSticker.route,
+                  ],
+                  useTemplatePlacement: true,
+                ),
+                route: _includeRoute ? _route : null,
+              );
     _scaffold.currentState?.closeEndDrawer();
     final height = _imageHeight;
     final photo = _photo?.clone();
     final heart = widget.averageHeartRate;
     final editor = MaterialPageRoute<EditedShare>(
       builder: (_) => ShareStickerEditor(
-        layout: ShareLayout.centered,
+        layout: layout,
         imageHeight: height,
         isOwner: widget.isCurrentOwner,
         ownerChanges: widget.ownerChanges,
-        initial: _customDraft,
+        initial: initial,
+        title: custom ? '직접 수정' : '${layout.label} 수정',
         heartRate: heart != null && heart.isFinite && heart > 0
             ? heart.round()
             : null,
@@ -263,16 +284,25 @@ class _RunShareScreenState extends State<RunShareScreen> {
           dark: _dark,
           textColor: _textColor,
           photoOverlay: _photoOverlay,
-          layout: ShareLayout.centered,
+          layout: layout,
         ),
       ),
     );
     unawaited(editor.completed.whenComplete(() => photo?.dispose()));
     final result = await Navigator.of(context).push(editor);
-    if (!mounted || result == null || !widget.isCurrentOwner()) return;
+    if (!mounted ||
+        result == null ||
+        !widget.isCurrentOwner() ||
+        !_canUse(layout)) {
+      return;
+    }
     setState(() {
-      _customDraft = result;
-      _customSelected = true;
+      if (custom) {
+        _customDraft = result;
+      } else {
+        _templateDrafts[layout] = result;
+      }
+      _customSelected = custom;
     });
     await _render();
   }
@@ -400,6 +430,12 @@ class _RunShareScreenState extends State<RunShareScreen> {
                             () => Navigator.of(context).maybePop(),
                           ),
                           const Spacer(),
+                          _tool(
+                            '템플릿 수정',
+                            Icons.edit_outlined,
+                            _busy ? null : () => _edit(custom: _customSelected),
+                          ),
+                          const SizedBox(width: 8),
                           _tool(
                             '공유 설정',
                             Icons.tune,
@@ -550,7 +586,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
         onChanged: _selectTextColor,
       ),
       const SizedBox(height: 16),
-      if (!_customSelected)
+      if (_activeDraft == null)
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('경로 포함'),
@@ -592,7 +628,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
               description: '표시할 정보와 위치를 직접 선택합니다.',
               preview: const Icon(Icons.dashboard_customize_outlined, size: 36),
               selected: _customSelected,
-              onSelected: _busy ? null : (_) => _edit(),
+              onSelected: _busy ? null : (_) => _edit(custom: true),
             );
           }
           final layout = layouts[index - 1];

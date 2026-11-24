@@ -202,7 +202,7 @@ class CosmeticShop extends StatelessWidget {
             Text(slot.description, style: text.bodySmall),
             const SizedBox(height: 10),
             for (final item in CosmeticItem.values.where((i) => i.slot == slot))
-              _ItemRow(
+              CosmeticItemRow(
                 key: ValueKey('shop-${item.code}'),
                 item: item,
                 trailing: wallet?.cosmetics.contains(item) == true
@@ -269,7 +269,7 @@ class CosmeticInventory extends StatelessWidget {
               for (final item in CosmeticItem.values.where(
                 (i) => i.slot == slot && wallet.cosmetics.contains(i),
               ))
-                _ItemRow(
+                CosmeticItemRow(
                   key: ValueKey('inventory-${item.code}'),
                   item: item,
                   subtitle: wallet.equippedCosmetics[slot] == item
@@ -296,8 +296,8 @@ class CosmeticInventory extends StatelessWidget {
   );
 }
 
-class _ItemRow extends StatelessWidget {
-  const _ItemRow({
+class CosmeticItemRow extends StatelessWidget {
+  const CosmeticItemRow({
     required this.item,
     required this.trailing,
     this.subtitle,
@@ -306,7 +306,7 @@ class _ItemRow extends StatelessWidget {
   });
 
   final CosmeticItem item;
-  final Widget trailing;
+  final Widget? trailing;
   final String? subtitle;
   final VoidCallback? onPreview;
 
@@ -352,7 +352,7 @@ class _ItemRow extends StatelessWidget {
           const SizedBox(width: 8),
           ShopItemActions(onPreview: preview, purchase: trailing),
         ] else
-          trailing,
+          ?trailing,
       ],
     ),
   );
