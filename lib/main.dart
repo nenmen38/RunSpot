@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:runquest/features/settings/run_auto_pause_settings.dart';
 
 import 'app/bootstrap.dart';
 import 'app/run_quest_app.dart';
@@ -12,6 +13,7 @@ Future<void> main() async {
     // 다크 모드·글자 크기 설정을 먼저 불러와 첫 화면부터 반영합니다.
     await AppAppearance.instance.load();
     await RunVoiceSettings.instance.load();
+    await RunAutoPauseSettings.instance.load();
     await BodyWeight.instance.load();
     runApp(const RunQuestApp());
   } catch (error, stackTrace) {

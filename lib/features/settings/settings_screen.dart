@@ -1,4 +1,5 @@
 import '../moderation/moderation_screen.dart';
+import 'run_auto_pause_settings.dart';
 import '../notifications/push_settings_screen.dart';
 
 import 'package:runquest/features/notifications/data/push_service.dart';
@@ -121,6 +122,17 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text('1km마다 구간 기록과 평균 페이스를 읽어 줍니다.'),
             value: RunVoiceSettings.instance.enabled,
             onChanged: RunVoiceSettings.instance.setEnabled,
+          ),
+        ),
+        ListenableBuilder(
+          listenable: RunAutoPauseSettings.instance,
+          builder: (context, _) => SwitchListTile(
+            key: const ValueKey('auto-pause-setting'),
+            secondary: const Icon(Icons.pause_circle_outline),
+            title: const Text('자동 일시정지'),
+            subtitle: const Text('10초 이상 멈추면 시간을 멈추고, 다시 달리면 같은 경로로 이어서 잽니다.'),
+            value: RunAutoPauseSettings.instance.enabled,
+            onChanged: RunAutoPauseSettings.instance.setEnabled,
           ),
         ),
         ListTile(
