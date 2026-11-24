@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/shared/widgets/footprint_loader.dart';
 
 void main() {
-  testWidgets('발자국은 달리듯 바뀌고 동작 줄이기를 켜면 멈춥니다', (tester) async {
+  testWidgets('러너가 오른쪽 아래에서 왼쪽 위로 달리고 동작 줄이기를 켜면 멈춥니다', (tester) async {
     const key = ValueKey('발자국');
     Future<void> show({required bool still}) => tester.pumpWidget(
       MediaQuery(
@@ -39,7 +39,6 @@ void main() {
 
     await show(still: false);
     await tester.pump();
-    final first = await pixels();
     final size = tester.getSize(find.byKey(key));
     expect(size, tester.view.physicalSize / tester.view.devicePixelRatio);
     bool hasPrintIn(Uint8List frame, Rect area) {
@@ -51,14 +50,21 @@ void main() {
       return false;
     }
 
-    final upperLeft = const Rect.fromLTWH(0, 0, 80, 80);
-    final lowerRight = Rect.fromLTWH(size.width - 80, size.height - 80, 80, 80);
-    expect(hasPrintIn(first, lowerRight), isTrue);
-    expect(hasPrintIn(first, upperLeft), isFalse);
-    await tester.pump(const Duration(milliseconds: 800));
-    final last = await pixels();
-    expect(hasPrintIn(last, upperLeft), isTrue);
-    expect(hasPrintIn(last, lowerRight), isFalse);
+    // 러너는 오른쪽 아래에서 출발해 왼쪽 위로 달려갑니다.
+    final lowerRight = Rect.fromLTWH(
+      size.width / 2,
+      size.height / 2,
+      size.width / 2,
+      size.height / 2,
+    );
+    final upperLeft = Rect.fromLTWH(0, 0, size.width / 2, size.height / 2);
+    await tester.pump(const Duration(milliseconds: 300));
+    final early = await pixels();
+    expect(hasPrintIn(early, lowerRight), isTrue);
+    await tester.pump(const Duration(milliseconds: 1100));
+    final late = await pixels();
+    expect(hasPrintIn(late, upperLeft), isTrue);
+    expect(late, isNot(orderedEquals(early)));
 
     await show(still: true);
     final still = await pixels();
