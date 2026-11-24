@@ -1,3 +1,4 @@
+import 'models/course_notes.dart';
 import 'widgets/board_theme.dart';
 
 import 'dart:async';
@@ -46,7 +47,16 @@ class BoardComposeScreen extends StatefulWidget {
 class _BoardComposeScreenState extends State<BoardComposeScreen> {
   final _form = GlobalKey<FormState>();
   late final _title = TextEditingController(text: widget.post?.title);
-  late final _body = TextEditingController(text: widget.post?.body);
+  late final _courseNotes = CourseNotes.parse(widget.post?.body ?? '');
+  late final _body = TextEditingController(
+    text: widget.post?.topic == BoardTopic.course
+        ? _courseNotes.body
+        : widget.post?.body,
+  );
+  late final _courseFields = {
+    for (final label in CourseNotes.labels)
+      label: TextEditingController(text: _courseNotes.values[label]),
+  };
   late final _place = TextEditingController(text: widget.post?.racePlace);
   late final _url = TextEditingController(text: widget.post?.raceUrl);
   // 같은 화면에서 다시 등록하면 서버가 같은 글로 처리합니다.
@@ -70,6 +80,16 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
   bool _submitted = false;
   String? _error;
 
+  bool get _isCourse => !_isRace && !_isCrew && _topic == BoardTopic.course;
+  String get _postBody => !_isCourse
+      ? _body.text.trim()
+      : CourseNotes(
+          body: _body.text,
+          values: _courseFields.map(
+            (label, controller) => MapEntry(label, controller.text),
+          ),
+        ).postBody;
+
   bool get _isRace => _kind == BoardKind.race;
   bool get _isCrew => _kind == BoardKind.crew;
   bool get _isEditing => widget.post != null;
@@ -80,6 +100,9 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
     if (!_saved) unawaited(widget.controller.removePhotos(_uploaded.toList()));
     _title.dispose();
     _body.dispose();
+    for (final controller in _courseFields.values) {
+      controller.dispose();
+    }
     _place.dispose();
     _url.dispose();
     super.dispose();
@@ -138,6 +161,26 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
     if (picked != null && mounted) setState(() => _raceDate = picked);
   }
 
+  Future<void> _pickCourseDate(TextEditingController field) async {
+    final now = DateTime.now();
+    final parsed = DateTime.tryParse(field.text);
+    final picked = await showDatePicker(
+      context: context,
+      firstDate: DateTime(now.year - 20),
+      lastDate: now,
+      initialDate:
+          parsed != null &&
+              !parsed.isAfter(now) &&
+              !parsed.isBefore(DateTime(now.year - 20))
+          ? parsed
+          : now,
+      helpText: '코스 정보 확인 날짜',
+    );
+    if (picked != null && mounted) {
+      field.text = picked.toIso8601String().split('T').first;
+    }
+  }
+
   /// 새 사진만 올리고 경로를 기억해 다시 시도할 때 중복으로 올리지 않습니다.
   Future<bool> _uploadPhotos() async {
     setState(() => _uploading = true);
@@ -176,7 +219,7 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
       kind: _kind,
       topic: _isRace || _isCrew ? null : _topic,
       title: _title.text.trim(),
-      body: _body.text.trim(),
+      body: _postBody,
       raceDate: _isRace ? _raceDate : null,
       racePlace: _isRace ? _place.text.trim() : null,
       raceUrl: _isRace && _url.text.trim().isNotEmpty ? _url.text.trim() : null,
@@ -384,9 +427,50 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
                       alignLabelWithHint: true,
                     ),
                     validator: (value) =>
-                        _required(value, '내용을 입력해 주세요.', 2000),
+                        _required(value, '내용을 입력해 주세요.', 2000) ??
+                        (_postBody.length > 2000
+                            ? '코스 정보를 포함해 2000자 이내로 입력해 주세요.'
+                            : null),
                   ),
                   const SizedBox(height: 12),
+                  if (_isCourse) ...[
+                    Text(
+                      '코스 이용 정보',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    for (final entry in _courseFields.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: TextFormField(
+                          controller: entry.value,
+                          maxLength: 80,
+                          maxLines: 1,
+                          readOnly: entry.key == '확인 날짜',
+                          onTap: entry.key == '확인 날짜'
+                              ? () => _pickCourseDate(entry.value)
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: entry.key,
+                            suffixIcon: entry.key == '확인 날짜'
+                                ? IconButton(
+                                    tooltip: '확인 날짜 지우기',
+                                    onPressed: entry.value.clear,
+                                    icon: const Icon(Icons.clear),
+                                  )
+                                : null,
+                            hintText: switch (entry.key) {
+                              '조명' => '예시 · 산책로 가로등 있음',
+                              '화장실' => '예시 · 공원 입구',
+                              '급수대' => '예시 · 운동장 옆',
+                              '대중교통' => '예시 · 공원역 2번 출구 도보 5분',
+                              _ => '날짜 선택',
+                            },
+                            counterText: '',
+                          ),
+                        ),
+                      ),
+                  ],
                   Wrap(
                     alignment: WrapAlignment.spaceBetween,
                     crossAxisAlignment: WrapCrossAlignment.center,

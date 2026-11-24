@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../run_history/models/run_record.dart';
 import '../run_history/models/run_route.dart';
@@ -12,9 +13,12 @@ import 'data/run_share_service.dart';
 import 'data/share_cadence.dart';
 import 'data/share_image_renderer.dart';
 import 'data/share_photo_service.dart';
+import 'data/share_template_store.dart';
 import 'models/share_route.dart';
 import 'models/share_layout.dart';
 import 'models/share_edits.dart';
+import 'models/share_highlights.dart';
+import 'widgets/share_highlight_picker.dart';
 import 'models/share_card_catalog.dart';
 import 'widgets/share_sticker_editor.dart';
 import 'widgets/share_text_color_control.dart';
@@ -31,9 +35,13 @@ class RunShareScreen extends StatefulWidget {
     this.averageHeartRate,
     this.loadCadence,
     this.wallet,
+    this.loadHighlights,
+    this.templateStore,
     super.key,
   });
   final WalletController? wallet;
+  final ShareTemplateStore? templateStore;
+  final Future<ShareHighlightChoices> Function()? loadHighlights;
   final RunRecord record;
   final bool Function() isCurrentOwner;
   final Future<RunRoute> Function() loadRoute;
@@ -59,6 +67,12 @@ class _RunShareScreenState extends State<RunShareScreen> {
   EditedShare? _customDraft;
   final _templateDrafts = <ShareLayout, EditedShare>{};
   bool _customSelected = false;
+  List<SavedShareTemplate> _savedTemplates = [];
+  SavedShareTemplate? _selectedTemplate;
+  EditedShare? _savedDraft;
+  bool _templatesReady = false;
+  bool _savingTemplate = false;
+  ShareHighlights? _highlights;
   bool _busy = false;
   bool _confirming = false;
   StreamSubscription<Object?>? _ownerSubscription;
@@ -79,8 +93,11 @@ class _RunShareScreenState extends State<RunShareScreen> {
                 widget.wallet!.wallet?.cosmetics.contains(entry.key) == true,
           ));
 
-  EditedShare? get _activeDraft =>
-      _customSelected ? _customDraft : _templateDrafts[_layout];
+  EditedShare? get _activeDraft => _customSelected
+      ? _customDraft
+      : _selectedTemplate != null
+      ? _savedDraft
+      : _templateDrafts[_layout];
 
   bool get _darkPreview => _photo == null
       ? (_dark || (!_customSelected && _layout == ShareLayout.nightCard))
@@ -89,7 +106,12 @@ class _RunShareScreenState extends State<RunShareScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(widget.wallet?.refresh());
+    unawaited(_loadTemplates());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.isCurrentOwner()) {
+        unawaited(widget.wallet?.refresh());
+      }
+    });
     _ownerSubscription = widget.ownerChanges?.listen((_) {
       if (!mounted) return;
       setState(() {
@@ -98,6 +120,10 @@ class _RunShareScreenState extends State<RunShareScreen> {
           _route = null;
           _customDraft = null;
           _templateDrafts.clear();
+          _savedTemplates = [];
+          _selectedTemplate = null;
+          _savedDraft = null;
+          _highlights = null;
           _customSelected = false;
           _photo?.dispose();
           _photo = null;
@@ -126,21 +152,26 @@ class _RunShareScreenState extends State<RunShareScreen> {
     super.dispose();
   }
 
-  Future<void> _render() async {
+  Future<void> _render({bool keepPreview = false}) async {
     if (_busy || !widget.isCurrentOwner()) return;
-    if (!_customSelected && !_canUse(_layout)) _layout = ShareLayout.centered;
+    if (!_customSelected && !_canUse(_layout)) {
+      _layout = ShareLayout.centered;
+      _selectedTemplate = null;
+      _savedDraft = null;
+    }
     final height = _imageHeight;
     final draft = _activeDraft;
     setState(() {
       _busy = true;
       _error = null;
-      _png = null;
+      if (!keepPreview) _png = null;
     });
     try {
       final bytes = await _renderer.render(
         widget.record,
         route: draft == null ? (_includeRoute ? _route : null) : draft.route,
         edits: draft?.edits,
+        highlights: _highlights,
         background: _photo,
         dark: _dark,
         height: height,
@@ -152,7 +183,12 @@ class _RunShareScreenState extends State<RunShareScreen> {
         setState(() => _png = bytes);
       }
     } catch (_) {
-      if (mounted) setState(() => _error = '공유 이미지를 만들지 못했습니다.');
+      if (mounted) {
+        setState(() {
+          _png = null;
+          _error = '공유 이미지를 만들지 못했습니다.';
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -233,12 +269,30 @@ class _RunShareScreenState extends State<RunShareScreen> {
     ),
   );
 
+  Future<void> _selectHighlights() async {
+    final load = widget.loadHighlights;
+    if (load == null || _busy || !widget.isCurrentOwner()) return;
+    final selected = await showDialog<ShareHighlights>(
+      context: context,
+      builder: (_) => ShareHighlightPicker(
+        initial: _highlights,
+        load: load,
+        isCurrentOwner: widget.isCurrentOwner,
+      ),
+    );
+    if (!mounted || selected == null || !widget.isCurrentOwner()) return;
+    setState(() => _highlights = selected);
+    _scaffold.currentState?.closeEndDrawer();
+    await _render();
+  }
+
   Future<void> _edit({required bool custom}) async {
     final layout = custom ? ShareLayout.centered : _layout;
     if (_busy || !widget.isCurrentOwner() || !_canUse(layout)) return;
+    final saved = custom ? null : _selectedTemplate;
     final initial = custom
         ? _customDraft
-        : _templateDrafts[layout] ??
+        : (saved == null ? _templateDrafts[layout] : _savedDraft) ??
               (
                 edits: ShareEdits(
                   visible: [
@@ -280,6 +334,7 @@ class _RunShareScreenState extends State<RunShareScreen> {
           height: height,
           route: draft.route,
           edits: draft.edits,
+          highlights: _highlights,
           background: photo,
           dark: _dark,
           textColor: _textColor,
@@ -299,12 +354,182 @@ class _RunShareScreenState extends State<RunShareScreen> {
     setState(() {
       if (custom) {
         _customDraft = result;
+      } else if (saved != null) {
+        _savedDraft = result;
       } else {
         _templateDrafts[layout] = result;
       }
       _customSelected = custom;
+      if (custom) _selectedTemplate = null;
     });
     await _render();
+  }
+
+  Future<void> _loadTemplates() async {
+    final store = widget.templateStore;
+    if (store == null) return;
+    try {
+      final templates = await store.load();
+      if (!mounted || !widget.isCurrentOwner()) return;
+      setState(() {
+        _savedTemplates = templates;
+        _templatesReady = true;
+      });
+    } catch (_) {
+      if (mounted && widget.isCurrentOwner()) {
+        _templateMessage('저장한 템플릿을 불러오지 못했습니다.');
+      }
+    }
+  }
+
+  void _templateMessage(String message) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+
+  Future<void> _saveTemplate() async {
+    final draft = _activeDraft;
+    if (draft == null || _savingTemplate || !widget.isCurrentOwner()) return;
+    final layout = _customSelected ? ShareLayout.centered : _layout;
+    var name = '';
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('내 템플릿으로 저장'),
+        content: TextField(
+          autofocus: true,
+          maxLength: 24,
+          decoration: const InputDecoration(labelText: '템플릿 이름'),
+          onChanged: (value) => name = value.trim(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || accepted != true || !widget.isCurrentOwner()) return;
+    if (name.isEmpty || name.length > 24) {
+      _templateMessage('템플릿 이름을 1~24자로 입력해 주세요.');
+      return;
+    }
+    final template = SavedShareTemplate(
+      id: const Uuid().v4(),
+      name: name,
+      layout: layout,
+      edits: draft.edits,
+    );
+    if (await _writeTemplates((store) => store.add(template)) && mounted) {
+      _templateMessage('내 템플릿에 저장했어요.');
+    }
+  }
+
+  Future<bool> _writeTemplates(
+    Future<List<SavedShareTemplate>> Function(ShareTemplateStore) write,
+  ) async {
+    final store = widget.templateStore;
+    if (store == null ||
+        !_templatesReady ||
+        _savingTemplate ||
+        !widget.isCurrentOwner()) {
+      return false;
+    }
+    setState(() => _savingTemplate = true);
+    try {
+      final templates = await write(store);
+      if (!mounted || !widget.isCurrentOwner()) return false;
+      setState(() => _savedTemplates = templates);
+      return true;
+    } catch (_) {
+      if (mounted && widget.isCurrentOwner()) {
+        _templateMessage('내 템플릿을 변경하지 못했습니다.');
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _savingTemplate = false);
+    }
+  }
+
+  Future<void> _deleteTemplate(SavedShareTemplate template) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${template.name} 템플릿을 삭제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    final deleted = await _writeTemplates((store) => store.delete(template.id));
+    if (!mounted || !deleted || _selectedTemplate?.id != template.id) return;
+    setState(() {
+      _selectedTemplate = null;
+      _savedDraft = null;
+    });
+    await _render(keepPreview: true);
+  }
+
+  Future<void> _useTemplate(SavedShareTemplate template) async {
+    if (_busy || !widget.isCurrentOwner() || !_canUse(template.layout)) return;
+    // 새 기록의 경로는 기록마다 사용자가 공유에 동의해야 합니다.
+    final edits = template.edits;
+    final selectedRoute = _includeRoute ? _route : null;
+    final bpm = widget.averageHeartRate;
+    int? cadence;
+    if (edits.visible.contains(ShareSticker.cadence)) {
+      setState(() => _busy = true);
+      try {
+        cadence =
+            await (widget.loadCadence ??
+                (canRead) => readShareCadence(widget.record, canRead: canRead))(
+              () => mounted && widget.isCurrentOwner(),
+            );
+      } catch (_) {
+        if (mounted && widget.isCurrentOwner()) {
+          _templateMessage('이 기록의 케이던스를 불러오지 못했습니다.');
+        }
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    }
+    if (!mounted || !widget.isCurrentOwner()) return;
+    setState(() {
+      _layout = template.layout;
+      _customSelected = false;
+      _selectedTemplate = template;
+      _savedDraft = (
+        edits: ShareEdits(
+          visible: [
+            for (final sticker in edits.visible)
+              if (sticker != ShareSticker.route || selectedRoute != null)
+                sticker,
+          ],
+          placements: edits.placements,
+          useTemplatePlacement: edits.useTemplatePlacement,
+          heartRate: bpm != null && bpm.isFinite && bpm > 0
+              ? bpm.round()
+              : null,
+          cadence: cadence,
+        ),
+        route: edits.visible.contains(ShareSticker.route)
+            ? selectedRoute
+            : null,
+      );
+    });
+    await _render(keepPreview: true);
   }
 
   Future<void> _selectRoute(bool selected) async {
@@ -406,11 +631,14 @@ class _RunShareScreenState extends State<RunShareScreen> {
               fit: StackFit.expand,
               children: [
                 if (_png != null)
-                  Image.memory(
-                    _png!,
-                    fit: BoxFit.contain,
-                    gaplessPlayback: false,
-                    semanticLabel: '공유 이미지 미리보기',
+                  SafeArea(
+                    top: false,
+                    child: Image.memory(
+                      _png!,
+                      fit: BoxFit.contain,
+                      gaplessPlayback: false,
+                      semanticLabel: '공유 이미지 미리보기',
+                    ),
                   ),
                 if (_busy && !_confirming)
                   const Center(child: CircularProgressIndicator()),
@@ -578,7 +806,49 @@ class _RunShareScreenState extends State<RunShareScreen> {
         )
       else
         _templatePicker(),
+      if (widget.loadHighlights != null)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.military_tech_outlined),
+          title: const Text('성과·칭호·업적 넣기'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _busy ? null : _selectHighlights,
+        ),
       const SizedBox(height: 16),
+      if (widget.templateStore != null &&
+          (_activeDraft != null || _savedTemplates.isNotEmpty)) ...[
+        Text('내 템플릿', style: Theme.of(context).textTheme.titleSmall),
+        if (_activeDraft != null)
+          TextButton.icon(
+            onPressed: _busy || _savingTemplate || !_templatesReady
+                ? null
+                : _saveTemplate,
+            icon: const Icon(Icons.bookmark_add_outlined),
+            label: const Text('내 템플릿으로 저장'),
+          ),
+        for (final template in _savedTemplates)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            selected: _selectedTemplate?.id == template.id,
+            leading: Icon(
+              _selectedTemplate?.id == template.id
+                  ? Icons.check_circle_outline
+                  : Icons.dashboard_outlined,
+            ),
+            title: Text(template.name),
+            subtitle: Text(template.layout.label),
+            onTap: _busy || _savingTemplate || !_canUse(template.layout)
+                ? null
+                : () => _useTemplate(template),
+            trailing: IconButton(
+              tooltip: '${template.name} 삭제',
+              onPressed: _busy || _savingTemplate
+                  ? null
+                  : () => _deleteTemplate(template),
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ),
+      ],
       ShareTextColorControl(
         color: _textColor,
         automaticColor: _darkPreview ? Colors.white : const Color(0xFF202428),
@@ -636,7 +906,10 @@ class _RunShareScreenState extends State<RunShareScreen> {
             label: layout.label,
             description: layout.description,
             preview: CustomPaint(painter: _TemplatePreview(layout)),
-            selected: !_customSelected && _layout == layout,
+            selected:
+                !_customSelected &&
+                _selectedTemplate == null &&
+                _layout == layout,
             onSelected: _busy
                 ? null
                 : (selected) async {
@@ -648,8 +921,10 @@ class _RunShareScreenState extends State<RunShareScreen> {
                     setState(() {
                       _layout = layout;
                       _customSelected = false;
+                      _selectedTemplate = null;
+                      _savedDraft = null;
                     });
-                    await _render();
+                    await _render(keepPreview: true);
                   },
           );
         },

@@ -139,7 +139,8 @@ select pg_temp.assert_true((select array_agg(coins order by id)=array[10,-10]
 insert into public.runs(user_id,client_run_id,started_at,ended_at,distance_m,duration_sec,integrity_status)
 values ('00000000-0000-0000-0000-000000000202',gen_random_uuid(),
   greatest(now()-interval '1 hour', date_trunc('week', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'),
-  now(),8000,3600,'verified');
+  now(),8000,3600,'verified')
+returning id as milestone_run \gset
 update runspot_private.run_rewards set xp=20
 where user_id='00000000-0000-0000-0000-000000000202'
   and run_id in (select id from public.runs where distance_m=8000);
@@ -151,7 +152,14 @@ select pg_temp.assert_true(public.claim_weekly_coin_quest('single_3k')->'weekly_
   @> '[{"code":"single_3k","awarded":true}]','수령 결과를 지갑에 반영');
 select public.claim_weekly_coin_quest('single_3k');
 select public.claim_weekly_coin_quest('total_8k');
+select pg_temp.assert_true(public.claim_weekly_coin_quest('active_20m')->'weekly_quests'
+  @> '[{"code":"active_20m","awarded":true}]','누적 활동 시간으로 신규 퀘스트 수령');
+select pg_temp.assert_true(public.my_run_share_milestones(:'milestone_run')
+  @> '{"first_5k":true,"together":false}','본인의 첫 5km 성과');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000201',true);
+select pg_temp.assert_true(public.my_run_share_milestones(:'milestone_run')
+  @> '{"first_5k":false,"monthly_runs":0,"together":false}','다른 계정의 성과 비공개');
 reset role;
-select pg_temp.assert_true((select count(*)=3 and sum(coins)=30
+select pg_temp.assert_true((select count(*)=4 and sum(coins)=35
   from runspot_private.weekly_coin_rewards),'지난주 보상 유지 및 중복 수령 방지');
 rollback;

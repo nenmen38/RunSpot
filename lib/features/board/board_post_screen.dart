@@ -1,3 +1,4 @@
+import 'models/course_notes.dart';
 import '../../shared/widgets/skeleton.dart';
 
 import 'package:runquest/features/titles/badge_directory.dart';
@@ -429,7 +430,13 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
           ),
         ),
       const SizedBox(height: 20),
-      SelectableText(post.body, style: BoardStyle.body.copyWith(height: 1.75)),
+      if (post.topic == BoardTopic.course)
+        _CourseDetails(notes: CourseNotes.parse(post.body))
+      else
+        SelectableText(
+          post.body,
+          style: BoardStyle.body.copyWith(height: 1.75),
+        ),
       for (final url in post.visibleImageUrls) ...[
         const SizedBox(height: 14),
         BoardPhoto(url: url),
@@ -796,5 +803,28 @@ class _InfoRow extends StatelessWidget {
           ),
       ],
     ),
+  );
+}
+
+class _CourseDetails extends StatelessWidget {
+  const _CourseDetails({required this.notes});
+  final CourseNotes notes;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (notes.values.isNotEmpty) ...[
+        Text('코스 이용 정보', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        for (final entry in notes.values.entries)
+          SelectableText(
+            '${entry.key} · ${entry.value}',
+            style: BoardStyle.body,
+          ),
+        const SizedBox(height: 12),
+      ],
+      SelectableText(notes.body, style: BoardStyle.body.copyWith(height: 1.75)),
+    ],
   );
 }

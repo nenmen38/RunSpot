@@ -198,14 +198,20 @@ class WeeklyCoinQuest {
   final int reward;
 
   String get label => switch (code) {
+    'active_20m' => '이번 주 20분 움직이기',
+    'short_runs' => '300m 이상 가볍게 2회 달리기',
+    'group_run' => '함께 달리기 1회 완주',
     'single_3k' => '한 번에 3km 달리기',
     'total_8k' => '이번 주 누적 8km 달리기',
     _ => '서로 다른 이틀에 한 번씩 1km 이상 달리기',
   };
 
-  String get progressLabel => code == 'two_days'
-      ? '$progress/$goal일'
-      : '${((progress ~/ 100) / 10).toStringAsFixed(1)}/${goal ~/ 1000}km';
+  String get progressLabel => switch (code) {
+    'two_days' => '$progress/$goal일',
+    'active_20m' => '${progress ~/ 60}/${goal ~/ 60}분',
+    'short_runs' || 'group_run' => '$progress/$goal회',
+    _ => '${((progress ~/ 100) / 10).toStringAsFixed(1)}/${goal ~/ 1000}km',
+  };
   final bool awarded;
 
   bool get completed => awarded || progress >= goal;

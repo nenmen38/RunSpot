@@ -9,6 +9,7 @@ import '../../run_history/widgets/run_record_details.dart';
 import '../models/share_route.dart';
 import '../models/share_edits.dart';
 import '../models/share_layout.dart';
+import '../models/share_highlights.dart';
 
 class ShareImageRenderer {
   Future<Uint8List> render(
@@ -21,6 +22,7 @@ class ShareImageRenderer {
     bool photoOverlay = false,
     ShareLayout layout = ShareLayout.centered,
     ShareEdits? edits,
+    ShareHighlights? highlights,
   }) async {
     if (!height.isFinite || height < 1512 || height > 3240) {
       throw const FormatException('공유 이미지 크기가 올바르지 않습니다.');
@@ -37,6 +39,7 @@ class ShareImageRenderer {
       photoOverlay: photoOverlay,
       layout: layout,
       edits: edits,
+      highlights: highlights,
     );
     final picture = recorder.endRecording();
     ui.Image? image;
@@ -63,6 +66,7 @@ class ShareImageRenderer {
     bool photoOverlay = false,
     ShareLayout layout = ShareLayout.centered,
     ShareEdits? edits,
+    ShareHighlights? highlights,
   }) {
     const width = 1080.0;
     const inset = 48.0;
@@ -258,6 +262,39 @@ class ShareImageRenderer {
         weight: slot.bold ? FontWeight.w900 : FontWeight.w500,
         color: slot.isLabel ? secondary : foreground,
       );
+    }
+    final distinctions = [
+      ?highlights?.title,
+      ?highlights?.achievement,
+    ];
+    final badges = [
+      ?highlights?.milestone,
+      if (highlights?.milestone != null && distinctions.isNotEmpty)
+        distinctions.join('   /   ')
+      else
+        ...distinctions,
+    ];
+    if (badges.isNotEmpty) {
+      final badgeHeight = 18.0 + 36 * badges.length;
+      final top = height - badgeHeight - 16;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(48, top, 984, badgeHeight),
+          const Radius.circular(18),
+        ),
+        Paint()..color = const Color(0xE622282C),
+      );
+      for (final (index, badge) in badges.indexed) {
+        label(
+          badge,
+          32,
+          Offset(68, top + 7 + 36 * index),
+          maxWidth: 944,
+          centered: true,
+          weight: FontWeight.w700,
+          color: Colors.white,
+        );
+      }
     }
   }
 }

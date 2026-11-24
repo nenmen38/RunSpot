@@ -2,10 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:runquest/shared/maps/run_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+// 기기 환경설정을 메모리에서 재현합니다.
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_app.dart';
@@ -18,6 +24,7 @@ import 'package:runquest/features/profile/widgets/run_sharing_control.dart';
 import 'package:runquest/features/home/models/run_session.dart';
 import 'package:runquest/features/run_history/run_history_controller.dart';
 import 'package:runquest/features/run_history/models/run_record.dart';
+import 'package:runquest/features/run_history/models/run_route.dart';
 import 'package:runquest/features/run_share/run_share_screen.dart';
 import 'package:runquest/features/run_conditions/conditions_controller.dart';
 
@@ -72,7 +79,7 @@ Future<void> openPrivacySettings(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-void restoreRecordableRun(LiveMapController controller) {
+void restoreRecordableRun(LiveMapController controller, {RunRoute? route}) {
   final now = DateTime.now().toUtc();
   controller.runSession = RunSession.restore(
     RunSummary(
@@ -81,6 +88,7 @@ void restoreRecordableRun(LiveMapController controller) {
       endedAt: now,
       distanceMeters: 300,
       duration: const Duration(minutes: 5),
+      route: route ?? const RunRoute.empty(),
     ),
   );
 }
@@ -89,7 +97,15 @@ void main() {
   // 이 파일의 테스트는 시작 버튼을 누르면 바로 측정을 확인하므로 3초 카운트다운을 끕니다.
   setUpAll(() => RunControls.countdownSeconds = 0);
   var sharingEligible = false;
-  setUp(() => sharingEligible = false);
+  setUp(() {
+    sharingEligible = false;
+    final previousPreferences = SharedPreferencesAsyncPlatform.instance;
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    addTearDown(
+      () => SharedPreferencesAsyncPlatform.instance = previousPreferences,
+    );
+  });
   setUpAll(() async {
     await Supabase.initialize(
       url: 'https://example.supabase.co',
@@ -654,7 +670,12 @@ void main() {
       }
       await tester.tap(find.text('러닝 시작'));
       await tester.pump();
-      restoreRecordableRun(controller);
+      restoreRecordableRun(
+        controller,
+        route: RunRoute([
+          [LatLng(37, 127), LatLng(37.0002, 127.0001)],
+        ]),
+      );
       await tester.tap(find.text('러닝 종료'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -662,8 +683,15 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text(offline ? '기기에 저장됨' : '러닝 완료'), findsOneWidget);
-      expect(find.text('공유').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('공유'));
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == '이번 러닝 경로',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('공유 카드 만들기').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('공유 카드 만들기'));
       await tester.pump();
       final preview = find.byWidgetPredicate(
         (widget) => widget is Image && widget.semanticLabel == '공유 이미지 미리보기',

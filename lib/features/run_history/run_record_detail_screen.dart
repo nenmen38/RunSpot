@@ -1,3 +1,5 @@
+import '../run_share/data/share_template_store.dart';
+import '../run_share/models/share_highlights.dart';
 import '../monetization/coin_frames.dart';
 import '../run_transfer/run_export.dart';
 
@@ -168,6 +170,9 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                   : () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => RunShareScreen(
+                          templateStore: ShareTemplateStore(
+                            widget.controller.service.ownerId,
+                          ),
                           record: _record,
                           wallet: widget.wallet,
                           averageHeartRate:
@@ -176,6 +181,11 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                               widget.controller.service.isCurrentOwner,
                           loadRoute: () =>
                               widget.controller.loadRoute(widget.record),
+                          loadHighlights: switch (widget.controller.service) {
+                            SupabaseRunRecordService(:final client) =>
+                              () => loadShareHighlights(client, _record),
+                            _ => null,
+                          },
                           ownerChanges:
                               widget.controller.service
                                   is SupabaseRunRecordService

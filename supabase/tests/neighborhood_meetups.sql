@@ -14,6 +14,11 @@ update public.profiles set nickname='모임검증'||right(id::text,3) where id i
 set local role authenticated;
 select set_config('request.jwt.claim.sub',:'host',true);
 select public.meetup_create(:'meetup','하양 아침 달리기','경산 하양','하양역 광장',now()+interval '20 minutes',5,360,2);
+select public.meetup_create_with_tags(:'meetup','하양 아침 달리기','경산 하양','하양역 광장',
+  now()+interval '20 minutes',5,360,2,true,true,false,true);
+select pg_temp.check_meetup(public.meetup_list_with_tags('하양',360,false,0,array['beginner','walk_run'])
+  @> '[{"beginner_friendly":true,"walk_run":true,"waits_for_group":true}]','모임 안내 저장 및 필터');
+select pg_temp.check_meetup(public.meetup_list_with_tags('하양',360,false,0,array['women'])='[]','선택하지 않은 태그 제외');
 select public.meetup_create(:'meetup','하양 아침 달리기','경산 하양','하양역 광장',now()+interval '20 minutes',5,360,2);
 select pg_temp.check_meetup(jsonb_array_length(public.meetup_list('하양',360))=1,'지역과 페이스 검색');
 select pg_temp.check_meetup(jsonb_array_length(public.meetup_list('하양',480))=0,'다른 페이스 제외');
@@ -35,5 +40,6 @@ insert into runspot_private.blocks(blocker_id,blocked_id) values(:'other',:'host
 set local role authenticated;
 select set_config('request.jwt.claim.sub',:'other',true);
 select pg_temp.check_meetup(jsonb_array_length(public.meetup_list())=0,'차단한 주최자 비공개');
+select pg_temp.check_meetup(public.meetup_list_with_tags('',null,false,0,array['beginner'])='[]','태그 목록도 차단 적용');
 select pg_temp.check_meetup(pg_temp.fails(format('select public.meetup_action(%L,''join'')',:'meetup'),'42501'),'차단 우회 참가 방지');
 rollback;

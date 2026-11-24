@@ -1,3 +1,7 @@
+import '../run_share/data/share_template_store.dart';
+import 'widgets/run_visibility_button.dart';
+import '../run_share/models/share_highlights.dart';
+
 import 'package:runquest/features/monetization/cosmetics.dart';
 
 import 'models/run_session.dart';
@@ -21,7 +25,6 @@ import '../progress/widgets/run_reward_section.dart';
 import '../run_history/data/run_record_service.dart';
 import '../run_history/models/run_record.dart';
 import '../run_history/run_history_screen.dart';
-import '../run_history/widgets/run_record_details.dart';
 import '../run_conditions/conditions_controller.dart';
 import '../run_conditions/widgets/conditions_panel.dart';
 import '../run_share/run_share_screen.dart';
@@ -39,6 +42,8 @@ import 'models/runner_cluster.dart';
 import 'data/location_service.dart';
 import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
+import 'widgets/run_completion_screen.dart';
+import '../run_share/models/share_route.dart';
 
 /// 함께 달리기를 신청한 사람이 테두리를 착용하지 않았을 때 쓰는 무리 오라 색입니다.
 const defaultCrewColor = '#8B5CF6';
@@ -309,53 +314,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final record = currentRecord();
       // 러닝 보상으로 레벨이 오르면 레벨 보상 코인이 늘어나므로 다시 불러옵니다.
       if (widget.wallet case final wallet?) unawaited(wallet.refresh());
-      final action = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(record.pendingSync ? '기기에 저장됨' : '러닝 완료'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                RunRecordDetails(record: record),
-                // 서버에 저장된 기록만 최고 기록과 비교할 수 있습니다.
-                if (widget.personalRecordsService case final records?
-                    when !record.pendingSync)
-                  NewRecordBanner(service: records, runId: record.id),
-                if (widget.progressService case final progress?)
-                  RunRewardSection(
-                    service: progress,
-                    runId: record.id,
-                    pendingSync: record.pendingSync,
+      final service = history.service;
+      final client = service is SupabaseRunRecordService
+          ? service.client
+          : null;
+      final action = await Navigator.of(context).push<RunCompletionAction>(
+        MaterialPageRoute(
+          builder: (_) => RunCompletionScreen(
+            record: record,
+            route: ShareRoute.shape(summary.route),
+            isCurrentOwner: () => service.isCurrentOwner,
+            ownerChanges: client?.auth.onAuthStateChange,
+            details: [
+              if (widget.personalRecordsService case final records?
+                  when !record.pendingSync)
+                NewRecordBanner(service: records, runId: record.id),
+              if (widget.progressService case final progress?)
+                RunRewardSection(
+                  service: progress,
+                  runId: record.id,
+                  pendingSync: record.pendingSync,
+                ),
+              if (widget.controller.sharingPreferenceService != null)
+                ListenableBuilder(
+                  listenable: widget.controller,
+                  builder: (context, _) => Text(
+                    widget.controller.changingSharing
+                        ? '위치 공유 종료를 확인하는 중입니다.'
+                        : widget.controller.sharingError ?? '러닝 위치 공유가 꺼져 있어요.',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-          actions: [
-            if (record.distanceMeters == 0 && !record.pendingSync)
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, 'hide'),
-                child: const Text('기록 숨기기'),
-              ),
-            TextButton.icon(
-              onPressed: () => Navigator.pop(dialogContext, 'share'),
-              icon: const Icon(Icons.ios_share),
-              label: const Text('공유'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, 'history'),
-              child: const Text('내 기록'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('확인'),
-            ),
-          ],
         ),
       );
       if (!mounted || !history.service.isCurrentOwner) return;
-      if (action == 'hide') {
+      if (action == RunCompletionAction.hide) {
         try {
           await history.setHidden(currentRecord(), true);
         } catch (error) {
@@ -365,21 +360,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             );
           }
         }
-      } else if (action == 'history') {
+      } else if (action == RunCompletionAction.history) {
         _openHistory();
-      } else if (action == 'share') {
-        final service = history.service;
-        final client = service is SupabaseRunRecordService
-            ? service.client
-            : null;
+      } else if (action == RunCompletionAction.share) {
         await Navigator.of(context).push<void>(
           MaterialPageRoute(
             builder: (_) => RunShareScreen(
+              templateStore: ShareTemplateStore(service.ownerId),
               record: currentRecord(),
               wallet: widget.wallet,
               isCurrentOwner: () => service.isCurrentOwner,
               loadRoute: () async => summary.route,
               ownerChanges: client?.auth.onAuthStateChange,
+              loadHighlights: client == null
+                  ? null
+                  : () => loadShareHighlights(client, currentRecord()),
             ),
           ),
         );
@@ -888,6 +883,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 state.runSession?.isFinished == true
                                     ? '종료한 러닝을 복구했습니다. 저장을 다시 시도해 주세요.'
                                     : '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
+                              ),
+                            if (state.runHistory.service
+                                case SupabaseRunRecordService(:final client))
+                              RunVisibilityButton(
+                                controller: state,
+                                client: client,
+                                active: widget.isActive,
                               ),
                             RunControls(
                               controller: state,

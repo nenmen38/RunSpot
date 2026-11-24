@@ -23,6 +23,13 @@ import 'package:runquest/features/monetization/cosmetics.dart';
 
 import 'package:runquest/features/run_share/models/share_layout.dart';
 import 'package:runquest/features/run_share/models/share_edits.dart';
+import 'package:runquest/features/run_share/models/share_highlights.dart';
+import 'package:runquest/features/run_share/data/share_template_store.dart';
+// 공유 환경설정 플러그인의 메모리 저장소로 기기 저장을 검증합니다.
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 final record = RunRecord(
   id: 'private-id',
@@ -41,6 +48,7 @@ class Renderer extends ShareImageRenderer {
   final options = <({ShareRoute? route})>[];
   bool fail = false;
   ShareEdits? edits;
+  ShareHighlights? highlights;
   ui.Image? background;
   bool dark = false;
   double height = 0;
@@ -58,9 +66,11 @@ class Renderer extends ShareImageRenderer {
     bool photoOverlay = false,
     ShareLayout layout = ShareLayout.centered,
     ShareEdits? edits,
+    ShareHighlights? highlights,
   }) async {
     options.add((route: route));
     this.edits = edits;
+    this.highlights = highlights;
     this.height = height;
     this.textColor = textColor;
     this.photoOverlay = photoOverlay;
@@ -212,6 +222,8 @@ void main() {
     SharePhotoService? photos,
     double? heartRate,
     Future<int?> Function(bool Function())? loadCadence,
+    Future<ShareHighlightChoices> Function()? loadHighlights,
+    ShareTemplateStore? templateStore,
     bool settings = false,
   }) async {
     await tester.pumpWidget(
@@ -227,6 +239,8 @@ void main() {
           photoService: photos,
           averageHeartRate: heartRate,
           loadCadence: loadCadence,
+          loadHighlights: loadHighlights,
+          templateStore: templateStore,
         ),
       ),
     );
@@ -236,6 +250,80 @@ void main() {
       await tester.pumpAndSettle();
     }
   }
+
+  testWidgets('칭호와 업적 배경을 최종 이미지 하단에 그립니다', (tester) async {
+    await tester.runAsync(() async {
+      final bytes = await ShareImageRenderer().render(
+        record,
+        height: 1512,
+        highlights: (title: '꾸준왕', achievement: '첫 러닝', milestone: null),
+      );
+      final codec = await ui.instantiateImageCodec(bytes);
+      final image = (await codec.getNextFrame()).image;
+      try {
+        final pixels = (await image.toByteData())!.buffer.asUint8List();
+        final badge = (1440 * image.width + 80) * 4;
+        final top = (44 * image.width + 80) * 4;
+        expect(pixels[badge], lessThan(80));
+        expect(pixels[top], greaterThan(240));
+      } finally {
+        image.dispose();
+        codec.dispose();
+      }
+    });
+  });
+
+  testWidgets('선택한 성과와 칭호, 업적을 공유 이미지에 전달합니다', (tester) async {
+    final renderer = Renderer();
+    await show(
+      tester,
+      renderer,
+      settings: true,
+      loadHighlights: () async =>
+          (titles: ['꾸준왕'], achievements: ['첫 러닝'], milestones: ['첫 5km 완주']),
+    );
+    expect(renderer.highlights, isNull);
+    final openPicker = find.text('성과·칭호·업적 넣기');
+    await tester.ensureVisible(openPicker);
+    await tester.tap(openPicker);
+    await tester.pumpAndSettle();
+
+    for (final selection in [
+      ('러닝 성과 표시 안 함', '첫 5km 완주'),
+      ('칭호 표시 안 함', '꾸준왕'),
+      ('업적 표시 안 함', '첫 러닝'),
+    ]) {
+      await tester.tap(find.text(selection.$1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(selection.$2).last);
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('적용'));
+    await tester.pumpAndSettle();
+    expect(renderer.highlights, (
+      title: '꾸준왕',
+      achievement: '첫 러닝',
+      milestone: '첫 5km 완주',
+    ));
+  });
+
+  testWidgets('러닝 성과를 사용할 수 없는 서버에서도 칭호와 업적을 고를 수 있습니다', (tester) async {
+    final renderer = Renderer();
+    await show(
+      tester,
+      renderer,
+      settings: true,
+      loadHighlights: () async =>
+          (titles: ['꾸준왕'], achievements: ['첫 러닝'], milestones: null),
+    );
+    final picker = find.text('성과·칭호·업적 넣기');
+    await tester.ensureVisible(picker);
+    await tester.tap(picker);
+    await tester.pumpAndSettle();
+    expect(find.text('러닝 성과는 현재 이 서버에서 사용할 수 없습니다.'), findsOneWidget);
+    expect(find.text('칭호 표시 안 함'), findsOneWidget);
+    expect(find.text('업적 표시 안 함'), findsOneWidget);
+  });
 
   testWidgets('선택한 템플릿에만 편집 내용을 적용합니다', (tester) async {
     final renderer = Renderer();
@@ -372,6 +460,78 @@ void main() {
     );
   });
 
+  test('여러 공유 화면에서 동시에 저장하거나 삭제해도 다른 템플릿은 유지합니다', () async {
+    final previous = SharedPreferencesAsyncPlatform.instance;
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    addTearDown(() => SharedPreferencesAsyncPlatform.instance = previous);
+    final first = ShareTemplateStore('same-owner');
+    final second = ShareTemplateStore('same-owner');
+    SavedShareTemplate template(String id) => SavedShareTemplate(
+      id: id,
+      name: id,
+      layout: ShareLayout.centered,
+      edits: ShareEdits(visible: ShareEdits.templateMetrics),
+    );
+
+    await Future.wait([
+      first.add(template('첫 번째')),
+      second.add(template('두 번째')),
+    ]);
+    expect((await first.load()).map((entry) => entry.id), ['첫 번째', '두 번째']);
+
+    await Future.wait([first.delete('첫 번째'), second.add(template('세 번째'))]);
+    expect((await second.load()).map((entry) => entry.id), ['두 번째', '세 번째']);
+  });
+
+  testWidgets('편집한 내 템플릿을 다시 열어 적용하고 삭제합니다', (tester) async {
+    final previous = SharedPreferencesAsyncPlatform.instance;
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    addTearDown(() => SharedPreferencesAsyncPlatform.instance = previous);
+    final store = ShareTemplateStore('template-owner');
+    final renderer = Renderer();
+    await show(tester, renderer, templateStore: store);
+    await tester.tap(find.byTooltip('템플릿 수정'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, '기온'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('적용'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('공유 설정'));
+    await tester.pumpAndSettle();
+    final save = find.text('내 템플릿으로 저장');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '나의 포스터');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect((await store.load()).single.name, '나의 포스터');
+    expect(await ShareTemplateStore('other-owner').load(), isEmpty);
+
+    await tester.pumpWidget(const SizedBox());
+    await show(
+      tester,
+      renderer,
+      settings: true,
+      templateStore: ShareTemplateStore('template-owner'),
+    );
+    final saved = find.text('나의 포스터');
+    await tester.ensureVisible(saved);
+    await tester.tap(saved);
+    await tester.pumpAndSettle();
+    expect(renderer.edits?.visible, isNot(contains(ShareSticker.temperature)));
+
+    await tester.tap(find.byTooltip('나의 포스터 삭제'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+    expect(await store.load(), isEmpty);
+    expect(find.widgetWithText(ChoiceChip, '포스터'), findsOneWidget);
+  });
+
   testWidgets('갤러리 배경 적용·기본 복원·취소·오류를 처리합니다', (tester) async {
     final renderer = Renderer();
     final photos = Photos();
@@ -385,6 +545,18 @@ void main() {
     expect(renderer.photoOverlay, isFalse);
     await tester.tap(find.text('사진 배경 덮개'));
     await tester.pumpAndSettle();
+    expect(renderer.photoOverlay, isTrue);
+    final headline = find.widgetWithText(ChoiceChip, '헤드라인');
+    final templates = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.right,
+    );
+    await tester.scrollUntilVisible(headline, 100, scrollable: templates);
+    await tester.pumpAndSettle();
+    await tester.tap(headline);
+    await tester.pumpAndSettle();
+    expect(renderer.selectedLayout, ShareLayout.headline);
+    expect(renderer.background, same(photos.photo));
     expect(renderer.photoOverlay, isTrue);
     await tester.tap(find.text('사진 배경 덮개'));
     await tester.pumpAndSettle();

@@ -22,6 +22,20 @@ class _MeetupScreenState extends State<MeetupScreen> {
   final List<Map<String, dynamic>> _rows = [];
   int? _pace;
   bool _mine = false;
+  final _tags = <String>{};
+
+  static const _tagFilters = {
+    'beginner': '입문 환영',
+    'walk_run': '걷기 섞어 달리기',
+    'women': '여성 러닝 모임',
+  };
+
+  static const _tagLabels = {
+    'beginner_friendly': '입문 환영',
+    'walk_run': '걷기 섞어 달리기',
+    'women_focused': '여성 러닝 모임',
+    'waits_for_group': '뒤처진 참가자 기다림',
+  };
   bool _busy = false;
   bool _more = true;
   String? _error;
@@ -44,10 +58,11 @@ class _MeetupScreenState extends State<MeetupScreen> {
       _error = null;
     });
     try {
-      final data = await widget.service.call('meetup_list', {
+      final data = await widget.service.call('meetup_list_with_tags', {
         'region_filter': _region.text.trim(),
         'pace_filter': _pace,
         'only_mine': _mine,
+        'required_tags': _tags.toList(),
         'page_offset': more ? _rows.length : 0,
       }) as List;
       if (!mounted) return;
@@ -263,6 +278,28 @@ class _MeetupScreenState extends State<MeetupScreen> {
                   ),
                 ],
               ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final entry in _tagFilters.entries)
+                    FilterChip(
+                      label: Text(entry.value),
+                      selected: _tags.contains(entry.key),
+                      onSelected: _busy
+                          ? null
+                          : (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _tags.add(entry.key);
+                                } else {
+                                  _tags.remove(entry.key);
+                                }
+                              });
+                              _load();
+                            },
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -289,6 +326,16 @@ class _MeetupScreenState extends State<MeetupScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         Text('${row['region']} · ${row['place']}'),
+                        if (_tagLabels.keys.any((key) => row[key] == true))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Text(
+                              [
+                                for (final entry in _tagLabels.entries)
+                                  if (row[entry.key] == true) entry.value,
+                              ].join(' · '),
+                            ),
+                          ),
                         Text(
                           DateTime.parse(row['starts_at'] as String)
                               .toLocal()
@@ -399,6 +446,7 @@ class _CreateMeetupState extends State<_CreateMeetup> {
   int _distance = 5;
   int _pace = 360;
   int _capacity = 6;
+  final _tags = <String>{};
   bool _busy = false;
   String? _error;
   String _request = const Uuid().v4();
@@ -414,7 +462,7 @@ class _CreateMeetupState extends State<_CreateMeetup> {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      await widget.service.call('meetup_create', {
+      await widget.service.call('meetup_create_with_tags', {
         'request_id': _request,
         'title': _title.text.trim(),
         'region': _region.text.trim(),
@@ -423,6 +471,8 @@ class _CreateMeetupState extends State<_CreateMeetup> {
         'distance_km': _distance,
         'pace_seconds': _pace,
         'capacity': _capacity,
+        for (final key in _MeetupScreenState._tagLabels.keys)
+          key: _tags.contains(key),
       });
       if (mounted) Navigator.pop(context);
     } on PostgrestException catch (error) {
@@ -455,6 +505,28 @@ class _CreateMeetupState extends State<_CreateMeetup> {
           _field(_title, '모임 이름', 80),
           _field(_region, '지역', 40),
           _field(_place, '공개된 만남 장소', 150),
+          Text('모임 안내', style: Theme.of(context).textTheme.titleSmall),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final entry in _MeetupScreenState._tagLabels.entries)
+                FilterChip(
+                  label: Text(entry.value),
+                  selected: _tags.contains(entry.key),
+                  onSelected: _busy
+                      ? null
+                      : (selected) {
+                          setState(() {
+                            if (selected) {
+                              _tags.add(entry.key);
+                            } else {
+                              _tags.remove(entry.key);
+                            }
+                          });
+                        },
+                ),
+            ],
+          ),
           const Text('참가하면 주최자와 함께 달리기 참여자에게 닉네임과 완료 기록이 공유됩니다.'),
           ListTile(
             title: const Text('출발 시각'),

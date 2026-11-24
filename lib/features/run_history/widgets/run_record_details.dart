@@ -22,8 +22,14 @@ String formatRunPace(RunRecord record) {
 }
 
 class RunRecordDetails extends StatelessWidget {
-  const RunRecordDetails({required this.record, this.weight, super.key});
+  const RunRecordDetails({
+    required this.record,
+    this.weight,
+    this.showDistance = true,
+    super.key,
+  });
   final RunRecord record;
+  final bool showDistance;
 
   /// 칼로리 계산에 쓰는 체중 설정입니다. 없으면 앱 공용 설정을 씁니다.
   final BodyWeight? weight;
@@ -54,17 +60,19 @@ class RunRecordDetails extends StatelessWidget {
         formatRunDate(record.startedAt),
         style: TextStyle(color: RunRecordColors.label, fontSize: 13),
       ),
-      const SizedBox(height: 12),
-      Text(
-        '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
-        style: TextStyle(
-          color: AppColors.blueText,
-          fontSize: 36,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -1,
+      if (showDistance) ...[
+        const SizedBox(height: 12),
+        Text(
+          '${(record.distanceMeters / 1000).toStringAsFixed(2)} km',
+          style: TextStyle(
+            color: AppColors.blueText,
+            fontSize: 36,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1,
+          ),
         ),
-      ),
-      const SizedBox(height: 20),
+      ],
+      SizedBox(height: showDistance ? 20 : 12),
       Row(
         children: [
           Expanded(
