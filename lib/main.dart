@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:runquest/features/settings/run_auto_pause_settings.dart';
 
 import 'app/bootstrap.dart';
+import 'features/onboarding/app_tour.dart';
 import 'shared/widgets/brand_intro.dart';
 import 'app/run_quest_app.dart';
 import 'features/settings/appearance/app_appearance.dart';
@@ -17,6 +18,7 @@ Future<void> main() async {
     await RunAutoPauseSettings.instance.load();
     await BrandIntro.preload();
     await BodyWeight.instance.load();
+    await AppTour.instance.load();
     runApp(const RunQuestApp());
   } catch (error, stackTrace) {
     FlutterError.reportError(

@@ -14,6 +14,8 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:runquest/app/mobile_app_viewport.dart';
+import 'package:runquest/features/onboarding/app_tour.dart';
+import 'package:runquest/features/settings/appearance/app_appearance.dart';
 import 'package:runquest/app/run_quest_app.dart';
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/app/run_quest_shell.dart';
@@ -157,6 +159,7 @@ void main() {
     FakeProgressService? progressService,
     FakeStatisticsService? statisticsService,
     bool dark = false,
+    AppTour? tour,
   }) async {
     AppColors.dark = dark;
     addTearDown(() => AppColors.dark = false);
@@ -180,6 +183,7 @@ void main() {
         home: MobileAppViewport(
           child: RunQuestShell(
             mapController: controller,
+            tour: tour,
             mapBridgeFactory: FakeMapBridge.new,
             friendService: FakeFriendService(),
             conditionsController: conditions,
@@ -192,6 +196,72 @@ void main() {
     await tester.pumpAndSettle();
     return controller;
   }
+
+  testWidgets('처음 실행하면 메뉴를 하나씩 직접 눌러 보는 둘러보기를 한 번만 보여줍니다', (tester) async {
+    final saved = <String, String>{};
+    final tour = AppTour(store: _TourStore(saved));
+    await tour.load();
+    expect(tour.showing, isTrue);
+    await showApp(tester, const Size(390, 844), tour: tour);
+    expect(find.text('뜀터에 오신 걸 환영해요'), findsOneWidget);
+    // 메뉴를 비추는 동안에는 고리가 계속 퍼지므로 정해진 시간만큼만 넘깁니다.
+    Future<void> settle() async {
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+    }
+
+    await tester.tap(find.byKey(const ValueKey('tour-next')));
+    await settle();
+
+    // 메뉴마다: 밝게 뚫린 메뉴를 눌러 그 탭으로 옮겨 간 뒤 설명을 보고 다음으로 넘어갑니다.
+    for (final (title, tab) in [
+      ('홈 · 러닝 지도', '홈'),
+      ('소셜 · 친구와 크루', '소셜'),
+      ('프로필 · 내 기록', '프로필'),
+      ('게시판 · 러닝 소식', '게시판'),
+      ('아이템 · 꾸미기', '아이템'),
+    ]) {
+      expect(find.text(title), findsOneWidget);
+      final target = find.byKey(const ValueKey('tour-target'));
+      expect(target, findsOneWidget);
+      // 뚫린 자리가 실제 하단 메뉴 위에 있습니다.
+      final menu = tester.getCenter(find.text(tab).last);
+      expect(tester.getRect(target).contains(menu), isTrue);
+      await tester.tap(target);
+      await settle();
+      expect(find.byKey(const ValueKey('tour-target')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('tour-next')));
+      await settle();
+    }
+    expect(find.text('이제 달려 볼까요?'), findsOneWidget);
+    await tester.tap(find.text('시작하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('이제 달려 볼까요?'), findsNothing);
+    expect(saved['onboarding.tour.v1'], 'done');
+
+    // 다음 실행에서는 띄우지 않습니다.
+    final again = AppTour(store: _TourStore(saved));
+    await again.load();
+    expect(again.showing, isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('둘러보기는 건너뛸 수 있고 건너뛰어도 다시 띄우지 않습니다', (tester) async {
+    final saved = <String, String>{};
+    final tour = AppTour(store: _TourStore(saved));
+    await tour.load();
+    await showApp(tester, const Size(390, 844), tour: tour);
+    await tester.tap(find.byKey(const ValueKey('tour-skip')));
+    await tester.pumpAndSettle();
+    expect(find.text('뜀터에 오신 걸 환영해요'), findsNothing);
+    expect(saved['onboarding.tour.v1'], 'done');
+    // 설정의 '다시 보기'로 처음부터 볼 수 있습니다.
+    tour.restart();
+    await tester.pumpAndSettle();
+    expect(find.text('뜀터에 오신 걸 환영해요'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('홈은 현재 위치 지도이며 코스 만들기 탭이 없습니다', (tester) async {
     await showApp(tester, const Size(390, 844));
@@ -863,4 +933,13 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   }
+}
+
+class _TourStore implements AppearanceStore {
+  _TourStore(this.values);
+  final Map<String, String> values;
+  @override
+  Future<String?> read(String key) async => values[key];
+  @override
+  Future<void> write(String key, String value) async => values[key] = value;
 }

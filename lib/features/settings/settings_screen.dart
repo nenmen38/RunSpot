@@ -1,6 +1,7 @@
 import '../auth/community_policy.dart';
 import '../moderation/moderation_screen.dart';
 import 'run_auto_pause_settings.dart';
+import '../onboarding/app_tour.dart';
 import '../notifications/push_settings_screen.dart';
 
 import 'package:runquest/features/notifications/data/push_service.dart';
@@ -124,6 +125,16 @@ class SettingsScreen extends StatelessWidget {
             value: RunVoiceSettings.instance.enabled,
             onChanged: RunVoiceSettings.instance.setEnabled,
           ),
+        ),
+        ListTile(
+          key: const ValueKey('replay-tour'),
+          leading: const Icon(Icons.explore_outlined),
+          title: const Text('앱 둘러보기 다시 보기'),
+          subtitle: const Text('주요 메뉴를 하나씩 눌러 보며 기능을 다시 살펴봐요.'),
+          onTap: () {
+            AppTour.instance.restart();
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          },
         ),
         ListenableBuilder(
           listenable: RunAutoPauseSettings.instance,

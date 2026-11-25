@@ -16,6 +16,7 @@ import '../features/monetization/profile_cosmetics.dart';
 import '../features/group_running/widgets/group_start_countdown.dart';
 
 import 'package:flutter/material.dart';
+import 'package:runquest/features/onboarding/app_tour.dart';
 import 'package:runquest/features/profile/avatar_directory.dart';
 import 'package:flutter/services.dart';
 import 'package:runquest/features/chat/chat_sync.dart';
@@ -67,6 +68,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class RunQuestShell extends StatefulWidget {
   const RunQuestShell({
     this.mapController,
+    this.tour,
     this.mapBridgeFactory,
     this.friendService,
     this.conditionsController,
@@ -80,6 +82,9 @@ class RunQuestShell extends StatefulWidget {
   });
 
   final LiveMapController? mapController;
+
+  /// 처음 실행한 사람에게 보여주는 앱 둘러보기입니다. 없으면 실제 앱에서만 기기 기록을 씁니다.
+  final AppTour? tour;
   final MapBridgeFactory? mapBridgeFactory;
   final FriendService? friendService;
   final ConditionsController? conditionsController;
@@ -95,6 +100,34 @@ class RunQuestShell extends StatefulWidget {
 }
 
 class _RunQuestShellState extends State<RunQuestShell> {
+  // 테스트(가짜 지도)에서는 둘러보기를 띄우지 않고, 실제 앱에서만 기기 기록을 봅니다.
+  late final AppTour? _tour =
+      widget.tour ?? (widget.mapController == null ? AppTour.instance : null);
+
+  /// 하단(넓은 화면은 왼쪽) 메뉴 아이콘 자리입니다. 둘러보기가 눌러 볼 메뉴를 찾을 때 씁니다.
+  final _navKeys = [for (var i = 0; i < 5; i++) (GlobalKey(), GlobalKey())];
+
+  void _tourChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// 메뉴 [tab]의 화면 위치(아이콘과 이름까지)입니다.
+  Rect? _navTarget(int tab) {
+    final (icon, selected) = _navKeys[tab];
+    for (final key in [selected, icon]) {
+      final box = key.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize || !box.attached) continue;
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      return Rect.fromLTRB(
+        rect.left - 22,
+        rect.top - 8,
+        rect.right + 22,
+        rect.bottom + 26,
+      );
+    }
+    return null;
+  }
+
   int _tab = 0;
   WatchBridge? _watch;
   StreamSubscription<Uri>? _inviteLinks;
@@ -151,6 +184,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   @override
   void initState() {
     super.initState();
+    _tour?.addListener(_tourChanged);
     if (widget.mapController != null) {
       _map = widget.mapController!;
       _conditions = widget.conditionsController;
@@ -303,6 +337,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
 
   @override
   void dispose() {
+    _tour?.removeListener(_tourChanged);
     _watch?.dispose();
     _inviteLinks?.cancel();
     if (widget.mapController == null) WeeklyGoal.instance.unbind();
@@ -437,10 +472,29 @@ class _RunQuestShellState extends State<RunQuestShell> {
     ];
 
     return LayoutBuilder(
-      builder: (context, constraints) =>
-          _layout(pages, wide: ReadableWidth.isWide(constraints)),
+      builder: (context, constraints) {
+        final layout = _layout(pages, wide: ReadableWidth.isWide(constraints));
+        final tour = _tour;
+        if (tour == null || !tour.showing) return layout;
+        // 처음 실행이면 하단 메뉴를 하나씩 눌러 보는 둘러보기를 위에 띄웁니다.
+        return Stack(
+          children: [
+            layout,
+            Positioned.fill(
+              child: AppTourOverlay(
+                targetOf: _navTarget,
+                onSelectTab: _selectTab,
+                onDone: () => unawaited(tour.finish()),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
+
+  void _selectTab(int index) => _selectTabImpl?.call(index);
+  ValueChanged<int>? _selectTabImpl;
 
   Widget _layout(List<Widget> pages, {required bool wide}) {
     void select(int index) {
@@ -451,6 +505,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       if (index != _tab) unawaited(HapticFeedback.selectionClick());
       setState(() => _tab = index);
     }
+
+    _selectTabImpl = select;
 
     final background = _tab == 3 ? AppColors.surface : null;
     final content = SafeArea(
@@ -510,7 +566,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
                   for (final (index, item) in _destinations.indexed)
                     NavigationRailDestination(
                       icon: _navIcon(index, item.$1),
-                      selectedIcon: _navIcon(index, item.$2),
+                      selectedIcon: _navIcon(index, item.$2, selected: true),
                       label: Text(item.$3),
                     ),
                 ],
@@ -537,7 +593,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
           for (final (index, item) in _destinations.indexed)
             NavigationDestination(
               icon: _navIcon(index, item.$1),
-              selectedIcon: _navIcon(index, item.$2),
+              selectedIcon: _navIcon(index, item.$2, selected: true),
               label: item.$3,
             ),
         ],
@@ -546,7 +602,12 @@ class _RunQuestShellState extends State<RunQuestShell> {
   }
 
   /// 소셜 탭 아이콘에는 안 읽은 메시지 수를 붙입니다.
-  Widget _navIcon(int index, IconData icon) {
+  Widget _navIcon(int index, IconData icon, {bool selected = false}) {
+    final key = selected ? _navKeys[index].$2 : _navKeys[index].$1;
+    return KeyedSubtree(key: key, child: _navIconBody(index, icon));
+  }
+
+  Widget _navIconBody(int index, IconData icon) {
     final chat = _chat;
     if (index != 1 || chat == null) return Icon(icon);
     return ListenableBuilder(
