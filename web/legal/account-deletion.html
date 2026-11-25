@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>뜀터 계정 삭제 요청</title>
+  <style>
+    body { margin: 0; background: #f5f7fb; color: #15243b; font: 1rem/1.65 system-ui, sans-serif; }
+    main { max-width: 40rem; margin: auto; padding: 3rem 1.25rem; overflow-wrap: anywhere; }
+    h1, h2 { line-height: 1.3; }
+    h2 { margin-top: 2rem; font-size: 1.25rem; }
+    a { color: #174ab0; }
+    .request { display: inline-block; padding: .7rem 1rem; border-radius: .5rem; color: white; background: #174ab0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>뜀터 계정 삭제 요청</h1>
+    <p>앱을 설치하거나 로그인하지 않아도 쓰리엔 운영팀에 뜀터 계정과 관련 데이터 삭제를 요청할 수 있습니다.</p>
+    <ol>
+      <li>가입에 사용한 이메일에서 운영팀에 계정 삭제 요청을 보내 주세요. 카카오 등으로 가입했다면 앱에 연결한 이메일을 사용해 주세요.</li>
+      <li>해당 이메일에 접근할 수 없다면 현재 회신받을 수 있는 이메일에서 요청해 주세요. 운영팀이 계정 소유 확인 방법을 안내합니다.</li>
+      <li>운영팀이 본인 확인을 마치면 삭제를 처리하고 이메일로 결과를 알려드립니다.</li>
+    </ol>
+    <p><a class="request" href="${deletion_mailto}">계정 삭제 요청 메일 작성</a></p>
+    <p>메일 앱이 열리지 않으면 <strong>${support_email}</strong>로 제목을 ‘뜀터 계정 삭제 요청’으로 작성해 보내 주세요. 비밀번호나 인증번호는 메일에 넣지 마세요.</p>
+    <h2>삭제하는 데이터</h2>
+    <p>계정과 프로필, 러닝 기록과 위치 경로, 친구·차단 정보, 게시글·댓글·사진, 활동 기록 등 계정에 연결된 데이터를 삭제합니다. 신고 원문과 증빙은 신고 처리 또는 관련 이의 제기가 끝난 뒤 90일이 지나면 파기합니다. 법령에 따라 보존해야 하는 자료는 해당 목적에 필요한 범위에서 보관합니다. 보관되는 자료나 처리 일정은 운영팀에 문의하실 수 있습니다.</p>
+    ${privacy_link}
+  </main>
+</body>
+</html>

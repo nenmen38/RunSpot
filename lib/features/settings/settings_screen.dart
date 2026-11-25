@@ -1,3 +1,4 @@
+import '../auth/community_policy.dart';
 import '../moderation/moderation_screen.dart';
 import 'run_auto_pause_settings.dart';
 import '../notifications/push_settings_screen.dart';
@@ -261,9 +262,29 @@ class SettingsScreen extends StatelessWidget {
               : const SizedBox.shrink(),
         ),
         const Divider(),
+        ListTile(
+          leading: const Icon(Icons.rule_outlined),
+          title: const Text(CommunityPolicy.title),
+          onTap: () => showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text(CommunityPolicy.title),
+              content: const SingleChildScrollView(
+                child: Text(CommunityPolicy.text),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('닫기'),
+                ),
+              ],
+            ),
+          ),
+        ),
         for (final (icon, title, url) in [
           (Icons.shield_outlined, '개인정보처리방침', LegalLinks.privacyPolicy),
           (Icons.description_outlined, '서비스 이용약관', LegalLinks.terms),
+          (Icons.open_in_browser, '웹에서 계정 삭제 요청', LegalLinks.accountDeletion),
           (Icons.place_outlined, '위치기반서비스 이용약관', LegalLinks.locationTerms),
         ])
           if (url.isNotEmpty)

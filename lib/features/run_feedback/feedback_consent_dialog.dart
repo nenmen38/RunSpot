@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_colors.dart';
 import 'models/run_feedback_heart_summary.dart';
 
 /// 취소는 null, 동의는 심박 포함 여부를 반환합니다. 심박 전송은 매번 기본 해제합니다.
@@ -41,7 +41,7 @@ Future<bool?> showFeedbackConsent(
                         ),
                       ),
                       subtitle: Text(
-                        '평균·최대·구간별 심박 요약 전송 동의',
+                        '평균·최대·구간별 심박 요약을 뜀터 서버와 Google Gemini에 전송하는 데 동의합니다.',
                         style: TextStyle(fontSize: 12, color: AppColors.gray),
                       ),
                       value: includeHeart,
@@ -49,14 +49,13 @@ Future<bool?> showFeedbackConsent(
                           setState(() => includeHeart = value == true),
                     ),
                   ),
-                  if (includeHeart)
-                    Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text(
-                        '심박이 포함된 피드백은 저장됩니다.',
-                        style: TextStyle(fontSize: 12, color: AppColors.gray),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '심박 요약은 이번 피드백 생성에 사용합니다. 생성된 피드백은 내 러닝 기록에 저장됩니다. 선택하지 않아도 기본 피드백을 받을 수 있습니다.',
+                      style: TextStyle(fontSize: 12, color: AppColors.gray),
                     ),
+                  ),
                   const SizedBox(height: 16),
                 ],
                 Text(

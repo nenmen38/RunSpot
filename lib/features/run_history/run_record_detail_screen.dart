@@ -299,7 +299,10 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                         runId: widget.record.id,
                         record: widget.record,
                         service: widget.feedbackService!,
-                        readHeartSource: () => _selectedHealthSource,
+                        readHeartSource:
+                            const bool.fromEnvironment('RUN_FEEDBACK_HEART_SHARING')
+                            ? () => _selectedHealthSource
+                            : null,
                       ),
                     ),
                 ],

@@ -45,6 +45,10 @@ class ProfileCosmetics extends StatefulWidget {
 }
 
 class _ProfileCosmeticsState extends State<ProfileCosmetics> {
+  // 출시에서 결제를 별도로 켜기 전에는 스토어 SDK를 초기화하지 않습니다.
+  static const _paymentsEnabled = bool.fromEnvironment(
+    'IN_APP_PAYMENTS_ENABLED',
+  );
   static const _androidKey = String.fromEnvironment('REVENUECAT_ANDROID_KEY');
   static const _iosKey = String.fromEnvironment('REVENUECAT_IOS_KEY');
 
@@ -69,7 +73,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
   bool get _isStore => widget.child == null;
   bool get _previewOnly => _key.isEmpty || widget.client == null;
 
-  String get _key => kIsWeb
+  String get _key => !_paymentsEnabled || kIsWeb
       ? ''
       : switch (defaultTargetPlatform) {
           TargetPlatform.android => _androidKey,
@@ -100,7 +104,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
   }
 
   Future<void> _run(Future<void> Function() action) async {
-    if (!_isOwner || _busy) return;
+    if (_previewOnly || !_isOwner || _busy) return;
     setState(() {
       _busy = true;
       _message = null;
@@ -193,6 +197,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
 
   /// 코인은 서버가 결제 알림(웹훅)을 받아 기록하므로 반영될 때까지 잠시 다시 확인합니다.
   Future<void> _buyCoins(CoinPack pack) async {
+    if (!_paymentsEnabled) return;
     final package = _coinPackages[pack.id];
     final wallet = widget.wallet;
     if (package == null || wallet == null) return;
@@ -227,12 +232,15 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
         listenable: wallet,
         builder: (context, _) => CoinShopSheet(
           controller: wallet,
+          showPurchases: _paymentsEnabled,
           prices: {
             if (!_previewOnly && !_busy && wallet.wallet?.weeklyQuest != null)
               for (final entry in _coinPackages.entries)
                 entry.key: entry.value.storeProduct.priceString,
           },
-          note: _previewOnly
+          note: !_paymentsEnabled
+              ? null
+              : _previewOnly
               ? '결제 설정이 없는 미리보기에서는 가격만 볼 수 있어요.'
               : wallet.wallet?.weeklyQuest == null
               ? '코인 상점 정보를 확인할 수 없어 충전이 일시적으로 불가능합니다.'
@@ -357,14 +365,18 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
         Row(
           children: [
             Text('아이템', style: text.titleLarge),
-            if (_previewOnly) ...[
+            if (widget.wallet == null || (_paymentsEnabled && _previewOnly)) ...[
               const SizedBox(width: 8),
               const StoreTag('미리보기'),
             ],
             const Spacer(),
-            // 오른쪽 위에 보유 코인과 충전 버튼을 둡니다.
+            // 결제를 꺼도 코인 잔액과 거래 내역은 열 수 있습니다.
             if (widget.wallet case final wallet?)
-              CoinBalance(controller: wallet, onAdd: _openCoins),
+              CoinBalance(
+                controller: wallet,
+                showPurchases: _paymentsEnabled,
+                onOpen: _openCoins,
+              ),
           ],
         ),
         const SizedBox(height: 12),

@@ -7,8 +7,11 @@ import '../models/run_health_data.dart';
 import '../../../shared/widgets/metric_values.dart';
 import '../../../shared/theme/app_colors.dart';
 
-const healthPrivacyNotice =
-    '본인 기기의 심박·칼로리 자료를 불러옵니다. 자료는 화면에서 사용합니다. AI 피드백 요청 시 별도로 동의하면 평균·최대·구간별 심박 요약을 서버와 Google Gemini에 전송하며, 심박이 언급된 피드백은 저장됩니다.';
+const _deviceHealthNotice =
+    '본인 기기의 심박·칼로리 자료를 불러옵니다. 자료는 화면에서 사용합니다.';
+const healthPrivacyNotice = bool.fromEnvironment('RUN_FEEDBACK_HEART_SHARING')
+    ? '$_deviceHealthNotice AI 피드백 요청 시 별도로 동의하면 평균·최대·구간별 심박 요약을 서버와 Google Gemini에 전송하며, 심박이 언급된 피드백은 저장됩니다.'
+    : _deviceHealthNotice;
 
 Future<bool> confirmHealthAccess(BuildContext context) async =>
     await showDialog<bool>(

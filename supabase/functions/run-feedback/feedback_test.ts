@@ -236,14 +236,44 @@ Deno.test("심박 요약은 검증 후 이번 AI 호출에만 전달하며 예�
         outputTokens: 10,
       };
     },
-  });
+  }, true);
   const result = await handler(
-    request({ run_id: runId, heart_summary: heart }),
+    request({ run_id: runId, heart_summary: heart, heart_consent: true }),
   );
   assert(result.status === 200);
   assert(JSON.stringify(received?.heart_summary) === JSON.stringify(heart));
   assert(!summary.heart_summary);
   assert(f.counts().reservations === 1 && f.counts().finishes === 1);
+});
+
+Deno.test("요청별 동의가 없는 심박 요약은 예약 전에 거부합니다", async () => {
+  const f = fixture();
+  const heart = { average_bpm: 145, max_bpm: 170, sample_count: 30 };
+  const handler = feedbackHandler(() => f.gateway, null);
+  for (
+    const body of [
+      { run_id: runId, heart_summary: heart },
+      { run_id: runId, heart_summary: heart, heart_consent: false },
+      { run_id: runId, heart_consent: true },
+    ]
+  ) {
+    const response = await handler(request(body));
+    assert(response.status === 400);
+    assert((await response.json()).error === "heart_consent_required");
+  }
+  assert(f.counts().reservations === 0);
+});
+
+Deno.test("출시 기본 설정은 동의한 심박 전송도 거부합니다", async () => {
+  const f = fixture();
+  const response = await feedbackHandler(() => f.gateway, null)(request({
+    run_id: runId,
+    heart_summary: { average_bpm: 145, max_bpm: 170, sample_count: 30 },
+    heart_consent: true,
+  }));
+  assert(response.status === 403);
+  assert((await response.json()).error === "heart_sharing_disabled");
+  assert(f.counts().reservations === 0);
 });
 
 Deno.test("잘못된 심박·원시 자료·기기명·추가 필드는 예산 예약과 AI 호출 전에 거부합니다", async () => {
@@ -265,8 +295,8 @@ Deno.test("잘못된 심박·원시 자료·기기명·추가 필드는 예산 �
     ]
   ) {
     const f = fixture();
-    const result = await feedbackHandler(() => f.gateway, f.generator)(
-      request({ run_id: runId, heart_summary: invalid }),
+    const result = await feedbackHandler(() => f.gateway, f.generator, true)(
+      request({ run_id: runId, heart_summary: invalid, heart_consent: true }),
     );
     assert(result.status === 400);
     assert(f.counts().reservations === 0 && f.counts().calls === 0);

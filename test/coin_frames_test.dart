@@ -115,7 +115,7 @@ void main() {
     expect(wallet.wallet!.color, '#EC4899');
   });
 
-  testWidgets('오른쪽 위 코인 수 옆 + 버튼으로 금액대별 충전 창을 엽니다', (tester) async {
+  testWidgets('기본 빌드는 코인 내역을 제공하고 현금 충전 상품을 숨깁니다', (tester) async {
     final service = FakeWalletService()..coins = 1234;
     final wallet = WalletController(service);
     addTearDown(wallet.dispose);
@@ -128,16 +128,14 @@ void main() {
     expect(coin.dx, greaterThan(title.dx + 150));
     expect((coin.dy - title.dy).abs(), lessThan(20));
 
-    await tester.tap(find.byTooltip('코인 충전'));
+    expect(find.byTooltip('코인 충전'), findsNothing);
+    await tester.tap(find.byTooltip('코인 내역'));
     await tester.pumpAndSettle();
-    expect(find.text('코인 충전'), findsWidgets);
-    // 결제 설정이 없는 미리보기에서는 가격만 보여주고 살 수 없습니다.
-    expect(find.textContaining('미리보기에서는 가격만'), findsOneWidget);
+    expect(find.text('코인 내역'), findsWidgets);
+    expect(find.textContaining('보유 1,234코인'), findsOneWidget);
     for (final price in ['1,100원', '3,300원', '5,500원']) {
-      expect(find.text(price), findsOneWidget);
+      expect(find.text(price), findsNothing);
     }
-    expect(find.text('11,000원'), findsNothing);
-    expect(find.text('49,900원'), findsNothing);
   });
 
   testWidgets('상점에서 코인으로 테두리를 사고 보관함에서 착용·해제·색 변경을 합니다', (tester) async {

@@ -33,6 +33,7 @@ function reply(data: unknown, status = 200): Response {
 export function feedbackHandler(
   createGateway: (authorization: string) => Gateway,
   generator: { generate(summary: Summary): Promise<Feedback> } | null,
+  allowHeartSharing = false,
 ) {
   return async (request: Request): Promise<Response> => {
     if (request.method === "OPTIONS") {
@@ -49,7 +50,11 @@ export function feedbackHandler(
       const gateway = createGateway(authorization);
       const owner = await gateway.authenticate(authorization.slice(7));
       if (!owner) return reply({ error: "unauthorized" }, 401);
-      let body: { run_id?: string; heart_summary?: unknown };
+      let body: {
+        run_id?: string;
+        heart_summary?: unknown;
+        heart_consent?: unknown;
+      };
       let heartSummary: HeartSummary | undefined;
       try {
         body = await boundedJson(
@@ -63,13 +68,23 @@ export function feedbackHandler(
         !body || typeof body.run_id !== "string" ||
         !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.run_id) ||
         Object.keys(body).some((key) =>
-          !["run_id", "heart_summary"].includes(key)
+          !["run_id", "heart_summary", "heart_consent"].includes(key)
         )
       ) {
         return reply({ error: "invalid_request" }, 400);
       }
+      const hasHeartSummary = "heart_summary" in body;
+      if (
+        hasHeartSummary !== ("heart_consent" in body) ||
+        (hasHeartSummary && body.heart_consent !== true)
+      ) {
+        return reply({ error: "heart_consent_required" }, 400);
+      }
+      if (hasHeartSummary && !allowHeartSharing) {
+        return reply({ error: "heart_sharing_disabled" }, 403);
+      }
       try {
-        if ("heart_summary" in body) {
+        if (hasHeartSummary) {
           heartSummary = safeHeartSummary(body.heart_summary);
         }
       } catch {

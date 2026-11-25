@@ -125,7 +125,10 @@ class SupabaseRunFeedbackService implements RunFeedbackService {
       'run-feedback',
       body: {
         'run_id': runId,
-        if (heartSummary != null) 'heart_summary': heartSummary.toJson(),
+        if (heartSummary != null) ...{
+          'heart_summary': heartSummary.toJson(),
+          'heart_consent': true,
+        },
       },
       headers: {'Authorization': 'Bearer ${session.accessToken}'},
     );

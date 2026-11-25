@@ -28,7 +28,7 @@ for migration in supabase/migrations/*.sql; do
   esac
   args+=(-f "$migration")
 done
-for test in test_registration registration security live_runner_map run_history friends run_routes \
+for test in community_policy_consent report_evidence_retention audit_log_retention test_registration registration security live_runner_map run_history friends run_routes \
   running_conditions environment_shared_budget email_verification optional_phone_verification run_feedback \
   run_temperature run_analysis run_rewards run_statistics ranking_categories run_location_preferences blocks achievements_and_review \
   group_running run_splits segment_integrity review_pending_rewards sustained_speed_review app_usability \

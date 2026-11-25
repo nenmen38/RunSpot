@@ -558,12 +558,18 @@ class _FrameBadgeState extends State<FrameBadge>
   }
 }
 
-/// 아이템 페이지 오른쪽 위의 코인 잔액과 충전 버튼입니다.
+/// 아이템 페이지 오른쪽 위의 코인 잔액과 내역 버튼입니다.
 class CoinBalance extends StatelessWidget {
-  const CoinBalance({required this.controller, required this.onAdd, super.key});
+  const CoinBalance({
+    required this.controller,
+    required this.showPurchases,
+    required this.onOpen,
+    super.key,
+  });
 
   final WalletController controller;
-  final VoidCallback onAdd;
+  final bool showPurchases;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -600,10 +606,13 @@ class CoinBalance extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: '코인 충전',
+              tooltip: showPurchases ? '코인 충전' : '코인 내역',
               visualDensity: VisualDensity.compact,
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_circle, color: Color(0xFFEAB308)),
+              onPressed: onOpen,
+              icon: Icon(
+                showPurchases ? Icons.add_circle : Icons.history,
+                color: const Color(0xFFEAB308),
+              ),
             ),
           ],
         ),
@@ -612,11 +621,12 @@ class CoinBalance extends StatelessWidget {
   );
 }
 
-/// 코인 충전 창입니다. 결제가 준비되지 않았으면 가격만 보여줍니다.
+/// 코인 내역을 표시하며 결제가 활성화된 경우에 충전 상품도 표시합니다.
 class CoinShopSheet extends StatelessWidget {
   const CoinShopSheet({
     required this.controller,
     required this.prices,
+    required this.showPurchases,
     required this.onBuy,
     this.note,
     super.key,
@@ -626,6 +636,7 @@ class CoinShopSheet extends StatelessWidget {
 
   /// 스토어가 알려준 표시 가격입니다. 없는 묶음은 살 수 없습니다.
   final Map<String, String> prices;
+  final bool showPurchases;
   final ValueChanged<CoinPack> onBuy;
   final String? note;
 
@@ -640,7 +651,7 @@ class CoinShopSheet extends StatelessWidget {
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         children: [
-          Text('코인 충전', style: text.titleLarge),
+          Text(showPurchases ? '코인 충전' : '코인 내역', style: text.titleLarge),
           if (balance != null && balance < 0)
             const Text('코인이 조정되어 잔액이 부족합니다. 거래 내역을 확인해 주세요.'),
           if (wallet != null) ...[
@@ -661,7 +672,7 @@ class CoinShopSheet extends StatelessWidget {
             Text(message, style: text.bodySmall),
           ],
           const SizedBox(height: 12),
-          for (final pack in CoinPack.all)
+          for (final pack in showPurchases ? CoinPack.all : const <CoinPack>[])
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: ListTile(

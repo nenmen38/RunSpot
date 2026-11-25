@@ -7,10 +7,13 @@
     "KAKAO_MAP_ORIGIN": "https://localhost",
     "KAKAO_REST_API_KEY": "",
     "GEMINI_API_KEY": "",
-    "PRIVACY_POLICY_URL": "",
+    "RUN_FEEDBACK_HEART_SHARING": false,
+    "PRIVACY_POLICY_URL": "https://capstone-running-policy.web.app/privacy.html",
+    "ACCOUNT_DELETION_URL": "https://capstone-running-policy.web.app/account-deletion.html",
     "TERMS_URL": "",
     "LOCATION_TERMS_URL": "",
-    "SUPPORT_EMAIL": "",
+    "SUPPORT_EMAIL": "2025threeN@gmail.com",
+    "IN_APP_PAYMENTS_ENABLED": false,
     "REVENUECAT_IOS_KEY": "",
     "REVENUECAT_ANDROID_KEY": ""
 }

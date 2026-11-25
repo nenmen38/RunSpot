@@ -7,7 +7,7 @@
 - 앱 안에서 회원 탈퇴: 설정 → 회원 탈퇴. 서버 `delete_my_account()`가 계정과 연결 자료를 지우고, 앱이 게시판 사진과 기기에 보관한 전송 대기 기록·진행 중 기록을 지웁니다.
 - 정책 문서 링크: `config/*.json`의 `PRIVACY_POLICY_URL`, `TERMS_URL`, `LOCATION_TERMS_URL`, `SUPPORT_EMAIL`을 채우면 설정 화면에 표시됩니다. 비어 있으면 숨깁니다.
 - 오픈소스 라이선스 화면: 설정 → 오픈소스 라이선스.
-- 출시 서명: `android/key.properties`가 있으면 출시 키로 서명하고, 없으면 개발용 디버그 서명을 사용합니다.
+- Android 출시 번들은 `android/key.properties`에 지정한 업로드 키로 서명합니다. 키 설정이 없으면 번들 빌드가 실패합니다.
 - iOS 사진 권한 안내 문구를 게시판 사진 업로드에 맞게 수정했습니다.
 - CI: `.github/workflows/ci.yml`이 푸시·PR마다 `flutter analyze`, `flutter test`, SQL 테스트(`scripts/run_sql_tests.sh`)를 실행합니다.
 
@@ -29,9 +29,11 @@ storeFile=C:\\keys\\runspot-upload.jks
 ```
 키 파일과 비밀번호를 잃어버리면 앱을 업데이트할 수 없으므로 안전한 곳에 따로 보관합니다. Google Play 앱 서명을 사용하면 이 키는 업로드 키로 쓰입니다.
 
+현재 로컬 업로드 키는 `android/upload-keystore.jks`에 있습니다. `android/key.properties`와 키 파일은 제한된 위치에 함께 백업합니다. `config/release.local.json`에는 모바일 공개 설정과 정책 주소만 넣고 서버용 Gemini·공공데이터·카카오 비밀키는 제외합니다.
+
 출시 빌드:
 ```powershell
-flutter build appbundle --release --dart-define-from-file=config/prod.json
+flutter build appbundle --release --dart-define-from-file=config/release.local.json
 ```
 
 ### 3. 정책 문서
@@ -50,3 +52,7 @@ flutter build appbundle --release --dart-define-from-file=config/prod.json
 - 오류 수집: Crashlytics 연결 구현 완료. Firebase 콘솔 활성화·출시 실기기 보고 확인이 필요합니다.
 - 푸시 알림: 세션별 기기 등록·수신 설정·서버 대기열·화면 이동 구현 완료. FCM 서비스 계정·APNs 설정과 서버 활성화 절차는 `docs/OPERATIONS.md`를 따릅니다.
 - 게시판 사진 정리: 24시간이 지난 미사용 사진을 격리 후 제거하는 서버 작업 구현 완료. 작업 비밀 등록과 예약 실행 확인이 필요합니다.
+
+### 구글 플레이 정책 페이지와 심사 계정
+
+공개 방침·웹 탈퇴 요청 페이지의 빌드와 게시, 콘솔 링크 확인, 앱 액세스 입력문은 [구글 플레이 심사 준비](GOOGLE_PLAY_REVIEW.md)를 따릅니다. 운영정책 동의 마이그레이션을 적용하면 동의 이력이 없는 계정은 이전 앱에서도 새 게시물·사진·메시지를 작성할 수 없으므로, 동의 화면이 포함된 앱 업데이트와 함께 적용 일정을 잡습니다.

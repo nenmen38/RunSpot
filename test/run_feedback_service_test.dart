@@ -90,6 +90,7 @@ void main() {
     expect(jsonDecode(request.body), {
       'run_id': 'run',
       'heart_summary': {'average_bpm': 140, 'max_bpm': 160, 'sample_count': 10},
+      'heart_consent': true,
     });
   });
   test('누락되거나 불완전한 심박 요약은 전송 대상으로 만들지 않습니다', () {
