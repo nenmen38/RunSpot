@@ -6,6 +6,7 @@ import '../training/training_screen.dart';
 
 import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:flutter/material.dart';
+import 'package:runquest/features/character/runner_character_card.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../monetization/partner_offers.dart';
@@ -66,6 +67,9 @@ class ProfileScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           PrivacyControls(sharingController: mapController, identityOnly: true),
+          // 내 러너 캐릭터: 산 꾸미기 아이템을 입혀 보고 좌우로 돌려 볼 수 있습니다.
+          const SizedBox(height: 16),
+          RunnerCharacterCard(wallet: wallet),
           if (progressService != null) ...[
             const SizedBox(height: 16),
             Divider(height: 1, color: AppColors.line),

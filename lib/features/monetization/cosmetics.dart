@@ -5,7 +5,15 @@ enum CosmeticSlot {
   route('route', '경로 색', '러닝 중 지도에 그려지는 내 경로 선 색'),
   titleStyle('title_style', '칭호 모양', '닉네임 옆 칭호 배지의 색과 아이콘'),
   chatBubble('chat_bubble', '말풍선', '친구와의 대화에서 내 말풍선 색'),
-  shareCard('share_card', '공유 카드', '러닝 기록을 공유할 때 고르는 카드');
+  shareCard('share_card', '공유 카드', '러닝 기록을 공유할 때 고르는 카드'),
+
+  // 내 러너 캐릭터가 입는 칸입니다. 프로필의 캐릭터 '꾸미기'에서 착용합니다.
+  charHead('char_head', '모자', '캐릭터 머리에 쓰는 캡·썬캡·머리띠'),
+  charEyes('char_eyes', '선글라스', '캐릭터 얼굴에 쓰는 스포츠 선글라스'),
+  charTop('char_top', '상의', '캐릭터가 입는 러닝 싱글렛·티셔츠'),
+  charBottom('char_bottom', '하의', '캐릭터가 입는 러닝 쇼츠'),
+  charSleeves('char_sleeves', '팔토시', '캐릭터 팔에 끼는 팔토시'),
+  charShoes('char_shoes', '운동화', '캐릭터가 신는 러닝화');
 
   const CosmeticSlot(this.code, this.label, this.description);
   final String code;
@@ -14,6 +22,9 @@ enum CosmeticSlot {
 
   static CosmeticSlot? fromCode(Object? code) =>
       values.where((slot) => slot.code == code).firstOrNull;
+
+  /// 내 러너 캐릭터가 입는 칸인지입니다.
+  bool get isCharacter => code.startsWith('char_');
 }
 
 /// 코인으로 사는 꾸미기 아이템입니다. 가격은 서버(cosmetic_price)와 같아야 합니다.
@@ -65,6 +76,82 @@ enum CosmeticItem {
   ]),
   bubblePink('bubble_pink', CosmeticSlot.chatBubble, '핑크', 200, [
     Color(0xFFEC4899),
+  ]),
+
+  // 내 러너 캐릭터 꾸미기입니다. 가격은 서버(cosmetic_price)와 같습니다.
+  charCapBlue('char_cap_blue', CosmeticSlot.charHead, '블루 러닝캡', 150, [
+    Color(0xFF1B64DA),
+  ]),
+  charCapBlack('char_cap_black', CosmeticSlot.charHead, '블랙 러닝캡', 150, [
+    Color(0xFF1F2937),
+  ]),
+  charVisorWhite('char_visor_white', CosmeticSlot.charHead, '화이트 썬캡', 200, [
+    Color(0xFFCBD5E1),
+  ]),
+  charHeadbandRed('char_headband_red', CosmeticSlot.charHead, '레드 헤어밴드', 100, [
+    Color(0xFFEF4444),
+  ]),
+  charGlassesBlack(
+    'char_glasses_black',
+    CosmeticSlot.charEyes,
+    '블랙 스포츠 선글라스',
+    200,
+    [Color(0xFF1F2937)],
+  ),
+  charGlassesMirror(
+    'char_glasses_mirror',
+    CosmeticSlot.charEyes,
+    '블루 미러 선글라스',
+    250,
+    [Color(0xFF2563EB), Color(0xFF22D3EE)],
+  ),
+  charSingletOrange(
+    'char_singlet_orange',
+    CosmeticSlot.charTop,
+    '오렌지 러닝 싱글렛',
+    200,
+    [Color(0xFFF97316)],
+  ),
+  charTeeMint('char_tee_mint', CosmeticSlot.charTop, '민트 러닝 티', 200, [
+    Color(0xFF14B8A6),
+  ]),
+  charTeeNavy('char_tee_navy', CosmeticSlot.charTop, '네이비 크루 티', 250, [
+    Color(0xFF1E3A8A),
+  ]),
+  charShortsBlack(
+    'char_shorts_black',
+    CosmeticSlot.charBottom,
+    '블랙 러닝 쇼츠',
+    150,
+    [Color(0xFF111827)],
+  ),
+  charShortsBlue('char_shorts_blue', CosmeticSlot.charBottom, '블루 러닝 쇼츠', 150, [
+    Color(0xFF2563EB),
+  ]),
+  charSleevesBlack(
+    'char_sleeves_black',
+    CosmeticSlot.charSleeves,
+    '블랙 팔토시',
+    150,
+    [Color(0xFF111827)],
+  ),
+  charSleevesNeon(
+    'char_sleeves_neon',
+    CosmeticSlot.charSleeves,
+    '네온 팔토시',
+    200,
+    [Color(0xFFA3E635)],
+  ),
+  charShoesRed('char_shoes_red', CosmeticSlot.charShoes, '레드 러닝화', 250, [
+    Color(0xFFEF4444),
+  ]),
+  charShoesNeon('char_shoes_neon', CosmeticSlot.charShoes, '네온 러닝화', 300, [
+    Color(0xFFA3E635),
+    Color(0xFF111827),
+  ]),
+  charShoesCarbon('char_shoes_carbon', CosmeticSlot.charShoes, '카본 레이싱화', 450, [
+    Color(0xFF111827),
+    Color(0xFFF97316),
   ]);
 
   const CosmeticItem(

@@ -1,0 +1,769 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+
+/// 캐릭터가 입은 꾸미기입니다. 칸마다 색(없으면 맨몸)을 줍니다.
+@immutable
+class CharacterOutfit {
+  const CharacterOutfit({
+    this.hat,
+    this.headband = false,
+    this.glasses,
+    this.top,
+    this.singlet = false,
+    this.bottom,
+    this.sleeves,
+    this.shoes,
+    this.shoeAccent,
+    this.visor = false,
+  });
+
+  /// 모자 색입니다. [visor]면 윗부분이 뚫린 썬캡, [headband]면 머리띠로 그립니다.
+  final Color? hat;
+  final bool headband;
+  final bool visor;
+  final Color? glasses;
+
+  /// 상의 색입니다. [singlet]이면 소매 없는 러닝 싱글렛입니다.
+  final Color? top;
+  final bool singlet;
+  final Color? bottom;
+  final Color? sleeves;
+  final Color? shoes;
+  final Color? shoeAccent;
+
+  static const none = CharacterOutfit();
+
+  @override
+  bool operator ==(Object other) =>
+      other is CharacterOutfit &&
+      other.hat == hat &&
+      other.headband == headband &&
+      other.visor == visor &&
+      other.glasses == glasses &&
+      other.top == top &&
+      other.singlet == singlet &&
+      other.bottom == bottom &&
+      other.sleeves == sleeves &&
+      other.shoes == shoes &&
+      other.shoeAccent == shoeAccent;
+
+  @override
+  int get hashCode => Object.hash(
+    hat,
+    headband,
+    visor,
+    glasses,
+    top,
+    singlet,
+    bottom,
+    sleeves,
+    shoes,
+    shoeAccent,
+  );
+}
+
+/// 위에서 살짝 내려다본 흰색 3D 러너입니다. [yaw](라디안)만큼 돌려 모든 방향에서 그립니다.
+/// 몸은 둥근 덩어리(구·타원체)를 3D 좌표에 놓고 돌린 뒤, 먼 것부터 그려 입체로 보이게 합니다.
+class RunnerCharacterPainter extends CustomPainter {
+  RunnerCharacterPainter({
+    required this.yaw,
+    this.outfit = CharacterOutfit.none,
+    this.breath = 0,
+    this.ground = true,
+  });
+
+  final double yaw;
+  final CharacterOutfit outfit;
+
+  /// 0~1 숨쉬기(살짝 위아래로 움직임)입니다.
+  final double breath;
+
+  /// 발밑 그림자를 그릴지입니다.
+  final bool ground;
+
+  static const _skin = Color(0xFFF6F8FC);
+  static const _pitch = 0.16;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 캐릭터 키(약 2.0)를 칸 높이에 맞춥니다.
+    final scale = math.min(size.height / 2.25, size.width / 1.35);
+    final origin = Offset(size.width / 2, size.height * 0.94);
+    final bob = math.sin(breath * math.pi * 2) * 0.012;
+    final view = _View(yaw, _pitch, scale, origin);
+
+    if (ground) {
+      final shadow = Rect.fromCenter(
+        center: origin + Offset(0, -scale * 0.01),
+        width: scale * 0.95,
+        height: scale * 0.22,
+      );
+      canvas.drawOval(
+        shadow,
+        Paint()
+          ..color = const Color(0x40102040)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, scale * 0.04),
+      );
+    }
+
+    final parts = <_Part>[];
+    void blob(
+      _V center,
+      double rx,
+      double ry,
+      double rz,
+      Color color, {
+      double gloss = 1,
+    }) => parts.add(_Blob(view, center, rx, ry, rz, color, gloss));
+
+    final o = outfit;
+    final topColor = o.top ?? _skin;
+    final sleeveTop = o.top != null && !o.singlet ? o.top! : _skin;
+    final bottomColor = o.bottom ?? _skin;
+    final up = bob;
+
+    // 다리: 엉덩이에서 발목까지 구를 이어 둥근 기둥처럼 그립니다. 윗다리는 반바지 색입니다.
+    for (final side in [-1.0, 1.0]) {
+      final hip = _V(0.13 * side, 0.60 + up, 0);
+      final knee = _V(0.14 * side, 0.33 + up * .5, 0.01);
+      final ankle = _V(0.14 * side, 0.10, 0);
+      _limb(parts, view, hip, knee, 0.105, 0.095, bottomColor, (t) => t < 0.45);
+      _limb(parts, view, hip, knee, 0.105, 0.095, _skin, (t) => t >= 0.45);
+      _limb(parts, view, knee, ankle, 0.09, 0.075, _skin, (_) => true);
+      // 발(신발): 앞으로 길쭉한 타원체와 밑창.
+      final shoe = o.shoes ?? _skin;
+      blob(_V(0.14 * side, 0.065, 0.06), 0.085, 0.06, 0.15, shoe);
+      if (o.shoes != null) {
+        blob(
+          _V(0.14 * side, 0.025, 0.065),
+          0.09,
+          0.025,
+          0.155,
+          o.shoeAccent ?? Colors.white,
+          gloss: 0.4,
+        );
+      }
+    }
+
+    // 엉덩이(반바지)와 몸통(상의).
+    blob(_V(0, 0.66 + up, 0), 0.27, 0.15, 0.19, bottomColor);
+    blob(_V(0, 0.97 + up, 0), 0.30, 0.33, 0.21, topColor);
+
+    // 팔: 어깨 → 팔꿈치 → 손. 윗팔은 상의 소매, 아랫팔은 팔토시 색입니다.
+    for (final side in [-1.0, 1.0]) {
+      final shoulder = _V(0.33 * side, 1.18 + up, 0);
+      final elbow = _V(0.43 * side, 0.92 + up, 0.03);
+      final wrist = _V(0.45 * side, 0.68 + up, 0.07);
+      _limb(parts, view, shoulder, elbow, 0.085, 0.075, sleeveTop, (_) => true);
+      _limb(
+        parts,
+        view,
+        elbow,
+        wrist,
+        0.075,
+        0.068,
+        o.sleeves ?? _skin,
+        (_) => true,
+      );
+      blob(_V(0.455 * side, 0.63 + up, 0.08), 0.075, 0.075, 0.075, _skin);
+    }
+
+    // 목과 머리(아이처럼 큰 머리로 귀엽게).
+    blob(_V(0, 1.24 + up, 0), 0.10, 0.07, 0.10, _skin);
+    final head = _V(0, 1.58 + up, 0.0);
+    const headR = 0.37;
+    parts.add(_Head(view, head, headR, o, up));
+
+    // 먼 것부터 그립니다.
+    parts.sort((a, b) => a.depth.compareTo(b.depth));
+    for (final part in parts) {
+      part.paint(canvas);
+    }
+  }
+
+  void _limb(
+    List<_Part> parts,
+    _View view,
+    _V from,
+    _V to,
+    double r0,
+    double r1,
+    Color color,
+    bool Function(double t) include,
+  ) {
+    // 포함 구간(0~1)만 매끈한 원통(캡슐)으로 그립니다.
+    double? start, end;
+    for (var i = 0; i <= 20; i++) {
+      final t = i / 20;
+      if (!include(t)) continue;
+      start ??= t;
+      end = t;
+    }
+    if (start == null || end == null) return;
+    parts.add(
+      _Capsule(
+        view,
+        from.lerp(to, start),
+        from.lerp(to, end),
+        r0 + (r1 - r0) * start,
+        r0 + (r1 - r0) * end,
+        color,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRepaint(RunnerCharacterPainter old) =>
+      old.yaw != yaw || old.outfit != outfit || old.breath != breath;
+}
+
+/// 3D 점입니다(x 오른쪽, y 위, z 앞쪽).
+class _V {
+  const _V(this.x, this.y, this.z);
+  final double x, y, z;
+  _V lerp(_V b, double t) =>
+      _V(x + (b.x - x) * t, y + (b.y - y) * t, z + (b.z - z) * t);
+  _V operator +(_V b) => _V(x + b.x, y + b.y, z + b.z);
+  _V scale(double k) => _V(x * k, y * k, z * k);
+}
+
+/// 돌리기(yaw)와 살짝 내려다보기(pitch) 후 화면 좌표로 옮깁니다.
+class _View {
+  _View(this.yaw, this.pitch, this.scale, this.origin);
+  final double yaw, pitch, scale;
+  final Offset origin;
+
+  /// 돌린 뒤의 3D 좌표입니다(z가 클수록 화면 앞).
+  _V turn(_V p) {
+    final c = math.cos(yaw), s = math.sin(yaw);
+    final x = p.x * c + p.z * s;
+    final z = -p.x * s + p.z * c;
+    final cp = math.cos(pitch), sp = math.sin(pitch);
+    final y = p.y * cp - z * sp;
+    final z2 = p.y * sp + z * cp;
+    return _V(x, y, z2);
+  }
+
+  Offset screen(_V turned) =>
+      origin + Offset(turned.x * scale, -turned.y * scale);
+}
+
+abstract class _Part {
+  double get depth;
+  void paint(Canvas canvas);
+}
+
+/// 빛을 받는 둥근 덩어리(타원체)입니다.
+class _Blob extends _Part {
+  _Blob(
+    this.view,
+    this.center,
+    this.rx,
+    this.ry,
+    this.rz,
+    this.color,
+    this.gloss,
+  ) : turned = view.turn(center);
+
+  final _View view;
+  final _V center;
+  final double rx, ry, rz;
+  final Color color;
+  final double gloss;
+  final _V turned;
+
+  @override
+  double get depth => turned.z;
+
+  @override
+  void paint(Canvas canvas) {
+    final c = math.cos(view.yaw).abs(), s = math.sin(view.yaw).abs();
+    // 돌리면 옆 폭과 앞뒤 두께가 섞여 보입니다.
+    final width = math.sqrt(rx * rx * c * c + rz * rz * s * s) * 2 * view.scale;
+    final height = ry * 2 * view.scale;
+    final at = view.screen(turned);
+    final rect = Rect.fromCenter(center: at, width: width, height: height);
+    final shade = Color.lerp(color, const Color(0xFF8C9BB3), 0.38)!;
+    final deep = Color.lerp(color, const Color(0xFF6B7A94), 0.55)!;
+    canvas.drawOval(
+      rect,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.35, -0.45),
+          radius: 1.05,
+          colors: [
+            Color.lerp(color, Colors.white, 0.55 * gloss)!,
+            color,
+            shade,
+            deep,
+          ],
+          stops: const [0, 0.38, 0.82, 1],
+        ).createShader(rect),
+    );
+  }
+}
+
+/// 팔·다리 같은 둥근 기둥입니다. 빛 쪽은 밝고 반대쪽은 그늘지게 칠합니다.
+class _Capsule extends _Part {
+  _Capsule(this.view, this.a, this.b, this.ra, this.rb, this.color)
+    : ta = view.turn(a),
+      tb = view.turn(b);
+
+  final _View view;
+  final _V a, b;
+  final double ra, rb;
+  final Color color;
+  final _V ta, tb;
+
+  @override
+  double get depth => (ta.z + tb.z) / 2;
+
+  @override
+  void paint(Canvas canvas) {
+    final pa = view.screen(ta), pb = view.screen(tb);
+    final width = (ra + rb) * view.scale;
+    var axis = pb - pa;
+    if (axis.distance < 0.01) axis = const Offset(0, 1);
+    var perp = Offset(-axis.dy, axis.dx) / axis.distance;
+    // 빛(왼쪽 위) 쪽을 그라데이션 시작으로 둡니다.
+    if (perp.dx > 0 || (perp.dx == 0 && perp.dy > 0)) perp = -perp;
+    final mid = Offset.lerp(pa, pb, 0.5)!;
+    final shade = Color.lerp(color, const Color(0xFF8C9BB3), 0.42)!;
+    final paint = Paint()
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = width
+      ..shader = ui.Gradient.linear(
+        mid + perp * width / 2,
+        mid - perp * width / 2,
+        [Color.lerp(color, Colors.white, 0.5)!, color, shade],
+        const [0.05, 0.45, 1],
+      );
+    canvas.drawLine(pa, pb, paint);
+  }
+}
+
+/// 머리: 구에 눈·코·입·볼을 붙이고, 모자·선글라스를 씌웁니다. 얼굴은 앞을 볼 때만 보입니다.
+class _Head extends _Part {
+  _Head(this.view, this.center, this.r, this.outfit, this.up)
+    : turned = view.turn(center);
+
+  final _View view;
+  final _V center;
+  final double r;
+  final CharacterOutfit outfit;
+  final double up;
+  final _V turned;
+
+  @override
+  double get depth => turned.z + 0.05;
+
+  /// 머리 표면 위 점입니다. [lon]은 좌우(0이 정면), [lat]은 위아래 각도입니다.
+  _V _surface(double lon, double lat, [double lift = 1]) => center.lerp(
+    center +
+        _V(
+          math.sin(lon) * math.cos(lat),
+          math.sin(lat),
+          math.cos(lon) * math.cos(lat),
+        ).scale(r * lift),
+    1,
+  );
+
+  /// 표면 점이 앞을 향하는 정도(0 이하는 안 보임)와 화면 위치입니다.
+  (double, Offset) _feature(double lon, double lat, [double lift = 1.0]) {
+    final p = view.turn(_surface(lon, lat, lift));
+    final facing = (p.z - turned.z) / (r * lift);
+    return (facing, view.screen(p));
+  }
+
+  @override
+  void paint(Canvas canvas) {
+    final at = view.screen(turned);
+    final radius = r * view.scale;
+    final rect = Rect.fromCircle(center: at, radius: radius);
+    const skin = RunnerCharacterPainter._skin;
+    canvas.drawOval(
+      rect,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.35, -0.45),
+          radius: 1.05,
+          colors: [
+            Colors.white,
+            skin,
+            Color.lerp(skin, const Color(0xFF8C9BB3), 0.38)!,
+            Color.lerp(skin, const Color(0xFF6B7A94), 0.55)!,
+          ],
+          stops: const [0, 0.38, 0.82, 1],
+        ).createShader(rect),
+    );
+
+    final o = outfit;
+    final unit = view.scale * r;
+
+    // 얼굴: 볼 → 눈 → 코 → 입. 옆으로 돌수록 납작해지고 뒤로 가면 사라집니다.
+    void oval(double lon, double lat, double w, double h, Color color) {
+      final (facing, p) = _feature(lon, lat);
+      if (facing <= 0.05) return;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: p,
+          width: w * unit * facing.clamp(0.0, 1.0),
+          height: h * unit,
+        ),
+        Paint()..color = color.withValues(alpha: color.a * facing.clamp(0, 1)),
+      );
+    }
+
+    for (final side in [-1.0, 1.0]) {
+      oval(0.62 * side, -0.26, 0.26, 0.15, const Color(0x55FF8FA3));
+    }
+    if (o.glasses == null) {
+      for (final side in [-1.0, 1.0]) {
+        oval(0.34 * side, 0.02, 0.15, 0.24, const Color(0xFF26303F));
+        // 눈 속 반짝임.
+        final (facing, p) = _feature(0.34 * side - 0.05, 0.08);
+        if (facing > 0.2) {
+          canvas.drawCircle(p, unit * 0.04, Paint()..color = Colors.white);
+        }
+      }
+    }
+    oval(0, -0.14, 0.09, 0.06, const Color(0xFFE8B4A6));
+    // 입: 웃는 곡선.
+    final (mouthFacing, _) = _feature(0, -0.34);
+    if (mouthFacing > 0.1) {
+      final left = _feature(-0.17, -0.31).$2;
+      final mid = _feature(0, -0.42).$2;
+      final right = _feature(0.17, -0.31).$2;
+      canvas.drawPath(
+        Path()
+          ..moveTo(left.dx, left.dy)
+          ..quadraticBezierTo(
+            2 * mid.dx - (left.dx + right.dx) / 2,
+            2 * mid.dy - (left.dy + right.dy) / 2,
+            right.dx,
+            right.dy,
+          ),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = unit * 0.06
+          ..color = const Color(0xFF26303F)
+              .withValues(alpha: mouthFacing.clamp(0, 1)),
+      );
+    }
+
+    // 선글라스: 두 렌즈와 다리. 앞을 볼 때 보입니다.
+    if (o.glasses case final lens?) {
+      for (final side in [-1.0, 1.0]) {
+        oval(0.33 * side, 0.03, 0.42, 0.26, lens);
+        final (facing, p) = _feature(0.26 * side, 0.1);
+        if (facing > 0.2) {
+          canvas.drawCircle(
+            p,
+            unit * 0.035,
+            Paint()..color = Colors.white.withValues(alpha: 0.7),
+          );
+        }
+      }
+      final (facing, a) = _feature(-0.12, 0.05);
+      final b = _feature(0.12, 0.05).$2;
+      if (facing > 0.1) {
+        canvas.drawLine(
+          a,
+          b,
+          Paint()
+            ..color = lens
+            ..strokeWidth = unit * 0.05,
+        );
+      }
+    }
+
+    // 모자: 머리 위를 덮는 둥근 덮개와 앞쪽 챙(썬캡은 덮개 없이 띠와 챙), 머리띠는 이마의 띠.
+    if (o.hat case final color?) {
+      final band = Paint()
+        ..color = Color.lerp(color, Colors.black, 0.12)!
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = unit * 0.16
+        ..strokeCap = StrokeCap.round;
+      // 이마 둘레 띠: 보이는 앞쪽 반만 그립니다.
+      final ring = Path();
+      var started = false;
+      // 모자 덮개를 자를 높이: 보이는 띠 중 가장 아래 지점(어느 방향에서 봐도 틈이 없게).
+      var cut = double.negativeInfinity;
+      for (var i = 0; i <= 36; i++) {
+        final lon = -math.pi + i * math.pi * 2 / 36;
+        final (facing, p) = _feature(lon, o.headband ? 0.42 : 0.5, 1.02);
+        if (facing < -0.05) {
+          started = false;
+          continue;
+        }
+        cut = math.max(cut, p.dy);
+        if (!started) {
+          ring.moveTo(p.dx, p.dy);
+          started = true;
+        } else {
+          ring.lineTo(p.dx, p.dy);
+        }
+      }
+      if (!o.headband && !o.visor) {
+        // 덮개: 머리 윗부분을 모자 색 원으로 덮고 위쪽만 남깁니다.
+        canvas.save();
+        canvas.clipRect(
+          Rect.fromLTRB(
+            rect.left - radius,
+            rect.top - radius,
+            rect.right + radius,
+            cut + unit * 0.02,
+          ),
+        );
+        final dome = rect.inflate(unit * 0.04);
+        canvas.drawOval(
+          dome,
+          Paint()
+            ..shader = RadialGradient(
+              center: const Alignment(-0.35, -0.6),
+              colors: [
+                Color.lerp(color, Colors.white, 0.35)!,
+                color,
+                Color.lerp(color, Colors.black, 0.3)!,
+              ],
+              stops: const [0, 0.5, 1],
+            ).createShader(dome),
+        );
+        canvas.restore();
+      }
+      canvas.drawPath(ring, band..color = o.headband ? color : band.color);
+      if (!o.headband) {
+        // 챙: 이마 앞에서 앞으로 튀어나온 납작한 판(돌리면 함께 돕니다).
+        final base = center + const _V(0, 0.15, 0).scale(r / 0.37);
+        final tip = view.turn(base + _V(0, -0.03, r * 1.75));
+        final left = view.turn(base + _V(-r * 0.82, 0, r * 0.75));
+        final right = view.turn(base + _V(r * 0.82, 0, r * 0.75));
+        final mid = view.turn(base + _V(0, 0.02, r * 0.95));
+        final brim = Path()
+          ..moveTo(view.screen(left).dx, view.screen(left).dy)
+          ..quadraticBezierTo(
+            view.screen(tip).dx,
+            view.screen(tip).dy,
+            view.screen(right).dx,
+            view.screen(right).dy,
+          )
+          ..quadraticBezierTo(
+            view.screen(mid).dx,
+            view.screen(mid).dy,
+            view.screen(left).dx,
+            view.screen(left).dy,
+          );
+        // 챙 밑 그늘이 얼굴에 살짝 드리워집니다.
+        canvas.drawPath(
+          brim.shift(Offset(0, unit * 0.08)),
+          Paint()
+            ..color = const Color(0x33203048)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, unit * 0.05),
+        );
+        canvas.drawPath(
+          brim,
+          Paint()..color = Color.lerp(color, Colors.black, 0.18)!,
+        );
+      }
+    }
+  }
+}
+
+/// 캐릭터 뒤 배경: 하늘과 관중석 아래로 운동장 트랙이 원근감 있게 펼쳐집니다.
+class TrackBackgroundPainter extends CustomPainter {
+  const TrackBackgroundPainter({this.dark = false});
+
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final horizon = h * 0.42;
+    // 하늘.
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, horizon),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark
+              ? const [Color(0xFF1B2A4A), Color(0xFF3A5A8C)]
+              : const [Color(0xFF8EC5FF), Color(0xFFDCEEFF)],
+        ).createShader(Rect.fromLTWH(0, 0, w, horizon)),
+    );
+    // 멀리 관중석과 잔디.
+    canvas.drawRect(
+      Rect.fromLTWH(0, horizon - h * 0.07, w, h * 0.07),
+      Paint()..color = dark ? const Color(0xFF2B3B55) : const Color(0xFFB7C6DA),
+    );
+    for (var i = 0; i < 14; i++) {
+      canvas.drawRect(
+        Rect.fromLTWH(
+          i * w / 14 + 2,
+          horizon - h * 0.065,
+          w / 14 - 4,
+          h * 0.012,
+        ),
+        Paint()
+          ..color = dark ? const Color(0xFF3B4E6E) : const Color(0xFFD5DFEC),
+      );
+    }
+    canvas.drawRect(
+      Rect.fromLTWH(0, horizon, w, h * 0.06),
+      Paint()..color = dark ? const Color(0xFF2E6B47) : const Color(0xFF6CC48A),
+    );
+    // 트랙: 아래로 갈수록 넓어지는 붉은 우레탄 바닥과 흰 레인 선.
+    final top = horizon + h * 0.06;
+    canvas.drawRect(
+      Rect.fromLTWH(0, top, w, h - top),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark
+              ? const [Color(0xFF8A3B2C), Color(0xFF6E2E22)]
+              : const [Color(0xFFE2735A), Color(0xFFC85A43)],
+        ).createShader(Rect.fromLTWH(0, top, w, h - top)),
+    );
+    final lane = Paint()
+      ..color = Colors.white.withValues(alpha: dark ? 0.55 : 0.85)
+      ..strokeWidth = 2;
+    const lanes = 7;
+    final vanish = Offset(w * 0.5, horizon - h * 0.25);
+    for (var i = 0; i <= lanes; i++) {
+      final x = -w * 0.6 + i * (w * 2.2) / lanes;
+      final bottom = Offset(x, h);
+      // 아래 끝에서 소실점 쪽으로 가다가 트랙 윗선에서 멈춥니다.
+      final t = (h - top) / (h - vanish.dy);
+      final upper = Offset.lerp(bottom, vanish, t)!;
+      canvas.drawLine(bottom, upper, lane);
+    }
+    canvas.drawLine(
+      Offset(0, top),
+      Offset(w, top),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(TrackBackgroundPainter old) => old.dark != dark;
+}
+
+/// 트랙 배경 위에 선 캐릭터입니다. 좌우로 밀면 돌아가고, 손을 떼면 관성으로 조금 더 돌다 멈춥니다.
+class RunnerCharacterStage extends StatefulWidget {
+  const RunnerCharacterStage({
+    this.outfit = CharacterOutfit.none,
+    this.height = 260,
+    this.interactive = true,
+    this.initialYaw = -0.35,
+    super.key,
+  });
+
+  final CharacterOutfit outfit;
+  final double height;
+  final bool interactive;
+  final double initialYaw;
+
+  @override
+  State<RunnerCharacterStage> createState() => _RunnerCharacterStageState();
+}
+
+class _RunnerCharacterStageState extends State<RunnerCharacterStage>
+    with TickerProviderStateMixin {
+  late double _yaw = widget.initialYaw;
+  double _velocity = 0;
+  late final _breath = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  );
+  late final AnimationController _spin = AnimationController.unbounded(
+    vsync: this,
+  )..addListener(() => setState(() => _yaw = _spin.value));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _breath.stop();
+    } else {
+      _breathe();
+    }
+  }
+
+  /// 숨쉬기는 몇 번만 하고 쉽니다(배터리 절약). 만지면 다시 숨을 쉽니다.
+  void _breathe() {
+    if (_breath.isAnimating || MediaQuery.disableAnimationsOf(context)) return;
+    _breath.repeat(count: 4);
+  }
+
+  @override
+  void dispose() {
+    _breath.dispose();
+    _spin.dispose();
+    super.dispose();
+  }
+
+  void _drag(DragUpdateDetails details) {
+    _spin.stop();
+    _breathe();
+    setState(() => _yaw -= details.delta.dx * 0.018);
+  }
+
+  void _release(DragEndDetails details) {
+    _velocity = -details.velocity.pixelsPerSecond.dx * 0.018;
+    if (_velocity.abs() < 0.2 || MediaQuery.disableAnimationsOf(context)) {
+      return;
+    }
+    // 던진 속도만큼 조금 더 돌다가 천천히 멈춥니다.
+    _spin.value = _yaw;
+    _spin.animateWith(FrictionSimulation(0.08, _yaw, _velocity));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final stage = SizedBox(
+      height: widget.height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CustomPaint(painter: TrackBackgroundPainter(dark: dark)),
+          Padding(
+            padding: EdgeInsets.only(top: widget.height * 0.06),
+            child: AnimatedBuilder(
+              animation: _breath,
+              builder: (context, _) => CustomPaint(
+                key: const ValueKey('runner-character'),
+                painter: RunnerCharacterPainter(
+                  yaw: _yaw,
+                  outfit: widget.outfit,
+                  breath: _breath.value,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!widget.interactive) return stage;
+    return Semantics(
+      label: '내 러너 캐릭터. 좌우로 밀어 돌려 볼 수 있어요.',
+      child: GestureDetector(
+        onHorizontalDragUpdate: _drag,
+        onHorizontalDragEnd: _release,
+        // 두 번 누르면 정면으로 돌아옵니다.
+        onDoubleTap: () {
+          _spin.stop();
+          setState(() => _yaw = widget.initialYaw);
+        },
+        child: stage,
+      ),
+    );
+  }
+}

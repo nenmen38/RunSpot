@@ -7,6 +7,8 @@ import '../chat/chat_room_style.dart';
 import '../crew/crew_controller.dart';
 import '../titles/badge_directory.dart';
 import 'coin_frames.dart';
+import '../character/character_outfit.dart';
+import '../character/runner_character.dart';
 import 'cosmetics.dart';
 import 'shop_item_actions.dart';
 
@@ -19,6 +21,10 @@ class CosmeticPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 캐릭터 꾸미기는 그 아이템을 입은 캐릭터로 보여줍니다.
+    if (item.slot.isCharacter) {
+      return CharacterItemPreview(item: item, size: size);
+    }
     if (item.slot == CosmeticSlot.titleStyle) {
       return SizedBox(
         width: size * 2,
@@ -46,6 +52,7 @@ class CosmeticPreview extends StatelessWidget {
           CosmeticSlot.chatBubble => Icons.chat_bubble,
           CosmeticSlot.titleStyle => Icons.badge,
           CosmeticSlot.shareCard => Icons.image_outlined,
+          _ => Icons.checkroom,
         },
         size: size * .45,
         color: Colors.white,
@@ -89,6 +96,17 @@ Future<void> _showCosmeticPreview(BuildContext context, CosmeticItem item) =>
             ],
           ),
           CosmeticSlot.shareCard => CosmeticPreview(item: item),
+          // 캐릭터 꾸미기는 입은 모습을 좌우로 돌려 볼 수 있습니다.
+          _ => SizedBox(
+            width: 260,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: RunnerCharacterStage(
+                outfit: characterOutfit([item]),
+                height: 260,
+              ),
+            ),
+          ),
         },
         actions: [
           TextButton(
@@ -156,7 +174,11 @@ class CosmeticShop extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('${item.slot.label} · ${item.label}를 살까요?'),
-        content: Text('${formatNumber(price)}코인을 써요. 산 아이템은 보관함에서 착용할 수 있어요.'),
+        content: Text(
+          item.slot.isCharacter
+              ? '${formatNumber(price)}코인을 써요. 산 아이템은 프로필의 내 러너에서 입힐 수 있어요.'
+              : '${formatNumber(price)}코인을 써요. 산 아이템은 보관함에서 착용할 수 있어요.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -177,7 +199,11 @@ class CosmeticShop extends StatelessWidget {
         case final message?) {
       onMessage(message);
     } else {
-      onMessage('${item.label}를 샀어요. 보관함에서 착용해 보세요.');
+      onMessage(
+        item.slot.isCharacter
+            ? '${item.label}를 샀어요. 프로필의 내 러너에서 입혀 보세요.'
+            : '${item.label}를 샀어요. 보관함에서 착용해 보세요.',
+      );
     }
   }
 
@@ -193,10 +219,30 @@ class CosmeticShop extends StatelessWidget {
           for (final slot in CosmeticSlot.values.where(
             (slot) => slot != CosmeticSlot.shareCard,
           )) ...[
-            const SizedBox(height: 20),
+            // 캐릭터 꾸미기는 하나의 큰 묶음 아래 칸별로 보여줍니다.
+            if (slot == CosmeticSlot.charHead) ...[
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Icon(Icons.accessibility_new, color: AppColors.blueText),
+                  const SizedBox(width: 6),
+                  Text(
+                    '내 러너 캐릭터 꾸미기',
+                    style: text.titleLarge?.copyWith(fontSize: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '산 아이템은 프로필의 내 러너 위 꾸미기에서 바로 입혀 볼 수 있어요. 눈 모양을 눌러 미리 돌려 보세요.',
+                style: text.bodySmall,
+              ),
+            ],
+            SizedBox(height: slot.isCharacter ? 14 : 20),
             Text(
               slot.label,
-              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: (slot.isCharacter ? text.titleSmall : text.titleMedium)
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 2),
             Text(slot.description, style: text.bodySmall),
@@ -241,7 +287,8 @@ class CosmeticInventory extends StatelessWidget {
     builder: (context, _) {
       final text = Theme.of(context).textTheme;
       final wallet = controller.wallet;
-      if (wallet == null || wallet.cosmetics.isEmpty) {
+      if (wallet == null ||
+          !wallet.cosmetics.any((item) => !item.slot.isCharacter)) {
         return const SizedBox.shrink();
       }
       Future<void> run(Future<String?> action) async {
@@ -256,8 +303,9 @@ class CosmeticInventory extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 캐릭터 꾸미기는 프로필의 내 러너에서 입히므로 여기서는 뺍니다.
           for (final slot in CosmeticSlot.values.where(
-            (slot) => slot != CosmeticSlot.shareCard,
+            (slot) => slot != CosmeticSlot.shareCard && !slot.isCharacter,
           ))
             if (wallet.cosmetics.any((item) => item.slot == slot)) ...[
               const SizedBox(height: 20),
