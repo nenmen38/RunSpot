@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../network/network_status.dart';
+import '../network/offline_banner.dart';
 import '../theme/app_colors.dart';
 
 /// 화면 전체(또는 목록 자리)에 보여주는 로딩·빈 화면·오류 안내입니다. 모든 화면이 같은 모양을 씁니다.
@@ -38,8 +40,22 @@ class StatusView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_kind != _StatusKind.error) return _build(context, message, icon);
+    // 오류일 때 인터넷이 끊겨 있으면 모든 화면이 같은 오프라인 안내를 보여 주고,
+    // 다시 연결되면 저절로 다시 불러옵니다.
+    return ReconnectListener(
+      onReconnect: onAction,
+      child: ListenableBuilder(
+        listenable: NetworkStatus.instance,
+        builder: (context, _) => NetworkStatus.instance.online
+            ? _build(context, message, icon)
+            : _build(context, offlineMessage, Icons.wifi_off_rounded),
+      ),
+    );
+  }
+
+  Widget _build(BuildContext context, String? message, IconData? icon) {
     final text = Theme.of(context).textTheme;
-    final message = this.message;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -96,17 +112,27 @@ class InlineError extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      const Icon(Icons.error_outline, size: 18, color: AppColors.red),
-      const SizedBox(width: 6),
-      Expanded(
-        child: Text(
-          message,
-          style: Theme.of(context).textTheme.bodyMedium
-              ?.copyWith(color: AppColors.gray),
-        ),
-      ),
-    ],
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: NetworkStatus.instance,
+    builder: (context, _) {
+      final offline = !NetworkStatus.instance.online;
+      return Row(
+        children: [
+          Icon(
+            offline ? Icons.wifi_off_rounded : Icons.error_outline,
+            size: 18,
+            color: offline ? AppColors.gray : AppColors.red,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              offline ? '인터넷에 연결되어 있지 않아요.' : message,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.gray),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }

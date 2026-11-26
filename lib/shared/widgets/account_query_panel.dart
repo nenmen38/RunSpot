@@ -1,3 +1,5 @@
+import '../network/offline_banner.dart';
+
 import 'package:runquest/shared/widgets/status_view.dart';
 
 import 'dart:async';
@@ -127,6 +129,16 @@ class _AccountQueryPanelState<T> extends State<AccountQueryPanel<T>>
   @override
   Widget build(BuildContext context) {
     final value = _value;
+    // 못 불러온 상태에서 인터넷이 다시 연결되면 저절로 다시 불러옵니다.
+    return ReconnectListener(
+      onReconnect: () {
+        if (_failed && !_loading) _load();
+      },
+      child: _content(context, value),
+    );
+  }
+
+  Widget _content(BuildContext context, T? value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

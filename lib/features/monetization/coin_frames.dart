@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/errors/server_error.dart';
+import '../../shared/network/offline_banner.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../shared/widgets/status_view.dart';
 import 'cosmetics.dart';
 import 'shop_item_actions.dart';
 
@@ -778,14 +780,18 @@ class FrameInventory extends StatelessWidget {
           if (controller.loading && wallet == null)
             const LinearProgressIndicator(),
           if (controller.error case final message? when wallet == null)
-            Row(
-              children: [
-                Expanded(child: Text(message)),
-                TextButton(
-                  onPressed: controller.refresh,
-                  child: const Text('다시 시도'),
-                ),
-              ],
+            // 인터넷이 끊겨 못 불러왔으면 연결되는 대로 다시 불러옵니다.
+            ReconnectListener(
+              onReconnect: controller.refresh,
+              child: Row(
+                children: [
+                  Expanded(child: InlineError(message: message)),
+                  TextButton(
+                    onPressed: controller.refresh,
+                    child: const Text('다시 시도'),
+                  ),
+                ],
+              ),
             ),
           if (wallet != null && wallet.owned.isEmpty)
             Container(

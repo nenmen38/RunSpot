@@ -6,6 +6,8 @@ import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
 import '../features/character/runner_character_directory.dart';
+import '../shared/network/network_status.dart';
+import '../shared/network/offline_banner.dart';
 import '../features/social/friend_invite_screen.dart';
 import '../features/watch/watch_bridge.dart';
 import '../features/profile/weekly_goal.dart';
@@ -197,6 +199,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       _notifications = widget.notificationController;
     } else {
       final client = Supabase.instance.client;
+      // 인터넷 연결 상태를 지켜보며 끊기면 맨 위에 오프라인 띠를 보여 줍니다.
+      unawaited(NetworkStatus.instance.start());
       WeeklyGoal.instance.bind(client);
       _blocks = SupabaseBlockService(client);
       _chat = ChatSync(FriendChatService(client))..start();
@@ -478,7 +482,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final layout = _layout(pages, wide: ReadableWidth.isWide(constraints));
+        final layout = OfflineBanner(
+          child: _layout(pages, wide: ReadableWidth.isWide(constraints)),
+        );
         final tour = _tour;
         if (tour == null || !tour.showing) return layout;
         // 처음 실행이면 하단 메뉴를 하나씩 눌러 보는 둘러보기를 위에 띄웁니다.
