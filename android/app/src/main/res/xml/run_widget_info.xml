@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 정보: 4×2 칸, 크기 조절 가능. 앱이 기록을 바꿀 때마다 직접 갱신하므로 주기 갱신은 끕니다. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/run_widget_description"
+    android:initialLayout="@layout/run_widget"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="80dp"
+    android:previewLayout="@layout/run_widget"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯의 '러닝 시작' 버튼: 흰색 알약 모양입니다. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="999dp" />
+    <solid android:color="#FFFFFF" />
+</shape>

@@ -56,6 +56,18 @@
                 <data android:scheme="runspot" android:host="friend" />
             </intent-filter>
         </activity>
+        <!-- 홈 화면 위젯: 이번 주 거리·목표와 바로 러닝 시작 -->
+        <receiver
+            android:name=".RunWidgetProvider"
+            android:exported="false"
+            android:label="@string/run_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/run_widget_info" />
+        </receiver>
         <activity android:name=".HealthPermissionRationaleActivity" android:exported="true">
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />

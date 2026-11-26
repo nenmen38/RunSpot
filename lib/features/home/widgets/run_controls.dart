@@ -23,12 +23,46 @@ class RunControls extends StatefulWidget {
   /// 새 러닝을 시작하기 전 3·2·1을 세는 초입니다. 0이면 바로 시작합니다.
   static int countdownSeconds = 3;
 
+  /// 홈 화면 위젯의 '러닝 시작'처럼 밖에서 시작을 부탁하면 true가 됩니다.
+  /// 시작 버튼이 화면에 있으면 같은 카운트다운으로 시작하고 다시 false로 돌립니다.
+  static final startRequested = ValueNotifier<bool>(false);
+
   @override
   State<RunControls> createState() => _RunControlsState();
 }
 
 class _RunControlsState extends State<RunControls> {
   RunSession? _lockedSession;
+
+  @override
+  void initState() {
+    super.initState();
+    RunControls.startRequested.addListener(_startRequested);
+    // 앱이 막 켜지면서 부탁받은 경우도 처리합니다.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startRequested());
+  }
+
+  @override
+  void dispose() {
+    RunControls.startRequested.removeListener(_startRequested);
+    super.dispose();
+  }
+
+  void _startRequested() {
+    if (!mounted || !RunControls.startRequested.value) return;
+    RunControls.startRequested.value = false;
+    final controller = widget.controller;
+    // 이미 달리는 중이거나 준비 중이면 그대로 둡니다.
+    if (controller.runSession != null ||
+        widget.busy ||
+        controller.startingRun ||
+        controller.savingRun ||
+        controller.groupPreparing ||
+        controller.groupPrepared) {
+      return;
+    }
+    unawaited(_start(context));
+  }
 
   Future<void> _start(BuildContext context) async {
     if (RunControls.countdownSeconds > 0) {

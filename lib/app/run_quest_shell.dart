@@ -6,6 +6,8 @@ import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
 import '../features/character/runner_character_directory.dart';
+import '../features/home/home_widget_sync.dart';
+import '../features/home/widgets/run_controls.dart';
 import '../shared/network/network_status.dart';
 import '../shared/network/offline_banner.dart';
 import '../features/social/friend_invite_screen.dart';
@@ -134,8 +136,16 @@ class _RunQuestShellState extends State<RunQuestShell> {
   int _tab = 0;
   WatchBridge? _watch;
   StreamSubscription<Uri>? _inviteLinks;
+  HomeWidgetSync? _homeWidget;
   Uri? _lastInvite;
   void _openInvite(Uri uri) {
+    // 홈 화면 위젯: runspot://run/start 는 러닝 시작, runspot://home 은 홈 열기입니다.
+    if (mounted &&
+        uri.scheme == 'runspot' &&
+        (uri.host == 'run' || uri.host == 'home')) {
+      _openFromWidget(start: uri.host == 'run' && uri.path == '/start');
+      return;
+    }
     if (!mounted ||
         uri.scheme != 'runspot' ||
         uri.host != 'friend' ||
@@ -154,6 +164,15 @@ class _RunQuestShellState extends State<RunQuestShell> {
           ),
         ),
       );
+    });
+  }
+
+  void _openFromWidget({required bool start}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      setState(() => _tab = 0);
+      if (start) RunControls.startRequested.value = true;
     });
   }
 
@@ -283,6 +302,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       );
       _watch = WatchBridge(_map);
       unawaited(_watch!.start());
+      // 안드로이드 홈 화면 위젯에 이번 주 기록을 계속 맞춰 줍니다.
+      _homeWidget = HomeWidgetSync(history: _map.runHistory)..start();
     }
     _pushSubscription = PushService.instance.destinations.stream.listen(
       _openPush,
@@ -347,6 +368,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   void dispose() {
     _tour?.removeListener(_tourChanged);
     _watch?.dispose();
+    _homeWidget?.dispose();
     _inviteLinks?.cancel();
     if (widget.mapController == null) WeeklyGoal.instance.unbind();
     if (_titles != null) {

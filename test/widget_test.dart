@@ -197,6 +197,17 @@ void main() {
     return controller;
   }
 
+  testWidgets('홈 화면 위젯의 러닝 시작을 누르면 홈에서 바로 러닝을 시작합니다', (tester) async {
+    final controller = await showApp(tester, const Size(390, 844));
+    expect(controller.runSession, isNull);
+    RunControls.startRequested.value = true;
+    await tester.pump();
+    await tester.pump();
+    expect(RunControls.startRequested.value, isFalse);
+    expect(controller.runSession, isNotNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('처음 실행하면 메뉴를 하나씩 직접 눌러 보는 둘러보기를 한 번만 보여줍니다', (tester) async {
     final saved = <String, String>{};
     final tour = AppTour(store: _TourStore(saved));

@@ -30,6 +30,23 @@ class MainActivity : FlutterFragmentActivity() {
                     result.notImplemented()
                 }
             }
+
+        // 홈 화면 위젯에 이번 주 기록을 넘깁니다.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "runspot/home_widget")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "update") {
+                    RunWidgetProvider.save(
+                        this,
+                        call.argument<String>("weekKm") ?: "0.0",
+                        call.argument<Int>("goalKm") ?: 0,
+                        call.argument<Int>("percent") ?: 0,
+                        call.argument<Int>("runs") ?: 0,
+                    )
+                    result.success(null)
+                } else {
+                    result.notImplemented()
+                }
+            }
     }
 
     /**
