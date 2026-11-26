@@ -117,7 +117,8 @@ class RunnerCharacterPainter extends CustomPainter {
       double rz,
       Color color, {
       double gloss = 1,
-    }) => parts.add(_Blob(view, center, rx, ry, rz, color, gloss));
+      double bias = 0,
+    }) => parts.add(_Blob(view, center, rx, ry, rz, color, gloss, bias));
 
     final o = outfit;
     final topColor = o.top ?? _skin;
@@ -125,56 +126,62 @@ class RunnerCharacterPainter extends CustomPainter {
     final bottomColor = o.bottom ?? _skin;
     final up = bob;
 
-    // 다리: 엉덩이에서 발목까지 구를 이어 둥근 기둥처럼 그립니다. 윗다리는 반바지 색입니다.
+    // 게임 캐릭터처럼 머리가 크고 몸은 동글동글, 팔다리는 짤막합니다.
+    // 다리: 짧고 통통한 기둥. 윗부분은 반바지 색입니다.
     for (final side in [-1.0, 1.0]) {
-      final hip = _V(0.13 * side, 0.60 + up, 0);
-      final knee = _V(0.14 * side, 0.33 + up * .5, 0.01);
-      final ankle = _V(0.14 * side, 0.10, 0);
-      _limb(parts, view, hip, knee, 0.105, 0.095, bottomColor, (t) => t < 0.45);
-      _limb(parts, view, hip, knee, 0.105, 0.095, _skin, (t) => t >= 0.45);
-      _limb(parts, view, knee, ankle, 0.09, 0.075, _skin, (_) => true);
-      // 발(신발): 앞으로 길쭉한 타원체와 밑창.
+      final hip = _V(0.15 * side, 0.44 + up * .5, 0);
+      final ankle = _V(0.16 * side, 0.15, 0.01);
+      _limb(parts, view, hip, ankle, 0.12, 0.11, bottomColor, (t) => t < 0.5);
+      _limb(parts, view, hip, ankle, 0.12, 0.11, _skin, (t) => t >= 0.5);
+      // 발(신발): 동그랗고 앞으로 살짝 긴 덩어리와 밑창.
       final shoe = o.shoes ?? _skin;
-      blob(_V(0.14 * side, 0.065, 0.06), 0.085, 0.06, 0.15, shoe);
+      blob(_V(0.17 * side, 0.09, 0.05), 0.13, 0.095, 0.17, shoe);
       if (o.shoes != null) {
         blob(
-          _V(0.14 * side, 0.025, 0.065),
-          0.09,
-          0.025,
-          0.155,
+          _V(0.17 * side, 0.035, 0.055),
+          0.135,
+          0.035,
+          0.175,
           o.shoeAccent ?? Colors.white,
           gloss: 0.4,
         );
       }
     }
 
-    // 엉덩이(반바지)와 몸통(상의).
-    blob(_V(0, 0.66 + up, 0), 0.27, 0.15, 0.19, bottomColor);
-    blob(_V(0, 0.97 + up, 0), 0.30, 0.33, 0.21, topColor);
+    // 몸: 아래는 반바지, 위는 상의를 입은 동글한 콩 모양입니다.
+    blob(_V(0, 0.50 + up, 0), 0.31, 0.16, 0.25, bottomColor);
+    blob(_V(0, 0.70 + up, 0), 0.33, 0.27, 0.27, topColor, bias: 0.01);
 
-    // 팔: 어깨 → 팔꿈치 → 손. 윗팔은 상의 소매, 아랫팔은 팔토시 색입니다.
+    // 팔: 짤막한 팔과 동그란 손. 위는 상의 소매, 아래는 팔토시 색입니다.
     for (final side in [-1.0, 1.0]) {
-      final shoulder = _V(0.33 * side, 1.18 + up, 0);
-      final elbow = _V(0.43 * side, 0.92 + up, 0.03);
-      final wrist = _V(0.45 * side, 0.68 + up, 0.07);
-      _limb(parts, view, shoulder, elbow, 0.085, 0.075, sleeveTop, (_) => true);
+      final shoulder = _V(0.29 * side, 0.84 + up, 0);
+      final wrist = _V(0.44 * side, 0.60 + up, 0.05);
       _limb(
         parts,
         view,
-        elbow,
+        shoulder,
         wrist,
-        0.075,
-        0.068,
-        o.sleeves ?? _skin,
-        (_) => true,
+        0.095,
+        0.085,
+        sleeveTop,
+        (t) => t < 0.4,
       );
-      blob(_V(0.455 * side, 0.63 + up, 0.08), 0.075, 0.075, 0.075, _skin);
+      _limb(
+        parts,
+        view,
+        shoulder,
+        wrist,
+        0.095,
+        0.085,
+        o.sleeves ?? _skin,
+        (t) => t >= 0.4,
+      );
+      blob(_V(0.46 * side, 0.55 + up, 0.06), 0.1, 0.1, 0.1, _skin);
     }
 
-    // 목과 머리(아이처럼 큰 머리로 귀엽게).
-    blob(_V(0, 1.24 + up, 0), 0.10, 0.07, 0.10, _skin);
-    final head = _V(0, 1.58 + up, 0.0);
-    const headR = 0.37;
+    // 큰 머리(몸보다 큼).
+    final head = _V(0, 1.33 + up * 1.4, 0.0);
+    const headR = 0.56;
     parts.add(_Head(view, head, headR, o, up));
 
     // 먼 것부터 그립니다.
@@ -265,18 +272,22 @@ class _Blob extends _Part {
     this.ry,
     this.rz,
     this.color,
-    this.gloss,
-  ) : turned = view.turn(center);
+    this.gloss, [
+    this.bias = 0,
+  ]) : turned = view.turn(center);
 
   final _View view;
   final _V center;
   final double rx, ry, rz;
   final Color color;
   final double gloss;
+
+  /// 같은 깊이일 때 앞에 그릴 순서입니다(상의가 반바지 위로).
+  final double bias;
   final _V turned;
 
   @override
-  double get depth => turned.z;
+  double get depth => turned.z + bias;
 
   @override
   void paint(Canvas canvas) {
@@ -417,26 +428,32 @@ class _Head extends _Part {
       );
     }
 
+    // 볼터치.
     for (final side in [-1.0, 1.0]) {
-      oval(0.62 * side, -0.26, 0.26, 0.15, const Color(0x55FF8FA3));
+      oval(0.56 * side, -0.32, 0.26, 0.14, const Color(0x66FF8FA3));
     }
     if (o.glasses == null) {
       for (final side in [-1.0, 1.0]) {
-        oval(0.34 * side, 0.02, 0.15, 0.24, const Color(0xFF26303F));
-        // 눈 속 반짝임.
-        final (facing, p) = _feature(0.34 * side - 0.05, 0.08);
+        // 크고 동그란 눈과 반짝임 두 개(게임 캐릭터처럼 또랑또랑하게).
+        oval(0.3 * side, -0.1, 0.22, 0.31, const Color(0xFF1F2836));
+        final (facing, p) = _feature(0.3 * side - 0.055, -0.02);
         if (facing > 0.2) {
-          canvas.drawCircle(p, unit * 0.04, Paint()..color = Colors.white);
+          canvas.drawCircle(p, unit * 0.055, Paint()..color = Colors.white);
+        }
+        final (facing2, q) = _feature(0.3 * side + 0.045, -0.18);
+        if (facing2 > 0.2) {
+          canvas.drawCircle(q, unit * 0.025, Paint()..color = Colors.white);
         }
       }
     }
-    oval(0, -0.14, 0.09, 0.06, const Color(0xFFE8B4A6));
-    // 입: 웃는 곡선.
-    final (mouthFacing, _) = _feature(0, -0.34);
+    // 작은 코.
+    oval(0, -0.25, 0.06, 0.04, const Color(0xFFE8B4A6));
+    // 입: 작은 웃는 곡선.
+    final (mouthFacing, _) = _feature(0, -0.38);
     if (mouthFacing > 0.1) {
-      final left = _feature(-0.17, -0.31).$2;
-      final mid = _feature(0, -0.42).$2;
-      final right = _feature(0.17, -0.31).$2;
+      final left = _feature(-0.11, -0.34).$2;
+      final mid = _feature(0, -0.41).$2;
+      final right = _feature(0.11, -0.34).$2;
       canvas.drawPath(
         Path()
           ..moveTo(left.dx, left.dy)
@@ -449,8 +466,8 @@ class _Head extends _Part {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
-          ..strokeWidth = unit * 0.06
-          ..color = const Color(0xFF26303F)
+          ..strokeWidth = unit * 0.045
+          ..color = const Color(0xFF1F2836)
               .withValues(alpha: mouthFacing.clamp(0, 1)),
       );
     }
@@ -458,8 +475,8 @@ class _Head extends _Part {
     // 선글라스: 두 렌즈와 다리. 앞을 볼 때 보입니다.
     if (o.glasses case final lens?) {
       for (final side in [-1.0, 1.0]) {
-        oval(0.33 * side, 0.03, 0.42, 0.26, lens);
-        final (facing, p) = _feature(0.26 * side, 0.1);
+        oval(0.3 * side, -0.09, 0.4, 0.32, lens);
+        final (facing, p) = _feature(0.24 * side, 0.0);
         if (facing > 0.2) {
           canvas.drawCircle(
             p,
@@ -468,8 +485,8 @@ class _Head extends _Part {
           );
         }
       }
-      final (facing, a) = _feature(-0.12, 0.05);
-      final b = _feature(0.12, 0.05).$2;
+      final (facing, a) = _feature(-0.11, -0.05);
+      final b = _feature(0.11, -0.05).$2;
       if (facing > 0.1) {
         canvas.drawLine(
           a,
@@ -495,7 +512,7 @@ class _Head extends _Part {
       var cut = double.negativeInfinity;
       for (var i = 0; i <= 36; i++) {
         final lon = -math.pi + i * math.pi * 2 / 36;
-        final (facing, p) = _feature(lon, o.headband ? 0.42 : 0.5, 1.02);
+        final (facing, p) = _feature(lon, o.headband ? 0.34 : 0.36, 1.02);
         if (facing < -0.05) {
           started = false;
           continue;
@@ -538,7 +555,7 @@ class _Head extends _Part {
       canvas.drawPath(ring, band..color = o.headband ? color : band.color);
       if (!o.headband) {
         // 챙: 이마 앞에서 앞으로 튀어나온 납작한 판(돌리면 함께 돕니다).
-        final base = center + const _V(0, 0.15, 0).scale(r / 0.37);
+        final base = center + _V(0, r * 0.34, 0);
         final tip = view.turn(base + _V(0, -0.03, r * 1.75));
         final left = view.turn(base + _V(-r * 0.82, 0, r * 0.75));
         final right = view.turn(base + _V(r * 0.82, 0, r * 0.75));

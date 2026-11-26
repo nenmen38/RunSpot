@@ -23,11 +23,15 @@ class PrivacyControls extends StatefulWidget {
     this.sharingController,
     this.identityOnly = false,
     this.showIdentity = true,
+    this.extraAction,
     super.key,
   });
   final LiveMapController? sharingController;
   final bool identityOnly;
   final bool showIdentity;
+
+  /// 프로필 편집(연필) 버튼 바로 왼쪽에 둘 버튼입니다(예: 캐릭터 꾸미기).
+  final Widget? extraAction;
 
   @override
   State<PrivacyControls> createState() => _PrivacyControlsState();
@@ -180,6 +184,7 @@ class _PrivacyControlsState extends State<PrivacyControls> {
                 ? () => _editNickname(withPhoto: true)
                 : null,
             editLabel: '프로필 편집',
+            extraAction: widget.extraAction,
           ),
         if (!widget.identityOnly)
           SegmentedButton<String>(
@@ -244,6 +249,7 @@ class ProfileIdentityHeader extends StatelessWidget {
     this.loading = false,
     this.onEdit,
     this.editLabel = '닉네임 변경',
+    this.extraAction,
     super.key,
   });
 
@@ -256,6 +262,9 @@ class ProfileIdentityHeader extends StatelessWidget {
   final bool loading;
   final VoidCallback? onEdit;
   final String editLabel;
+
+  /// 편집 버튼 왼쪽에 놓을 버튼입니다.
+  final Widget? extraAction;
 
   @override
   Widget build(BuildContext context) {
@@ -354,6 +363,7 @@ class ProfileIdentityHeader extends StatelessWidget {
             ],
           ),
         ),
+        ?extraAction,
         if (onEdit != null)
           IconButton(
             onPressed: onEdit,

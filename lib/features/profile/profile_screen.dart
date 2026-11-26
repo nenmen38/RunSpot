@@ -66,8 +66,16 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PrivacyControls(sharingController: mapController, identityOnly: true),
-          // 내 러너 캐릭터: 산 꾸미기 아이템을 입혀 보고 좌우로 돌려 볼 수 있습니다.
+          PrivacyControls(
+            sharingController: mapController,
+            identityOnly: true,
+            // 프로필 편집 버튼 왼쪽의 '꾸미기': 누르면 카테고리별로 캐릭터 아이템을 고릅니다.
+            extraAction: switch (wallet) {
+              final wallet? => CharacterDressButton(wallet: wallet),
+              null => null,
+            },
+          ),
+          // 내 러너 캐릭터: 입은 아이템이 바로 보이고 좌우로 돌려 볼 수 있습니다.
           const SizedBox(height: 16),
           RunnerCharacterCard(wallet: wallet),
           if (progressService != null) ...[

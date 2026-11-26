@@ -54,11 +54,12 @@ class CharacterItemPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 신발은 아래, 모자·선글라스는 위가 잘 보이게 위치를 맞춥니다.
-    final focusFeet = item.slot == CosmeticSlot.charShoes;
-    final focusHead =
-        item.slot == CosmeticSlot.charHead ||
-        item.slot == CosmeticSlot.charEyes;
+    // 신발은 발, 모자·선글라스는 얼굴, 옷은 몸통이 동그라미 가운데 오게 확대합니다.
+    final (zoom, focus) = switch (item.slot) {
+      CosmeticSlot.charShoes => (2.0, 1.6),
+      CosmeticSlot.charHead || CosmeticSlot.charEyes => (1.7, -0.73),
+      _ => (1.6, 0.92),
+    };
     return ExcludeSemantics(
       child: Container(
         width: size,
@@ -70,34 +71,11 @@ class CharacterItemPreview extends StatelessWidget {
           border: Border.all(color: const Color(0xFFD6E6FB), width: 2),
         ),
         child: OverflowBox(
-          maxWidth:
-              size *
-              (focusHead
-                  ? 2.2
-                  : focusFeet
-                  ? 2.0
-                  : 1.3),
-          maxHeight:
-              size *
-              (focusHead
-                  ? 2.2
-                  : focusFeet
-                  ? 2.0
-                  : 1.3),
-          alignment: focusHead
-              ? const Alignment(0, -1.05)
-              : focusFeet
-              ? const Alignment(0, 1.25)
-              : const Alignment(0, -0.1),
+          maxWidth: size * zoom,
+          maxHeight: size * zoom,
+          alignment: Alignment(0, focus),
           child: CustomPaint(
-            size: Size.square(
-              size *
-                  (focusHead
-                      ? 2.2
-                      : focusFeet
-                      ? 2.0
-                      : 1.3),
-            ),
+            size: Size.square(size * zoom),
             painter: RunnerCharacterPainter(
               yaw: -0.45,
               outfit: characterOutfit([item]),
