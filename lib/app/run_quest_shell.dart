@@ -5,6 +5,7 @@ import 'package:runquest/features/titles/title_service.dart';
 import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
+import '../features/character/runner_character_directory.dart';
 import '../features/social/friend_invite_screen.dart';
 import '../features/watch/watch_bridge.dart';
 import '../features/profile/weekly_goal.dart';
@@ -206,6 +207,9 @@ class _RunQuestShellState extends State<RunQuestShell> {
         SupabaseAvatarSource(client),
         reports: AccountRpc(client),
       );
+      RunnerCharacterDirectory.instance.bind(
+        SupabaseRunnerCharacterSource(client),
+      );
       _friends = SupabaseFriendService(client);
       _achievements = SupabaseAchievementService(client);
       final reviews = SupabaseReviewService(client);
@@ -344,6 +348,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
     if (_titles != null) {
       BadgeDirectory.instance.unbind();
       AvatarDirectory.instance.unbind();
+      RunnerCharacterDirectory.instance.unbind();
     }
     _pushSubscription?.cancel();
     _pushMessages?.cancel();

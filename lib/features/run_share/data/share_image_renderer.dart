@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../../shared/formatters/run_format.dart';
+import '../../character/runner_character.dart';
 import '../../run_history/models/run_record.dart';
 import '../../run_history/widgets/run_record_details.dart';
 import '../models/share_route.dart';
@@ -23,6 +24,7 @@ class ShareImageRenderer {
     ShareLayout layout = ShareLayout.centered,
     ShareEdits? edits,
     ShareHighlights? highlights,
+    CharacterOutfit? character,
   }) async {
     if (!height.isFinite || height < 1512 || height > 3240) {
       throw const FormatException('공유 이미지 크기가 올바르지 않습니다.');
@@ -40,6 +42,7 @@ class ShareImageRenderer {
       layout: layout,
       edits: edits,
       highlights: highlights,
+      character: character,
     );
     final picture = recorder.endRecording();
     ui.Image? image;
@@ -67,6 +70,7 @@ class ShareImageRenderer {
     ShareLayout layout = ShareLayout.centered,
     ShareEdits? edits,
     ShareHighlights? highlights,
+    CharacterOutfit? character,
   }) {
     const width = 1080.0;
     const inset = 48.0;
@@ -274,6 +278,19 @@ class ShareImageRenderer {
       else
         ...distinctions,
     ];
+    // 내 러너 캐릭터가 오른쪽 위에서 만세를 합니다(모든 카드 배치에서 비어 있는 자리).
+    if (character != null) {
+      final size = Size(height * .115, height * .15);
+      canvas
+        ..save()
+        ..translate(width - inset - size.width + 8, height * .025);
+      RunnerCharacterPainter(
+        yaw: -0.45,
+        outfit: character,
+        cheer: 1,
+      ).paint(canvas, size);
+      canvas.restore();
+    }
     if (badges.isNotEmpty) {
       final badgeHeight = 18.0 + 36 * badges.length;
       final top = height - badgeHeight - 16;

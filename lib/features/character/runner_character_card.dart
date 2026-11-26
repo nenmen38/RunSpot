@@ -5,6 +5,7 @@ import '../monetization/coin_frames.dart';
 import '../monetization/cosmetics.dart';
 import 'character_outfit.dart';
 import 'runner_character.dart';
+import 'runner_character_directory.dart';
 
 /// 캐릭터 꾸미기 칸(모자·선글라스·상의·하의·팔토시·운동화) 순서입니다.
 final characterSlots = [
@@ -119,6 +120,7 @@ class _CharacterDresser extends StatelessWidget {
     CosmeticItem? item,
   ) async {
     final message = await wallet.equipCosmetic(slot, item);
+    if (message == null) RunnerCharacterDirectory.instance.invalidate();
     if (message != null && context.mounted) {
       ScaffoldMessenger.maybeOf(context)
           ?.showSnackBar(SnackBar(content: Text(message)));

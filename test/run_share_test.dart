@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:runquest/features/character/runner_character.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:runquest/features/run_history/models/run_record.dart';
 import 'package:runquest/features/run_history/models/run_route.dart';
@@ -55,6 +56,7 @@ class Renderer extends ShareImageRenderer {
   Color? textColor;
   bool photoOverlay = false;
   ShareLayout selectedLayout = ShareLayout.centered;
+  CharacterOutfit? character;
   @override
   Future<Uint8List> render(
     RunRecord record, {
@@ -67,7 +69,9 @@ class Renderer extends ShareImageRenderer {
     ShareLayout layout = ShareLayout.centered,
     ShareEdits? edits,
     ShareHighlights? highlights,
+    CharacterOutfit? character,
   }) async {
+    this.character = character;
     options.add((route: route));
     this.edits = edits;
     this.highlights = highlights;
@@ -804,6 +808,36 @@ void main() {
     expect(renderer.selectedLayout, ShareLayout.nightCard);
     expect(find.widgetWithText(ChoiceChip, '미니멀 카드'), findsNothing);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('지갑이 있으면 내 러너 캐릭터를 카드에 넣고 끌 수 있습니다', (tester) async {
+    final renderer = Renderer();
+    final service = FakeWalletService()
+      ..cosmetics.add(CosmeticItem.charCapBlue)
+      ..equippedCosmetics[CosmeticSlot.charHead] = CosmeticItem.charCapBlue;
+    final wallet = WalletController(service);
+    addTearDown(wallet.dispose);
+    await wallet.refresh();
+    await show(tester, renderer, wallet: wallet, settings: true);
+    expect(renderer.character?.hat, isNotNull);
+    final toggle = find.byKey(const ValueKey('share-character'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(renderer.character, isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('캐릭터를 넣은 이미지는 넣지 않은 이미지와 다릅니다', (tester) async {
+    await tester.runAsync(() async {
+      final renderer = ShareImageRenderer();
+      final plain = await renderer.render(record);
+      final withRunner = await renderer.render(
+        record,
+        character: const CharacterOutfit(hat: Colors.blue),
+      );
+      expect(withRunner, isNot(plain));
+    });
   });
 
   testWidgets('무료·구매 템플릿은 서로 다른 이미지를 생성합니다', (tester) async {

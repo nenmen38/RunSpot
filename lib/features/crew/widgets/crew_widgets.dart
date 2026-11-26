@@ -7,6 +7,7 @@ import '../data/crew_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../character/runner_character_directory.dart';
 import '../../titles/badge_directory.dart';
 import '../crew_controller.dart';
 import '../models/crew.dart';
@@ -368,6 +369,18 @@ class CrewTab extends StatelessWidget {
                   style: text.titleSmall,
                 ),
               ),
+              // 크루원들의 캐릭터가 트랙 위에 나란히 서 있습니다.
+              CrewRunnersStrip(
+                members: [
+                  for (final member in crew.members)
+                    (
+                      userId: member.userId,
+                      nickname: member.nickname,
+                      owner: member.isOwner,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
               for (final member in crew.members)
                 ListTile(
                   key: ValueKey('crew-member-${member.userId}'),

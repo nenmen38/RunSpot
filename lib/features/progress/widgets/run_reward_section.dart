@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../character/runner_celebration.dart';
+import '../../character/runner_character.dart';
 import '../data/progress_service.dart';
 import '../models/run_progress.dart';
 import 'level_progress_bar.dart';
@@ -15,9 +17,13 @@ class RunRewardSection extends StatefulWidget {
     required this.runId,
     this.pendingSync = false,
     this.timeout = const Duration(seconds: 15),
+    this.outfit,
     super.key,
   });
   final ProgressService service;
+
+  /// 레벨업 축하에 보여 줄 내 캐릭터 옷차림입니다. 없으면 트로피를 보여 줍니다.
+  final CharacterOutfit? outfit;
   final String runId;
   final bool pendingSync;
   final Duration timeout;
@@ -121,7 +127,7 @@ class _RunRewardSectionState extends State<RunRewardSection> {
         text: '이 기록은 경험치 지급 대상이 아니에요.',
       );
     } else if (_reward != null) {
-      child = _RewardResult(reward: _reward!);
+      child = _RewardResult(reward: _reward!, outfit: widget.outfit);
     } else {
       child = const SizedBox.shrink();
     }
@@ -146,8 +152,9 @@ class _RunRewardSectionState extends State<RunRewardSection> {
 }
 
 class _RewardResult extends StatelessWidget {
-  const _RewardResult({required this.reward});
+  const _RewardResult({required this.reward, this.outfit});
   final RunReward reward;
+  final CharacterOutfit? outfit;
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +169,11 @@ class _RewardResult extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (reward.leveledUp) ...[
-          _LevelUpBanner(from: reward.levelBefore, to: reward.levelAfter),
+          _LevelUpBanner(
+            from: reward.levelBefore,
+            to: reward.levelAfter,
+            outfit: outfit,
+          ),
           const SizedBox(height: 12),
         ],
         Text(
@@ -189,9 +200,10 @@ class _RewardResult extends StatelessWidget {
 }
 
 class _LevelUpBanner extends StatelessWidget {
-  const _LevelUpBanner({required this.from, required this.to});
+  const _LevelUpBanner({required this.from, required this.to, this.outfit});
   final int from;
   final int to;
+  final CharacterOutfit? outfit;
 
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
@@ -210,7 +222,15 @@ class _LevelUpBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.emoji_events, color: Colors.white, size: 30),
+          // 내 캐릭터가 만세하며 반짝입니다(캐릭터 정보가 없으면 트로피).
+          switch (outfit) {
+            final outfit? => LevelUpRunner(outfit: outfit, size: 58),
+            null => const Icon(
+              Icons.emoji_events,
+              color: Colors.white,
+              size: 30,
+            ),
+          },
           const SizedBox(width: 10),
           Expanded(
             child: Column(

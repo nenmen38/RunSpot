@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:runquest/features/profile/reportable_avatar_header.dart';
 
 import '../../shared/widgets/account_query_panel.dart';
+import '../character/runner_character_directory.dart';
 import '../../shared/widgets/page_layout.dart';
 import '../../shared/widgets/panel.dart';
 import '../profile/widgets/achievement_row.dart';
@@ -72,6 +73,9 @@ class _ProfileContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ReportableAvatarHeader(userId: userId, nickname: nickname, size: 56),
+              const SizedBox(height: 12),
+              // 친구가 꾸민 러너 캐릭터를 좌우로 돌려 볼 수 있습니다.
+              UserRunnerCharacter(userId: userId, height: 220),
               const SizedBox(height: 12),
               if (details != null) ...[
                 Text(

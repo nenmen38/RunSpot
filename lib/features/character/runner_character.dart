@@ -73,6 +73,8 @@ class RunnerCharacterPainter extends CustomPainter {
     this.outfit = CharacterOutfit.none,
     this.breath = 0,
     this.ground = true,
+    this.cheer = 0,
+    this.hop = 0,
   });
 
   final double yaw;
@@ -84,6 +86,12 @@ class RunnerCharacterPainter extends CustomPainter {
   /// 발밑 그림자를 그릴지입니다.
   final bool ground;
 
+  /// 0~1 만세 자세입니다. 1이면 두 팔을 V자로 번쩍 듭니다.
+  final double cheer;
+
+  /// 점프 높이(캐릭터 키 기준, 0이면 땅)입니다. 그림자는 땅에 남아 작아집니다.
+  final double hop;
+
   static const _skin = Color(0xFFF6F8FC);
   static const _pitch = 0.16;
 
@@ -91,15 +99,17 @@ class RunnerCharacterPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // 캐릭터 키(약 2.0)를 칸 높이에 맞춥니다.
     final scale = math.min(size.height / 2.25, size.width / 1.35);
-    final origin = Offset(size.width / 2, size.height * 0.94);
+    final ground0 = Offset(size.width / 2, size.height * 0.94);
+    final origin = ground0 - Offset(0, hop * scale);
     final bob = math.sin(breath * math.pi * 2) * 0.012;
     final view = _View(yaw, _pitch, scale, origin);
 
     if (ground) {
+      final shrink = 1 / (1 + hop * 2.5);
       final shadow = Rect.fromCenter(
-        center: origin + Offset(0, -scale * 0.01),
-        width: scale * 0.95,
-        height: scale * 0.22,
+        center: ground0 + Offset(0, -scale * 0.01),
+        width: scale * 0.95 * shrink,
+        height: scale * 0.22 * shrink,
       );
       canvas.drawOval(
         shadow,
@@ -155,7 +165,12 @@ class RunnerCharacterPainter extends CustomPainter {
     // 팔: 짤막한 팔과 동그란 손. 위는 상의 소매, 아래는 팔토시 색입니다.
     for (final side in [-1.0, 1.0]) {
       final shoulder = _V(0.29 * side, 0.84 + up, 0);
-      final wrist = _V(0.44 * side, 0.60 + up, 0.05);
+      // 만세(cheer)일수록 팔이 V자로 위로 올라갑니다.
+      final wrist = _V(
+        0.44 * side,
+        0.60 + up,
+        0.05,
+      ).lerp(_V(0.66 * side, 1.02 + up, 0.06), cheer);
       _limb(
         parts,
         view,
@@ -176,7 +191,17 @@ class RunnerCharacterPainter extends CustomPainter {
         o.sleeves ?? _skin,
         (t) => t >= 0.4,
       );
-      blob(_V(0.46 * side, 0.55 + up, 0.06), 0.1, 0.1, 0.1, _skin);
+      blob(
+        _V(
+          0.46 * side,
+          0.55 + up,
+          0.06,
+        ).lerp(_V(0.71 * side, 1.07 + up, 0.07), cheer),
+        0.1,
+        0.1,
+        0.1,
+        _skin,
+      );
     }
 
     // 큰 머리(몸보다 큼).
@@ -224,7 +249,11 @@ class RunnerCharacterPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(RunnerCharacterPainter old) =>
-      old.yaw != yaw || old.outfit != outfit || old.breath != breath;
+      old.yaw != yaw ||
+      old.outfit != outfit ||
+      old.breath != breath ||
+      old.cheer != cheer ||
+      old.hop != hop;
 }
 
 /// 3D 점입니다(x 오른쪽, y 위, z 앞쪽).

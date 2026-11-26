@@ -1,3 +1,5 @@
+import '../character/character_outfit.dart';
+import '../character/runner_character_card.dart';
 import '../monetization/coin_frames.dart';
 
 import 'dart:async';
@@ -64,6 +66,9 @@ class _RunShareScreenState extends State<RunShareScreen> {
   Color? _textColor;
   ShareLayout _layout = ShareLayout.centered;
   bool _includeRoute = false;
+
+  /// 내 러너 캐릭터를 카드 오른쪽 아래에 넣을지입니다(지갑이 있으면 기본으로 넣음).
+  late bool _withCharacter = widget.wallet != null;
   EditedShare? _customDraft;
   final _templateDrafts = <ShareLayout, EditedShare>{};
   bool _customSelected = false;
@@ -172,6 +177,9 @@ class _RunShareScreenState extends State<RunShareScreen> {
         route: draft == null ? (_includeRoute ? _route : null) : draft.route,
         edits: draft?.edits,
         highlights: _highlights,
+        character: _withCharacter && widget.wallet != null
+            ? characterOutfit(wornCharacterItems(widget.wallet!.wallet).values)
+            : null,
         background: _photo,
         dark: _dark,
         height: height,
@@ -532,6 +540,12 @@ class _RunShareScreenState extends State<RunShareScreen> {
     await _render(keepPreview: true);
   }
 
+  Future<void> _selectCharacter(bool selected) async {
+    if (_busy || !widget.isCurrentOwner()) return;
+    setState(() => _withCharacter = selected);
+    await _render();
+  }
+
   Future<void> _selectRoute(bool selected) async {
     if (_busy || !widget.isCurrentOwner()) return;
     if (!selected) {
@@ -813,6 +827,15 @@ class _RunShareScreenState extends State<RunShareScreen> {
           title: const Text('성과·칭호·업적 넣기'),
           trailing: const Icon(Icons.chevron_right),
           onTap: _busy ? null : _selectHighlights,
+        ),
+      if (widget.wallet != null)
+        SwitchListTile(
+          key: const ValueKey('share-character'),
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.emoji_people_outlined),
+          title: const Text('내 러너 캐릭터 넣기'),
+          value: _withCharacter,
+          onChanged: _busy ? null : _selectCharacter,
         ),
       const SizedBox(height: 16),
       if (widget.templateStore != null &&

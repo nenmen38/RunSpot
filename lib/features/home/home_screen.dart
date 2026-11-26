@@ -44,6 +44,9 @@ import 'live_map_controller.dart';
 import 'widgets/run_controls.dart';
 import 'widgets/run_completion_screen.dart';
 import '../run_share/models/share_route.dart';
+import '../character/character_outfit.dart';
+import '../character/runner_celebration.dart';
+import '../character/runner_character_card.dart';
 
 /// 함께 달리기를 신청한 사람이 테두리를 착용하지 않았을 때 쓰는 무리 오라 색입니다.
 const defaultCrewColor = '#8B5CF6';
@@ -334,7 +337,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   service: progress,
                   runId: record.id,
                   pendingSync: record.pendingSync,
+                  outfit: characterOutfit(
+                    wornCharacterItems(widget.wallet?.wallet).values,
+                  ),
                 ),
+              // 내 캐릭터가 깡충 뛰며 완주를 축하합니다.
+              RunnerCelebration.forWallet(widget.wallet),
               if (widget.controller.sharingPreferenceService != null)
                 ListenableBuilder(
                   listenable: widget.controller,
