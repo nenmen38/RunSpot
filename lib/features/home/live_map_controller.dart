@@ -76,6 +76,30 @@ class LiveMapController extends ChangeNotifier {
     _notify();
   }
 
+  String? _lastCheckpointKey;
+
+  /// 5초마다 부르지만, 멈춰 있거나 일시정지 중이라 바뀐 게 없으면 기기에 다시 쓰지 않습니다
+  /// (러닝이 길어질수록 커지는 경로 전체를 매번 쓰지 않아 배터리를 아낍니다).
+  /// 위치가 안 들어와도 흐르는 시간은 30초마다 한 번씩 남겨 둡니다.
+  Future<void> _saveCheckpointIfChanged() async {
+    final session = runSession;
+    if (session == null) return;
+    final key = [
+      session.distanceMeters.toStringAsFixed(1),
+      session.routeSegments.fold<int>(
+        0,
+        (sum, segment) => sum + segment.length,
+      ),
+      session.isRunning,
+      session.isAutoPaused,
+      session.isFinished,
+      session.duration.inSeconds ~/ 30,
+    ].join('|');
+    if (key == _lastCheckpointKey) return;
+    _lastCheckpointKey = key;
+    await _saveCheckpoint();
+  }
+
   Future<void> _saveCheckpoint({
     bool finishing = false,
     bool discarded = false,
@@ -203,7 +227,7 @@ class LiveMapController extends ChangeNotifier {
         checkpointStore != null) {
       _checkpointTimer ??= Timer.periodic(
         const Duration(seconds: 5),
-        (_) => unawaited(_saveCheckpoint()),
+        (_) => unawaited(_saveCheckpointIfChanged()),
       );
     }
     _notify();
@@ -616,7 +640,7 @@ class LiveMapController extends ChangeNotifier {
           checkpointStore != null) {
         _checkpointTimer ??= Timer.periodic(
           const Duration(seconds: 5),
-          (_) => unawaited(_saveCheckpoint()),
+          (_) => unawaited(_saveCheckpointIfChanged()),
         );
       }
     } on LocationFailure catch (error, stack) {

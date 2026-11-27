@@ -1,5 +1,8 @@
 import 'dart:async';
 
+// flutter_test에 함께 들어 있는 가짜 시계로 5초 주기 저장을 빠르게 확인합니다.
+// ignore: depend_on_referenced_packages
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:runquest/features/home/data/location_service.dart';
 import 'package:runquest/features/home/data/run_checkpoint_store.dart';
@@ -20,8 +23,11 @@ class _CheckpointStore implements RunCheckpointStore {
   @override
   Future<RunCheckpoint?> load() async => checkpoint;
 
+  int saves = 0;
+
   @override
   Future<void> save(RunCheckpoint value) async {
+    saves++;
     await pendingSave?.future;
     checkpoint = value;
   }
@@ -92,6 +98,36 @@ void main() {
       expect(controller.runSession!.isRunning, isTrue);
     });
   }
+
+  test('일시정지 중처럼 바뀐 게 없으면 5초마다 기기에 다시 쓰지 않습니다', () {
+    fakeAsync((async) {
+      // 가짜 시계 안에서 만든 컨트롤러여야 저장 작업도 가짜 시계로 처리됩니다.
+      final store = _CheckpointStore();
+      final paused = LiveMapController(
+        locationService: location,
+        runnerService: service,
+        runHistory: RunHistoryController(
+          FakeRunRecordService(),
+          outbox: FakeRunOutbox(),
+        ),
+        checkpointStore: store,
+      );
+      paused.start();
+      async.flushMicrotasks();
+      paused.startRun();
+      async.flushMicrotasks();
+      expect(paused.runSession?.isRunning, isTrue);
+      paused.pauseRun();
+      async.elapse(const Duration(seconds: 6));
+      final before = store.saves;
+      expect(before, greaterThan(0));
+      // 일시정지한 채 1분이 지나도 같은 내용은 다시 쓰지 않습니다.
+      async.elapse(const Duration(minutes: 1));
+      expect(store.saves - before, lessThanOrEqualTo(2));
+      paused.dispose();
+      async.flushMicrotasks();
+    });
+  });
 
   test('홈 조회는 러닝이나 위치 공개 없이 주변 러너를 표시합니다', () async {
     service.runners = [
