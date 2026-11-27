@@ -164,7 +164,13 @@ enum CosmeticItem {
   ], unlockLevel: 10),
   charSingletGold('char_singlet_gold', CosmeticSlot.charTop, '챔피언 골드 싱글렛', 0, [
     Color(0xFFF5B700),
-  ], unlockLevel: 20);
+  ], unlockLevel: 20),
+
+  // 챌린지 보상: 12월 챌린지 세 가지를 모두 마치면 선물로 받습니다.
+  charCapSanta('char_cap_santa', CosmeticSlot.charHead, '산타 러닝캡', 0, [
+    Color(0xFFE11D48),
+    Color(0xFFFFFFFF),
+  ], challengeMonth: 12);
 
   const CosmeticItem(
     this.code,
@@ -173,11 +179,32 @@ enum CosmeticItem {
     this.defaultPrice,
     this.colors, {
     this.unlockLevel,
+    this.challengeMonth,
   });
 
   /// 레벨 보상 아이템이면 받을 수 있는 레벨입니다(상점에서 살 수 없음).
   final int? unlockLevel;
   bool get isLevelReward => unlockLevel != null;
+
+  /// 챌린지 보상이면 그 달(1~12)입니다(상점에서 살 수 없음).
+  final int? challengeMonth;
+
+  /// 레벨·챌린지로만 받는 아이템인지입니다.
+  bool get isReward => unlockLevel != null || challengeMonth != null;
+
+  /// 상점 버튼에 쓰는 짧은 받는 방법입니다(예: 'Lv.5 선물', '12월 챌린지').
+  String? get rewardButton => switch ((unlockLevel, challengeMonth)) {
+    (final level?, _) => 'Lv.$level 선물',
+    (_, final month?) => '$month월 챌린지',
+    _ => null,
+  };
+
+  /// 상점 설명에 쓰는 받는 방법입니다.
+  String? get rewardNote => switch ((unlockLevel, challengeMonth)) {
+    (final level?, _) => '레벨 $level 달성 보상 · 무료',
+    (_, final month?) => '$month월 챌린지 완주 보상 · 무료',
+    _ => null,
+  };
   final String code;
   final CosmeticSlot slot;
   final String label;

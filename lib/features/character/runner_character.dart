@@ -18,10 +18,14 @@ class CharacterOutfit {
     this.shoes,
     this.shoeAccent,
     this.visor = false,
+    this.hatTrim,
   });
 
   /// 모자 색입니다. [visor]면 윗부분이 뚫린 썬캡, [headband]면 머리띠로 그립니다.
   final Color? hat;
+
+  /// 모자 테두리와 꼭대기 방울 색입니다(산타 모자처럼). 없으면 모자보다 조금 어두운 띠입니다.
+  final Color? hatTrim;
   final bool headband;
   final bool visor;
   final Color? glasses;
@@ -40,6 +44,7 @@ class CharacterOutfit {
   bool operator ==(Object other) =>
       other is CharacterOutfit &&
       other.hat == hat &&
+      other.hatTrim == hatTrim &&
       other.headband == headband &&
       other.visor == visor &&
       other.glasses == glasses &&
@@ -53,6 +58,7 @@ class CharacterOutfit {
   @override
   int get hashCode => Object.hash(
     hat,
+    hatTrim,
     headband,
     visor,
     glasses,
@@ -530,7 +536,7 @@ class _Head extends _Part {
     // 모자: 머리 위를 덮는 둥근 덮개와 앞쪽 챙(썬캡은 덮개 없이 띠와 챙), 머리띠는 이마의 띠.
     if (o.hat case final color?) {
       final band = Paint()
-        ..color = Color.lerp(color, Colors.black, 0.12)!
+        ..color = o.hatTrim ?? Color.lerp(color, Colors.black, 0.12)!
         ..style = PaintingStyle.stroke
         ..strokeWidth = unit * 0.16
         ..strokeCap = StrokeCap.round;
@@ -613,6 +619,20 @@ class _Head extends _Part {
         canvas.drawPath(
           brim,
           Paint()..color = Color.lerp(color, Colors.black, 0.18)!,
+        );
+      }
+      // 산타 모자처럼 테두리 색이 있으면 꼭대기에 동그란 방울을 답니다.
+      if (o.hatTrim case final trim? when !o.headband && !o.visor) {
+        final top = view.screen(view.turn(center + _V(0, r * 1.04, 0)));
+        final ball = Rect.fromCircle(center: top, radius: unit * 0.17);
+        canvas.drawOval(
+          ball,
+          Paint()
+            ..shader = RadialGradient(
+              center: const Alignment(-0.35, -0.45),
+              colors: [Colors.white, trim, Color.lerp(trim, Colors.black, .2)!],
+              stops: const [0, 0.55, 1],
+            ).createShader(ball),
         );
       }
     }

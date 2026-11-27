@@ -253,11 +253,11 @@ class CosmeticShop extends StatelessWidget {
                 item: item,
                 trailing: wallet?.cosmetics.contains(item) == true
                     ? const OutlinedButton(onPressed: null, child: Text('보유 중'))
-                    // 레벨 보상은 살 수 없고, 레벨에 도달하면 자동으로 받습니다.
-                    : item.isLevelReward
+                    // 레벨·챌린지 보상은 살 수 없고, 조건을 채우면 자동으로 받습니다.
+                    : item.isReward
                     ? OutlinedButton(
                         onPressed: null,
-                        child: Text('Lv.${item.unlockLevel} 선물'),
+                        child: Text(item.rewardButton!),
                       )
                     : FilledButton(
                         onPressed: wallet == null || controller.busy
@@ -265,11 +265,9 @@ class CosmeticShop extends StatelessWidget {
                             : () => _buy(context, item),
                         child: const Text('구매'),
                       ),
-                subtitle: switch (item.unlockLevel) {
-                  final level? => '레벨 $level 달성 보상 · 무료',
-                  null =>
+                subtitle:
+                    item.rewardNote ??
                     '${formatNumber(wallet?.priceOf(item) ?? item.defaultPrice)}코인',
-                },
                 onPreview: () => _showCosmeticPreview(context, item),
               ),
           ],

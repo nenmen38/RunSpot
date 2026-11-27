@@ -5,7 +5,7 @@ import 'runner_character.dart';
 
 /// 착용한 캐릭터 꾸미기 아이템으로 캐릭터 옷차림을 만듭니다.
 CharacterOutfit characterOutfit(Iterable<CosmeticItem?> worn) {
-  Color? hat, glasses, top, bottom, sleeves, shoes, shoeAccent;
+  Color? hat, hatTrim, glasses, top, bottom, sleeves, shoes, shoeAccent;
   var headband = false, visor = false, singlet = false;
   for (final item in worn) {
     if (item == null || !item.slot.isCharacter) continue;
@@ -13,6 +13,7 @@ CharacterOutfit characterOutfit(Iterable<CosmeticItem?> worn) {
     switch (item.slot) {
       case CosmeticSlot.charHead:
         hat = color;
+        hatTrim = item == CosmeticItem.charCapSanta ? item.colors[1] : null;
         headband =
             item == CosmeticItem.charHeadbandRed ||
             item == CosmeticItem.charHeadbandGold;
@@ -37,6 +38,7 @@ CharacterOutfit characterOutfit(Iterable<CosmeticItem?> worn) {
   }
   return CharacterOutfit(
     hat: hat,
+    hatTrim: hatTrim,
     headband: headband,
     visor: visor,
     glasses: glasses,
