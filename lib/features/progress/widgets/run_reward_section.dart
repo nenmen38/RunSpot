@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../feedback/review_prompt.dart';
+import '../../monetization/cosmetics.dart';
 import '../../character/runner_celebration.dart';
 import '../../character/runner_character.dart';
 import '../data/progress_service.dart';
@@ -251,6 +252,20 @@ class _LevelUpBanner extends StatelessWidget {
                   'Lv.$from → Lv.$to ${levelTitle(to)}',
                   style: const TextStyle(color: Colors.white),
                 ),
+                // 이번 레벨 업으로 받은 캐릭터 선물을 알려 줍니다.
+                for (final item in CosmeticItem.values.where(
+                  (item) =>
+                      item.unlockLevel != null &&
+                      item.unlockLevel! > from &&
+                      item.unlockLevel! <= to,
+                ))
+                  Text(
+                    '🎁 ${item.label}${_objectParticle(item.label)} 선물로 받았어요!',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -278,4 +293,12 @@ class _Notice extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// 받침이 있으면 '을', 없으면 '를'을 붙입니다(예: 싱글렛을, 헤어밴드를).
+String _objectParticle(String word) {
+  if (word.isEmpty) return '를';
+  final code = word.runes.last;
+  if (code < 0xAC00 || code > 0xD7A3) return '를';
+  return (code - 0xAC00) % 28 == 0 ? '를' : '을';
 }

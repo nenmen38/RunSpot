@@ -152,15 +152,32 @@ enum CosmeticItem {
   charShoesCarbon('char_shoes_carbon', CosmeticSlot.charShoes, '카본 레이싱화', 450, [
     Color(0xFF111827),
     Color(0xFFF97316),
-  ]);
+  ]),
+
+  // 레벨 보상: 상점에서 살 수 없고, 레벨에 도달하면 자동으로 선물로 받습니다.
+  charHeadbandGold('char_headband_gold', CosmeticSlot.charHead, '골드 헤어밴드', 0, [
+    Color(0xFFF5B700),
+  ], unlockLevel: 5),
+  charShoesRainbow('char_shoes_rainbow', CosmeticSlot.charShoes, '무지개 러닝화', 0, [
+    Color(0xFF8B5CF6),
+    Color(0xFFFFD43B),
+  ], unlockLevel: 10),
+  charSingletGold('char_singlet_gold', CosmeticSlot.charTop, '챔피언 골드 싱글렛', 0, [
+    Color(0xFFF5B700),
+  ], unlockLevel: 20);
 
   const CosmeticItem(
     this.code,
     this.slot,
     this.label,
     this.defaultPrice,
-    this.colors,
-  );
+    this.colors, {
+    this.unlockLevel,
+  });
+
+  /// 레벨 보상 아이템이면 받을 수 있는 레벨입니다(상점에서 살 수 없음).
+  final int? unlockLevel;
+  bool get isLevelReward => unlockLevel != null;
   final String code;
   final CosmeticSlot slot;
   final String label;

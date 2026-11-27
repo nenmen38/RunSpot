@@ -13,13 +13,17 @@ CharacterOutfit characterOutfit(Iterable<CosmeticItem?> worn) {
     switch (item.slot) {
       case CosmeticSlot.charHead:
         hat = color;
-        headband = item == CosmeticItem.charHeadbandRed;
+        headband =
+            item == CosmeticItem.charHeadbandRed ||
+            item == CosmeticItem.charHeadbandGold;
         visor = item == CosmeticItem.charVisorWhite;
       case CosmeticSlot.charEyes:
         glasses = color;
       case CosmeticSlot.charTop:
         top = color;
-        singlet = item == CosmeticItem.charSingletOrange;
+        singlet =
+            item == CosmeticItem.charSingletOrange ||
+            item == CosmeticItem.charSingletGold;
       case CosmeticSlot.charBottom:
         bottom = color;
       case CosmeticSlot.charSleeves:
