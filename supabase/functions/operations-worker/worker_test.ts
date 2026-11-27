@@ -70,6 +70,20 @@ Deno.test("좋아요·크루 초대도 알림 종류로 받음", () => {
       "크루 초대가 도착했어요.",
   );
 });
+Deno.test("러닝 응원 알림은 서버 문구를 그대로 보냄", () => {
+  const value = payload({
+    ...delivery,
+    kind: "comeback",
+    title: "뜀터",
+    body: "러너가 운동화를 신고 기다리고 있어요",
+  });
+  assert(value.message.notification.title === "뜀터");
+  assert(value.message.notification.body === "러너가 운동화를 신고 기다리고 있어요");
+  assert(
+    payload({ ...delivery, kind: "comeback" }).message.notification.body ===
+      "러너가 기다리고 있어요. 오늘 가볍게 달려 볼까요?",
+  );
+});
 Deno.test("기기 등록 해제만 토큰을 폐기하고 설정 오류와 일시 장애는 구분함", async () => {
   const response = (status: number, code: string) =>
     (() =>

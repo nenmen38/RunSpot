@@ -78,6 +78,7 @@ void main() {
       'goalKm': 10,
       'percent': 52,
       'runs': 1,
+      'streak': 0,
     });
     goal.kilometers = 5;
     await sync.push();

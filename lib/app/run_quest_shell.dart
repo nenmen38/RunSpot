@@ -8,6 +8,7 @@ import 'package:app_links/app_links.dart';
 import '../features/character/runner_character_directory.dart';
 import '../features/feedback/review_prompt.dart';
 import '../features/home/home_widget_sync.dart';
+import '../features/profile/running_streak.dart';
 import '../features/home/widgets/run_controls.dart';
 import '../shared/network/network_status.dart';
 import '../shared/network/offline_banner.dart';
@@ -305,6 +306,10 @@ class _RunQuestShellState extends State<RunQuestShell> {
       );
       _watch = WatchBridge(_map);
       unawaited(_watch!.start());
+      // 연속 기록은 러닝 기록·주간 목표가 바뀔 때마다 다시 읽습니다.
+      RunningStreakStore.instance.bind(Supabase.instance.client);
+      _map.runHistory.addListener(RunningStreakStore.instance.refreshSoon);
+      WeeklyGoal.instance.addListener(RunningStreakStore.instance.refreshSoon);
       // 안드로이드 홈 화면 위젯에 이번 주 기록을 계속 맞춰 줍니다.
       _homeWidget = HomeWidgetSync(history: _map.runHistory)..start();
     }
@@ -371,6 +376,13 @@ class _RunQuestShellState extends State<RunQuestShell> {
   void dispose() {
     _tour?.removeListener(_tourChanged);
     _watch?.dispose();
+    if (_homeWidget != null) {
+      _map.runHistory.removeListener(RunningStreakStore.instance.refreshSoon);
+      WeeklyGoal.instance.removeListener(
+        RunningStreakStore.instance.refreshSoon,
+      );
+      RunningStreakStore.instance.unbind();
+    }
     _homeWidget?.dispose();
     _inviteLinks?.cancel();
     if (widget.mapController == null) WeeklyGoal.instance.unbind();
@@ -401,6 +413,11 @@ class _RunQuestShellState extends State<RunQuestShell> {
     }
     PushService.instance.pending = null;
     Navigator.of(context).popUntil((route) => route.isFirst);
+    // 러닝 응원 알림을 누르면 바로 달릴 수 있게 홈을 엽니다.
+    if (destination.kind == 'comeback') {
+      setState(() => _tab = 0);
+      return;
+    }
     if (destination.kind == 'board_comment' ||
         destination.kind == 'board_like') {
       unawaited(_openPost(destination.targetId));

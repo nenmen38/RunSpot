@@ -8,6 +8,7 @@ import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:flutter/material.dart';
 import 'package:runquest/features/character/character_outfit.dart';
 import 'package:runquest/features/character/runner_character_card.dart';
+import 'package:runquest/features/profile/running_streak.dart';
 import 'package:runquest/features/report/running_report.dart';
 import 'package:runquest/features/report/running_report_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -121,6 +122,8 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 12),
               WeeklyGoalSummary(service: service),
             ],
+            // 주간 목표를 몇 주 연속 지켰는지 보여 줍니다(기록이 없으면 숨김).
+            const RunningStreakCard(),
             if (wallet case final controller?)
               WeeklyQuestPanel(controller: controller),
             if (commerceClient case final client?) ...[

@@ -74,6 +74,14 @@ const pushPreferenceGroups = [
       Icons.favorite_border,
     ),
   ]),
+  PushPreferenceGroup('러닝', [
+    PushPreferenceItem(
+      'comeback',
+      '러닝 응원',
+      '며칠 동안 달리지 않으면 내 러너가 저녁에 한 번 응원해요',
+      Icons.directions_run_outlined,
+    ),
+  ]),
   PushPreferenceGroup('표시 방식', [
     PushPreferenceItem(
       'show_preview',

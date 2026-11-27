@@ -76,6 +76,7 @@ export function payload(delivery: Delivery) {
     room_message: "단체 대화방에 새 메시지가 도착했어요.",
     board_like: "내 글에 좋아요가 달렸어요.",
     crew_invite: "크루 초대가 도착했어요.",
+    comeback: "러너가 기다리고 있어요. 오늘 가볍게 달려 볼까요?",
   } as Record<string, string>)[delivery.kind];
   // 친구 메시지는 보낸 친구별로 알림 하나에 덮어써서 연달아 와도 쌓이지 않게 합니다.
   const group = delivery.kind === "friend_message"

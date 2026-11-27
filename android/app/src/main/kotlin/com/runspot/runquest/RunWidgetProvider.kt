@@ -24,12 +24,13 @@ class RunWidgetProvider : AppWidgetProvider() {
         private const val PREFS = "runspot_home_widget"
 
         /** 앱이 보낸 이번 주 기록을 저장하고 놓여 있는 위젯을 모두 새로 그립니다. */
-        fun save(context: Context, weekKm: String, goalKm: Int, percent: Int, runs: Int) {
+        fun save(context: Context, weekKm: String, goalKm: Int, percent: Int, runs: Int, streak: Int) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString("week_km", weekKm)
                 .putInt("goal_km", goalKm)
                 .putInt("percent", percent)
                 .putInt("runs", runs)
+                .putInt("streak", streak)
                 .apply()
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, RunWidgetProvider::class.java))
@@ -44,16 +45,19 @@ class RunWidgetProvider : AppWidgetProvider() {
                 val goal = prefs.getInt("goal_km", 0)
                 val percent = prefs.getInt("percent", 0).coerceIn(0, 100)
                 val runs = prefs.getInt("runs", 0)
+                // 2주 이상 연속이면 목표 줄 끝에 🔥 연속 기록을 붙입니다.
+                val streak = prefs.getInt("streak", 0)
+                val fire = if (streak >= 2) " · 🔥${streak}주 연속" else ""
                 views.setTextViewText(R.id.widget_distance, "$weekKm km")
                 if (goal > 0) {
                     val status = if (percent >= 100) "목표 달성!" else "$percent%"
-                    views.setTextViewText(R.id.widget_goal, "목표 ${goal}km · $status")
+                    views.setTextViewText(R.id.widget_goal, "목표 ${goal}km · $status$fire")
                     views.setProgressBar(R.id.widget_progress, 100, percent, false)
                     views.setViewVisibility(R.id.widget_progress, View.VISIBLE)
                 } else {
                     views.setTextViewText(
                         R.id.widget_goal,
-                        if (runs > 0) "이번 주 ${runs}번 달렸어요" else "이번 주 첫 러닝을 시작해요",
+                        (if (runs > 0) "이번 주 ${runs}번 달렸어요" else "이번 주 첫 러닝을 시작해요") + fire,
                     )
                     views.setViewVisibility(R.id.widget_progress, View.GONE)
                 }

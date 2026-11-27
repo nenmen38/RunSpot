@@ -41,6 +41,7 @@ class MainActivity : FlutterFragmentActivity() {
                         call.argument<Int>("goalKm") ?: 0,
                         call.argument<Int>("percent") ?: 0,
                         call.argument<Int>("runs") ?: 0,
+                        call.argument<Int>("streak") ?: 0,
                     )
                     result.success(null)
                 } else {
