@@ -131,6 +131,39 @@ void main() {
     wallet.dispose();
   });
 
+  testWidgets('프로필 카드 공유 버튼은 공유 동작이 있을 때만 보이고 누르면 부릅니다', (tester) async {
+    final wallet = WalletController(FakeWalletService()..coins = 0);
+    addTearDown(wallet.dispose);
+    await wallet.refresh();
+    var shared = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(children: [RunnerCharacterCard(wallet: wallet)]),
+        ),
+      ),
+    );
+    expect(find.byKey(const ValueKey('share-character-card')), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              RunnerCharacterCard(wallet: wallet, onShare: () => shared++),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('share-character-card')),
+    );
+    await tester.tap(find.byKey(const ValueKey('share-character-card')));
+    expect(shared, 1);
+    expect(find.text('프로필 카드 공유'), findsOneWidget);
+  });
+
   testWidgets('캐릭터는 좌우로 밀어 돌립니다', (tester) async {
     final wallet = WalletController(FakeWalletService()..coins = 0);
     await wallet.refresh();

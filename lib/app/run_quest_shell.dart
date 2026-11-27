@@ -5,6 +5,7 @@ import 'package:runquest/features/titles/title_service.dart';
 import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
+import '../features/board/board_share_intent.dart';
 import '../features/character/runner_character_directory.dart';
 import '../features/settings/location_privacy.dart';
 import '../l10n/l10n.dart';
@@ -519,6 +520,11 @@ class _RunQuestShellState extends State<RunQuestShell> {
         commerceClient: widget.mapController == null
             ? Supabase.instance.client
             : null,
+        // 프로필 카드를 게시판 글에 붙여 올립니다: 게시판 탭을 열면 글쓰기가 사진과 함께 열립니다.
+        onShareToBoard: (jpeg) {
+          BoardShareIntent.instance.photo = jpeg;
+          _selectTab(3);
+        },
       ),
       BoardScreen(service: _board),
       ProfileCosmetics.store(

@@ -21,26 +21,34 @@ Map<CosmeticSlot, CosmeticItem> wornCharacterItems(Wallet? wallet) => {
 
 /// 프로필의 '내 러너' 칸입니다. 입은 아이템이 바로 보이고, 좌우로 밀어 모든 방향에서 볼 수 있습니다.
 class RunnerCharacterCard extends StatelessWidget {
-  const RunnerCharacterCard({this.wallet, super.key});
+  const RunnerCharacterCard({this.wallet, this.onShare, super.key});
 
   final WalletController? wallet;
+
+  /// 있으면 캐릭터 아래에 '프로필 카드 공유' 버튼을 보여 줍니다.
+  final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
     final controller = wallet;
-    if (controller == null) return const _CharacterView(worn: {});
+    if (controller == null) {
+      return _CharacterView(worn: const {}, onShare: onShare);
+    }
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) =>
-          _CharacterView(worn: wornCharacterItems(controller.wallet)),
+      builder: (context, _) => _CharacterView(
+        worn: wornCharacterItems(controller.wallet),
+        onShare: onShare,
+      ),
     );
   }
 }
 
 class _CharacterView extends StatelessWidget {
-  const _CharacterView({required this.worn});
+  const _CharacterView({required this.worn, this.onShare});
 
   final Map<CosmeticSlot, CosmeticItem> worn;
+  final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +79,16 @@ class _CharacterView extends StatelessWidget {
             ),
           ],
         ),
+        if (onShare case final share?)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton.icon(
+              key: const ValueKey('share-character-card'),
+              onPressed: share,
+              icon: const Icon(Icons.ios_share, size: 18),
+              label: const Text('프로필 카드 공유'),
+            ),
+          ),
       ],
     );
   }

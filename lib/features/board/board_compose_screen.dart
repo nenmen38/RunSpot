@@ -29,10 +29,14 @@ class BoardComposeScreen extends StatefulWidget {
     required this.controller,
     this.photoService,
     this.post,
+    this.initialPhotos = const [],
     super.key,
   });
 
   final BoardController controller;
+
+  /// 처음부터 붙여 둘 사진입니다(예: 프로필 카드). 글을 올릴 때 함께 올라갑니다.
+  final List<Uint8List> initialPhotos;
 
   /// 없으면 기기 갤러리에서 사진을 고릅니다.
   final BoardPhotoService? photoService;
@@ -71,6 +75,7 @@ class _BoardComposeScreenState extends State<BoardComposeScreen> {
   late final List<_Photo> _photos = [
     for (final path in widget.post?.images ?? const <String>[])
       _Photo(path: path, url: widget.post!.imageUrls[path]),
+    for (final bytes in widget.initialPhotos) _Photo(bytes: bytes),
   ];
   // 이 화면에서 새로 올린 사진입니다. 저장하지 않고 나가면 지웁니다.
   final _uploaded = <String>{};

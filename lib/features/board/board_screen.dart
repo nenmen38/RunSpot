@@ -4,8 +4,12 @@ import 'package:runquest/shared/widgets/recent_searches.dart';
 import 'package:runquest/shared/search_history.dart';
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
+import 'board_share_intent.dart';
+
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -91,6 +95,13 @@ class _BoardScreenState extends State<BoardScreen> {
       }
     });
     unawaited(_controller.refresh());
+    // 프로필 카드 같은 다른 화면에서 사진을 붙여 글쓰기를 열어 달라고 했으면 바로 엽니다.
+    final shared = BoardShareIntent.instance.take();
+    if (shared != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_compose(photos: [shared]));
+      });
+    }
   }
 
   @override
@@ -156,11 +167,14 @@ class _BoardScreenState extends State<BoardScreen> {
     }
   }
 
-  Future<void> _compose() async {
+  Future<void> _compose({List<Uint8List> photos = const []}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) =>
-            BoardComposeScreen(controller: _controller, photoService: _photos),
+        builder: (_) => BoardComposeScreen(
+          controller: _controller,
+          photoService: _photos,
+          initialPhotos: photos,
+        ),
       ),
     );
   }

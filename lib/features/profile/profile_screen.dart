@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:runquest/shared/theme/app_colors.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
 import 'package:runquest/features/titles/title_service.dart';
@@ -7,6 +9,8 @@ import '../training/training_screen.dart';
 import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:flutter/material.dart';
 import 'package:runquest/features/character/character_outfit.dart';
+import 'package:runquest/features/character/character_card_share.dart';
+import 'package:runquest/features/character/character_profile_card.dart';
 import 'package:runquest/features/character/runner_character_card.dart';
 import 'package:runquest/features/profile/monthly_challenges.dart';
 import 'package:runquest/features/profile/running_streak.dart';
@@ -45,8 +49,12 @@ class ProfileScreen extends StatelessWidget {
     this.mapController,
     this.achievementService,
     this.commerceClient,
+    this.onShareToBoard,
     super.key,
   });
+
+  /// 프로필 카드를 게시판 글에 붙여 올리려 할 때 부릅니다(게시판 탭을 열고 글쓰기에 사진을 붙입니다).
+  final void Function(Uint8List jpeg)? onShareToBoard;
   final VoidCallback onHistoryTap;
   final VoidCallback? onSettingsTap;
   final ProgressService? progressService;
@@ -63,6 +71,40 @@ class ProfileScreen extends StatelessWidget {
   final LiveMapController? mapController;
   final AchievementService? achievementService;
   final SupabaseClient? commerceClient;
+
+  /// 닉네임과 레벨을 읽어 내 러너 프로필 카드 공유 창을 엽니다.
+  Future<void> _shareCard(BuildContext context) async {
+    final client = commerceClient;
+    if (client == null) return;
+    var nickname = '러너';
+    var level = 1;
+    try {
+      final row = await client
+          .from('profiles')
+          .select('nickname')
+          .eq('id', client.auth.currentUser!.id)
+          .single();
+      nickname = (row['nickname'] as String?) ?? nickname;
+    } catch (_) {
+      // 닉네임을 못 읽어도 카드는 만들 수 있습니다.
+    }
+    try {
+      level = (await progressService?.load())?.level ?? level;
+    } catch (_) {}
+    if (!context.mounted) return;
+    await showCharacterCardSheet(
+      context,
+      data: CharacterCardData.fromWallet(
+        wallet?.wallet,
+        nickname: nickname,
+        level: level,
+      ),
+      actions: DeviceCharacterCardActions(
+        client: client,
+        onOpenBoard: onShareToBoard ?? (_) {},
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +124,11 @@ class ProfileScreen extends StatelessWidget {
           ),
           // 내 러너 캐릭터: 입은 아이템이 바로 보이고 좌우로 돌려 볼 수 있습니다.
           const SizedBox(height: 16),
-          RunnerCharacterCard(wallet: wallet),
+          RunnerCharacterCard(
+            wallet: wallet,
+            // 카드를 이미지로 저장하거나 채팅·게시판으로 보낼 수 있습니다(서버 연결이 있을 때).
+            onShare: commerceClient == null ? null : () => _shareCard(context),
+          ),
           if (progressService != null) ...[
             const SizedBox(height: 16),
             Divider(height: 1, color: AppColors.line),
