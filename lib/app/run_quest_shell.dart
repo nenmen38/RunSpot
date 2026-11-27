@@ -6,6 +6,7 @@ import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
 import '../features/character/runner_character_directory.dart';
+import '../l10n/l10n.dart';
 import '../features/feedback/review_prompt.dart';
 import '../features/home/home_widget_sync.dart';
 import '../features/social/data/cheer_service.dart';
@@ -624,7 +625,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
                     NavigationRailDestination(
                       icon: _navIcon(index, item.$1),
                       selectedIcon: _navIcon(index, item.$2, selected: true),
-                      label: Text(item.$3),
+                      label: Text(_navLabel(context, index)),
                     ),
                 ],
               ),
@@ -651,7 +652,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
             NavigationDestination(
               icon: _navIcon(index, item.$1),
               selectedIcon: _navIcon(index, item.$2, selected: true),
-              label: item.$3,
+              label: _navLabel(context, index),
             ),
         ],
       ),
@@ -675,6 +676,18 @@ class _RunQuestShellState extends State<RunQuestShell> {
         child: Icon(icon),
       ),
     );
+  }
+
+  /// 하단 메뉴 이름입니다(언어 설정에 따라 한국어·영어).
+  static String _navLabel(BuildContext context, int index) {
+    final l10n = context.l10n;
+    return switch (index) {
+      0 => l10n.navHome,
+      1 => l10n.navSocial,
+      2 => l10n.navProfile,
+      3 => l10n.navBoard,
+      _ => l10n.navItems,
+    };
   }
 
   static const _destinations = [

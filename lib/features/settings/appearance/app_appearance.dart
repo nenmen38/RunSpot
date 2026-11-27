@@ -26,6 +26,19 @@ enum AppTextSize {
   final double scale;
 }
 
+/// 앱 언어입니다. 기기 설정을 고르면 휴대폰 언어(한국어가 아니면 영어)를 따릅니다.
+enum AppLanguage {
+  system('system', null),
+  korean('ko', Locale('ko')),
+  english('en', Locale('en'));
+
+  const AppLanguage(this.code, this.locale);
+  final String code;
+
+  /// 앱에 정해 줄 언어입니다. null이면 기기 설정을 따릅니다.
+  final Locale? locale;
+}
+
 /// 화면 설정을 저장하는 곳입니다. 앱에서는 기기 저장소를, 테스트에서는 메모리를 씁니다.
 abstract interface class AppearanceStore {
   Future<String?> read(String key);
@@ -47,18 +60,26 @@ class AppAppearance extends ChangeNotifier {
   static final instance = AppAppearance();
   static const _themeKey = 'appearance.theme';
   static const _textKey = 'appearance.text_size';
+  static const _languageKey = 'appearance.language';
 
   final AppearanceStore? _given;
   late final AppearanceStore _prefs = _given ?? DeviceAppearanceStore();
 
   AppThemeChoice theme = AppThemeChoice.system;
   AppTextSize textSize = AppTextSize.normal;
+  AppLanguage language = AppLanguage.system;
 
   /// 저장한 설정을 불러옵니다. 실패하면 기본값(기기 설정·기본 크기)을 씁니다.
   Future<void> load() async {
     try {
       final themeCode = await _prefs.read(_themeKey);
       final textCode = await _prefs.read(_textKey);
+      final languageCode = await _prefs.read(_languageKey);
+      language =
+          AppLanguage.values
+              .where((choice) => choice.code == languageCode)
+              .firstOrNull ??
+          AppLanguage.system;
       theme =
           AppThemeChoice.values
               .where((choice) => choice.code == themeCode)
@@ -79,6 +100,15 @@ class AppAppearance extends ChangeNotifier {
     notifyListeners();
     try {
       await _prefs.write(_themeKey, value.code);
+    } catch (_) {}
+  }
+
+  Future<void> setLanguage(AppLanguage value) async {
+    if (language == value) return;
+    language = value;
+    notifyListeners();
+    try {
+      await _prefs.write(_languageKey, value.code);
     } catch (_) {}
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import 'network_status.dart';
 
 /// 인터넷이 끊기면 화면 맨 위에 '오프라인' 띠를 보여 줍니다. 띠가 보이는 동안은
@@ -87,8 +88,8 @@ class _OfflineBannerState extends State<OfflineBanner> {
                           Expanded(
                             child: Text(
                               offline
-                                  ? '오프라인이에요 · 러닝 기록은 기기에 저장되고 연결되면 올라가요'
-                                  : '다시 연결됐어요',
+                                  ? context.l10n.offlineBanner
+                                  : context.l10n.onlineAgain,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/l10n.dart';
+
 import 'package:runquest/app/mobile_app_viewport.dart';
 import 'package:runquest/app/run_quest_shell.dart';
 import 'package:runquest/features/auth/auth_gate.dart';
@@ -246,6 +249,15 @@ class RunQuestApp extends StatelessWidget {
         themeMode: settings.theme.mode,
         // 색을 한 번에 바꿔 일부만 늦게 바뀌어 보이지 않게 합니다.
         themeAnimationDuration: Duration.zero,
+        // 한국어·영어 문구와 날짜·버튼 같은 기본 위젯 문구를 언어에 맞춥니다.
+        locale: settings.language.locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        // 기기 언어가 한국어가 아니면 영어로 보여 줍니다.
+        localeResolutionCallback: (locale, supported) =>
+            locale?.languageCode == 'ko'
+            ? const Locale('ko')
+            : const Locale('en'),
         builder: (context, child) =>
             AppearanceScope(textScale: settings.textSize.scale, child: child!),
         // 폰 시작 화면 → 발자국과 '뜀터' 첫 화면 → 러너 로딩 화면 → 앱 순서로 이어집니다.

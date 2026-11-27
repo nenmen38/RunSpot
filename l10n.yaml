@@ -1,0 +1,7 @@
+# 앱 문구 번역 설정입니다. 기준 언어는 한국어(app_ko.arb)이고 영어(app_en.arb)를 함께 둡니다.
+arb-dir: lib/l10n
+template-arb-file: app_ko.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+output-dir: lib/l10n/generated
+nullable-getter: true

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
+
 import '../../../shared/layout/readable_width.dart';
 import '../../../shared/widgets/panel.dart';
 import '../../run_history/models/run_record.dart';
@@ -35,19 +37,19 @@ class RunCompletionScreen extends StatelessWidget {
           title: Text(
             canRead
                 ? record.pendingSync
-                      ? '기기에 저장됨'
-                      : '러닝 완료'
-                : '러닝 결과',
+                      ? context.l10n.completionSavedOnDevice
+                      : context.l10n.completionTitle
+                : context.l10n.completionResult,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('확인'),
+              child: Text(context.l10n.confirm),
             ),
           ],
         ),
         body: !canRead
-            ? const Center(child: Text('로그인 상태를 확인해 주세요.'))
+            ? Center(child: Text(context.l10n.checkSignIn))
             : ReadableWidth(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -69,7 +71,7 @@ class RunCompletionScreen extends StatelessWidget {
                       TextButton(
                         onPressed: () =>
                             Navigator.pop(context, RunCompletionAction.hide),
-                        child: const Text('기록 숨기기'),
+                        child: Text(context.l10n.completionHide),
                       ),
                   ],
                 ),
@@ -93,14 +95,14 @@ class RunCompletionScreen extends StatelessWidget {
                               RunCompletionAction.share,
                             ),
                             icon: const Icon(Icons.ios_share),
-                            label: const Text('공유 카드 만들기'),
+                            label: Text(context.l10n.completionShareCard),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(
                               context,
                               RunCompletionAction.history,
                             ),
-                            child: const Text('내 기록'),
+                            child: Text(context.l10n.completionMyRecords),
                           ),
                         ],
                       ),

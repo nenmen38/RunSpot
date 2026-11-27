@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../../shared/formatters/run_format.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../live_map_controller.dart';
@@ -97,10 +98,10 @@ class _RunControlsState extends State<RunControls> {
         if (controller.groupPreparing || controller.groupPrepared)
           Row(
             children: [
-              const Expanded(child: Text('그룹 출발 준비 중입니다. 앱을 열어 두세요.')),
+              Expanded(child: Text(context.l10n.runGroupPreparing)),
               TextButton(
                 onPressed: controller.cancelGroupPreparation,
-                child: const Text('준비 취소'),
+                child: Text(context.l10n.runCancelPreparation),
               ),
             ],
           ),
@@ -110,13 +111,15 @@ class _RunControlsState extends State<RunControls> {
             alignment: Alignment.centerRight,
             child: Text(
               finished
-                  ? '저장 대기'
+                  ? context.l10n.runWaitingSave
                   : session.isAutoPaused
                   // 멈춰 있어 시간을 잠시 멈춘 상태입니다. 다시 달리면 바로 이어집니다.
-                  ? '자동 일시정지 · 달리면 이어서 측정'
+                  ? context.l10n.runAutoPaused
                   : running
-                  ? (locked ? '러닝 중 · 조작 잠김' : '러닝 중')
-                  : '일시 정지',
+                  ? (locked
+                        ? context.l10n.runRunningLocked
+                        : context.l10n.runRunning)
+                  : context.l10n.runPause,
               style: TextStyle(
                 color: session.isAutoPaused
                     ? AppColors.orange
@@ -134,7 +137,7 @@ class _RunControlsState extends State<RunControls> {
             children: [
               Expanded(
                 child: _RunMetric(
-                  label: '거리',
+                  label: context.l10n.runDistance,
                   value:
                       '${(session.distanceMeters / 1000).toStringAsFixed(2)} km',
                 ),
@@ -142,7 +145,7 @@ class _RunControlsState extends State<RunControls> {
               const SizedBox(width: 12),
               Expanded(
                 child: _RunMetric(
-                  label: '시간',
+                  label: context.l10n.runTime,
                   value: formatRunDuration(session.duration),
                 ),
               ),
@@ -153,7 +156,7 @@ class _RunControlsState extends State<RunControls> {
             children: [
               Expanded(
                 child: _RunMetric(
-                  label: '현재 페이스',
+                  label: context.l10n.runCurrentPace,
                   value: formatPaceDuration(session.currentPace),
                   unit: '/km',
                 ),
@@ -161,7 +164,7 @@ class _RunControlsState extends State<RunControls> {
               const SizedBox(width: 12),
               Expanded(
                 child: _RunMetric(
-                  label: '평균 페이스',
+                  label: context.l10n.runAveragePace,
                   value: formatPaceDuration(session.averagePace),
                   unit: '/km',
                 ),
@@ -183,7 +186,7 @@ class _RunControlsState extends State<RunControls> {
               setState(() => _lockedSession = null);
             },
             icon: const Icon(Icons.lock),
-            label: const Text('길게 눌러 해제'),
+            label: Text(context.l10n.runHoldToUnlock),
           )
         else
           LayoutBuilder(
@@ -218,10 +221,10 @@ class _RunControlsState extends State<RunControls> {
                     : Icon(running ? Icons.pause : Icons.play_arrow),
                 label: Text(
                   running
-                      ? '일시 정지'
+                      ? context.l10n.runPause
                       : session == null
-                      ? '러닝 시작'
-                      : '러닝 계속',
+                      ? context.l10n.runStart
+                      : context.l10n.runResume,
                 ),
               );
               if (session == null) return primary;
@@ -237,14 +240,16 @@ class _RunControlsState extends State<RunControls> {
                         widget.onFinish();
                       },
                 icon: const Icon(Icons.stop),
-                label: Text(finished ? '저장 재시도' : '러닝 종료'),
+                label: Text(
+                  finished ? context.l10n.runRetrySave : context.l10n.runFinish,
+                ),
               );
               final stack =
                   MediaQuery.textScalerOf(context).scale(14) * 17 >
                   constraints.maxWidth;
               final showLockLabel = stack || constraints.maxWidth >= 350;
               final lock = Tooltip(
-                message: '조작 잠금',
+                message: context.l10n.runLockTooltip,
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(48, 48),
@@ -265,7 +270,7 @@ class _RunControlsState extends State<RunControls> {
                       const Icon(Icons.lock_outline, size: 20),
                       if (showLockLabel) ...[
                         const SizedBox(width: 4),
-                        const Text('잠금'),
+                        Text(context.l10n.runLock),
                       ],
                     ],
                   ),
@@ -376,13 +381,13 @@ class _RunStartCountdownState extends State<RunStartCountdown> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            '곧 출발해요',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          Text(
+            context.l10n.countdownTitle,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
           Semantics(
             liveRegion: true,
-            label: '$_left초 뒤 러닝 시작',
+            label: context.l10n.countdownLabel(_left),
             child: ExcludeSemantics(
               child: SizedBox(
                 width: 144,
@@ -403,7 +408,7 @@ class _RunStartCountdownState extends State<RunStartCountdown> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
+            child: Text(context.l10n.cancel),
           ),
         ],
       ),

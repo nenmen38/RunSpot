@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import 'app_appearance.dart';
 
 /// 설정 → 화면: 다크·라이트 모드와 글자 크기를 고릅니다. 고르는 즉시 앱 전체에 적용됩니다.
@@ -78,6 +79,34 @@ class AppearanceSettingsScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 32),
+              // 앱 언어: 기기 설정·한국어·English(일부 화면부터 번역).
+              Text(context.l10n.languageTitle, style: text.titleMedium),
+              const SizedBox(height: 4),
+              Text(context.l10n.languageHint, style: text.bodySmall),
+              const SizedBox(height: 12),
+              SegmentedButton<AppLanguage>(
+                key: const ValueKey('language-choice'),
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: AppLanguage.system,
+                    icon: const Icon(Icons.language),
+                    label: Text(context.l10n.languageSystem),
+                  ),
+                  ButtonSegment(
+                    value: AppLanguage.korean,
+                    label: Text(context.l10n.languageKorean),
+                  ),
+                  ButtonSegment(
+                    value: AppLanguage.english,
+                    label: Text(context.l10n.languageEnglish),
+                  ),
+                ],
+                selected: {settings.language},
+                onSelectionChanged: (value) =>
+                    settings.setLanguage(value.single),
               ),
             ],
           );

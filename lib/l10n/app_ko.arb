@@ -1,0 +1,172 @@
+{
+  "@@locale": "ko",
+  "navHome": "홈",
+  "@navHome": {
+    "description": "하단 메뉴"
+  },
+  "navSocial": "소셜",
+  "@navSocial": {
+    "description": "하단 메뉴"
+  },
+  "navProfile": "프로필",
+  "@navProfile": {
+    "description": "하단 메뉴"
+  },
+  "navBoard": "게시판",
+  "@navBoard": {
+    "description": "하단 메뉴"
+  },
+  "navItems": "아이템",
+  "@navItems": {
+    "description": "하단 메뉴"
+  },
+  "runStart": "러닝 시작",
+  "@runStart": {
+    "description": "러닝 버튼"
+  },
+  "runResume": "러닝 계속",
+  "@runResume": {
+    "description": "러닝 버튼"
+  },
+  "runPause": "일시 정지",
+  "@runPause": {
+    "description": "러닝 버튼·상태"
+  },
+  "runFinish": "러닝 종료",
+  "@runFinish": {
+    "description": "러닝 버튼"
+  },
+  "runRetrySave": "저장 재시도",
+  "@runRetrySave": {
+    "description": "러닝 버튼"
+  },
+  "runRunning": "러닝 중",
+  "@runRunning": {
+    "description": "러닝 상태"
+  },
+  "runRunningLocked": "러닝 중 · 조작 잠김",
+  "@runRunningLocked": {
+    "description": "러닝 상태"
+  },
+  "runAutoPaused": "자동 일시정지 · 달리면 이어서 측정",
+  "@runAutoPaused": {
+    "description": "러닝 상태"
+  },
+  "runWaitingSave": "저장 대기",
+  "@runWaitingSave": {
+    "description": "러닝 상태"
+  },
+  "runDistance": "거리",
+  "@runDistance": {
+    "description": "러닝 지표"
+  },
+  "runTime": "시간",
+  "@runTime": {
+    "description": "러닝 지표"
+  },
+  "runCurrentPace": "현재 페이스",
+  "@runCurrentPace": {
+    "description": "러닝 지표"
+  },
+  "runAveragePace": "평균 페이스",
+  "@runAveragePace": {
+    "description": "러닝 지표"
+  },
+  "runHoldToUnlock": "길게 눌러 해제",
+  "@runHoldToUnlock": {
+    "description": "잠금 해제 안내"
+  },
+  "runLock": "잠금",
+  "@runLock": {
+    "description": "잠금 버튼"
+  },
+  "runLockTooltip": "조작 잠금",
+  "@runLockTooltip": {
+    "description": "잠금 버튼 설명"
+  },
+  "runGroupPreparing": "그룹 출발 준비 중입니다. 앱을 열어 두세요.",
+  "@runGroupPreparing": {
+    "description": "함께 달리기 준비"
+  },
+  "runCancelPreparation": "준비 취소",
+  "@runCancelPreparation": {
+    "description": "함께 달리기 준비 취소"
+  },
+  "countdownTitle": "곧 출발해요",
+  "@countdownTitle": {
+    "description": "출발 카운트다운"
+  },
+  "countdownLabel": "{seconds}초 뒤 러닝 시작",
+  "@countdownLabel": {
+    "description": "출발 카운트다운 낭독",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "cancel": "취소",
+  "@cancel": {
+    "description": "공통"
+  },
+  "confirm": "확인",
+  "@confirm": {
+    "description": "공통"
+  },
+  "completionTitle": "러닝 완료",
+  "@completionTitle": {
+    "description": "완료 화면 제목"
+  },
+  "completionSavedOnDevice": "기기에 저장됨",
+  "@completionSavedOnDevice": {
+    "description": "완료 화면 제목(오프라인)"
+  },
+  "completionResult": "러닝 결과",
+  "@completionResult": {
+    "description": "완료 화면 제목(다른 계정)"
+  },
+  "completionShareCard": "공유 카드 만들기",
+  "@completionShareCard": {
+    "description": "완료 화면 버튼"
+  },
+  "completionMyRecords": "내 기록",
+  "@completionMyRecords": {
+    "description": "완료 화면 버튼"
+  },
+  "completionHide": "기록 숨기기",
+  "@completionHide": {
+    "description": "완료 화면 버튼"
+  },
+  "checkSignIn": "로그인 상태를 확인해 주세요.",
+  "@checkSignIn": {
+    "description": "공통 안내"
+  },
+  "offlineBanner": "오프라인이에요 · 러닝 기록은 기기에 저장되고 연결되면 올라가요",
+  "@offlineBanner": {
+    "description": "오프라인 띠"
+  },
+  "onlineAgain": "다시 연결됐어요",
+  "@onlineAgain": {
+    "description": "다시 연결 띠"
+  },
+  "languageTitle": "언어",
+  "@languageTitle": {
+    "description": "설정 > 화면"
+  },
+  "languageHint": "영어는 아직 일부 화면만 번역되어 있어요.",
+  "@languageHint": {
+    "description": "설정 > 화면"
+  },
+  "languageSystem": "휴대폰 언어",
+  "@languageSystem": {
+    "description": "언어 선택"
+  },
+  "languageKorean": "한국어",
+  "@languageKorean": {
+    "description": "언어 선택"
+  },
+  "languageEnglish": "English",
+  "@languageEnglish": {
+    "description": "언어 선택"
+  }
+}
