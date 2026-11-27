@@ -6,11 +6,58 @@ import 'runner_character.dart';
 /// 착용한 캐릭터 꾸미기 아이템으로 캐릭터 옷차림을 만듭니다.
 CharacterOutfit characterOutfit(Iterable<CosmeticItem?> worn) {
   Color? hat, hatTrim, glasses, top, bottom, sleeves, shoes, shoeAccent;
+  Color? hairColor, petColor, petAccent, scarf, scarfTrim, vest;
+  HairStyle? hairStyle;
+  CharacterPet? pet;
+  var face = CharacterFace.normal;
   var headband = false, visor = false, singlet = false;
-  for (final item in worn) {
-    if (item == null || !item.slot.isCharacter) continue;
+  // 계절 의상(우비)이 상의·팔토시를 덮을 수 있게 칸 순서대로 입힙니다.
+  final items = [
+    for (final item in worn)
+      if (item != null && item.slot.isCharacter) item,
+  ]..sort((a, b) => a.slot.index.compareTo(b.slot.index));
+  for (final item in items) {
     final color = item.colors.first;
     switch (item.slot) {
+      case CosmeticSlot.charHair:
+        hairStyle = switch (item) {
+          CosmeticItem.charHairBob => HairStyle.bob,
+          CosmeticItem.charHairPonytail => HairStyle.ponytail,
+          CosmeticItem.charHairPigtails => HairStyle.pigtails,
+          CosmeticItem.charHairBun => HairStyle.bun,
+          _ => HairStyle.curly,
+        };
+      case CosmeticSlot.charHairColor:
+        hairColor = color;
+      case CosmeticSlot.charFace:
+        face = switch (item) {
+          CosmeticItem.charFaceWink => CharacterFace.wink,
+          CosmeticItem.charFaceHeart => CharacterFace.heart,
+          CosmeticItem.charFaceStar => CharacterFace.star,
+          _ => CharacterFace.happy,
+        };
+      case CosmeticSlot.charPet:
+        pet = switch (item) {
+          CosmeticItem.charPetChick => CharacterPet.chick,
+          CosmeticItem.charPetDog => CharacterPet.dog,
+          CosmeticItem.charPetCat => CharacterPet.cat,
+          _ => CharacterPet.bunny,
+        };
+        petColor = color;
+        petAccent = item.colors.length > 1 ? item.colors[1] : null;
+      case CosmeticSlot.charSeason:
+        switch (item) {
+          case CosmeticItem.charSeasonScarf:
+            scarf = color;
+            scarfTrim = item.colors[1];
+          case CosmeticItem.charSeasonPadding:
+            vest = color;
+          default:
+            // 우비: 상의와 팔을 노란색으로 덮습니다.
+            top = color;
+            singlet = false;
+            sleeves = color;
+        }
       case CosmeticSlot.charHead:
         hat = color;
         hatTrim = item == CosmeticItem.charCapSanta ? item.colors[1] : null;
@@ -48,6 +95,15 @@ CharacterOutfit characterOutfit(Iterable<CosmeticItem?> worn) {
     sleeves: sleeves,
     shoes: shoes,
     shoeAccent: shoeAccent,
+    hairStyle: hairStyle,
+    hairColor: hairColor,
+    face: face,
+    pet: pet,
+    petColor: petColor,
+    petAccent: petAccent,
+    scarf: scarf,
+    scarfTrim: scarfTrim,
+    vest: vest,
   );
 }
 
@@ -61,11 +117,24 @@ class CharacterItemPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 신발은 발, 모자·선글라스는 얼굴, 옷은 몸통이 동그라미 가운데 오게 확대합니다.
-    final (zoom, focus) = switch (item.slot) {
-      CosmeticSlot.charShoes => (2.0, 1.6),
-      CosmeticSlot.charHead || CosmeticSlot.charEyes => (1.7, -0.73),
-      _ => (1.6, 0.92),
+    final (zoom, focus, shift) = switch (item.slot) {
+      CosmeticSlot.charShoes => (2.0, 1.6, 0.0),
+      CosmeticSlot.charHead ||
+      CosmeticSlot.charEyes ||
+      CosmeticSlot.charHair ||
+      CosmeticSlot.charHairColor ||
+      CosmeticSlot.charFace => (1.7, -0.73, 0.0),
+      // 반려동물은 캐릭터 오른쪽 아래에 서 있어 그쪽으로 확대합니다.
+      CosmeticSlot.charPet => (2.6, 1.3, 0.62),
+      _ => (1.6, 0.92, 0.0),
     };
+    // 머리색은 단발머리에 입혀서 보여 줍니다.
+    final outfit = item.slot == CosmeticSlot.charHairColor
+        ? CharacterOutfit(
+            hairStyle: HairStyle.bob,
+            hairColor: item.colors.first,
+          )
+        : characterOutfit([item]);
     return ExcludeSemantics(
       child: Container(
         width: size,
@@ -79,12 +148,12 @@ class CharacterItemPreview extends StatelessWidget {
         child: OverflowBox(
           maxWidth: size * zoom,
           maxHeight: size * zoom,
-          alignment: Alignment(0, focus),
+          alignment: Alignment(shift, focus),
           child: CustomPaint(
             size: Size.square(size * zoom),
             painter: RunnerCharacterPainter(
               yaw: -0.45,
-              outfit: characterOutfit([item]),
+              outfit: outfit,
               ground: false,
             ),
           ),

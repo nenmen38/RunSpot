@@ -8,12 +8,17 @@ enum CosmeticSlot {
   shareCard('share_card', '공유 카드', '러닝 기록을 공유할 때 고르는 카드'),
 
   // 내 러너 캐릭터가 입는 칸입니다. 프로필의 캐릭터 '꾸미기'에서 착용합니다.
+  charHair('char_hair', '헤어스타일', '캐릭터의 머리 모양'),
+  charHairColor('char_haircolor', '머리색', '헤어스타일에 입히는 머리색'),
+  charFace('char_face', '표정', '캐릭터의 눈 표정'),
   charHead('char_head', '모자', '캐릭터 머리에 쓰는 캡·썬캡·머리띠'),
   charEyes('char_eyes', '선글라스', '캐릭터 얼굴에 쓰는 스포츠 선글라스'),
   charTop('char_top', '상의', '캐릭터가 입는 러닝 싱글렛·티셔츠'),
   charBottom('char_bottom', '하의', '캐릭터가 입는 러닝 쇼츠'),
   charSleeves('char_sleeves', '팔토시', '캐릭터 팔에 끼는 팔토시'),
-  charShoes('char_shoes', '운동화', '캐릭터가 신는 러닝화');
+  charShoes('char_shoes', '운동화', '캐릭터가 신는 러닝화'),
+  charSeason('char_season', '계절 의상', '목도리·패딩 조끼·우비 같은 계절 옷'),
+  charPet('char_pet', '반려동물', '캐릭터 곁에 서는 귀여운 친구');
 
   const CosmeticSlot(this.code, this.label, this.description);
   final String code;
@@ -152,6 +157,100 @@ enum CosmeticItem {
   charShoesCarbon('char_shoes_carbon', CosmeticSlot.charShoes, '카본 레이싱화', 450, [
     Color(0xFF111827),
     Color(0xFFF97316),
+  ]),
+
+  // 헤어스타일: 머리 모양입니다(머리색은 따로 고릅니다).
+  charHairBob('char_hair_bob', CosmeticSlot.charHair, '단발머리', 200, [
+    Color(0xFF5B3A29),
+  ]),
+  charHairPonytail('char_hair_ponytail', CosmeticSlot.charHair, '포니테일', 200, [
+    Color(0xFF5B3A29),
+  ]),
+  charHairPigtails('char_hair_pigtails', CosmeticSlot.charHair, '양갈래', 200, [
+    Color(0xFF5B3A29),
+  ]),
+  charHairBun('char_hair_bun', CosmeticSlot.charHair, '똥머리', 200, [
+    Color(0xFF5B3A29),
+  ]),
+  charHairCurly('char_hair_curly', CosmeticSlot.charHair, '뽀글머리', 250, [
+    Color(0xFF5B3A29),
+  ]),
+
+  // 머리색: 헤어스타일을 입고 있을 때 그 색으로 바뀝니다.
+  charHairBlack('char_haircolor_black', CosmeticSlot.charHairColor, '흑발', 100, [
+    Color(0xFF26201E),
+  ]),
+  charHairChestnut(
+    'char_haircolor_chestnut',
+    CosmeticSlot.charHairColor,
+    '밤색',
+    100,
+    [Color(0xFF7A4A2B)],
+  ),
+  charHairBlonde(
+    'char_haircolor_blonde',
+    CosmeticSlot.charHairColor,
+    '금발',
+    150,
+    [Color(0xFFE9B949)],
+  ),
+  charHairPink('char_haircolor_pink', CosmeticSlot.charHairColor, '핑크', 200, [
+    Color(0xFFF58CB3),
+  ]),
+  charHairSky('char_haircolor_sky', CosmeticSlot.charHairColor, '하늘색', 200, [
+    Color(0xFF5BA8F5),
+  ]),
+
+  // 표정: 눈 모양입니다(선글라스를 쓰면 가려집니다).
+  charFaceWink('char_face_wink', CosmeticSlot.charFace, '윙크', 150, [
+    Color(0xFF1F2836),
+  ]),
+  charFaceHeart('char_face_heart', CosmeticSlot.charFace, '하트 눈', 200, [
+    Color(0xFFFF4D7A),
+  ]),
+  charFaceStar('char_face_star', CosmeticSlot.charFace, '반짝 눈', 200, [
+    Color(0xFFFFD43B),
+  ]),
+  charFaceHappy('char_face_happy', CosmeticSlot.charFace, '웃는 눈', 150, [
+    Color(0xFF1F2836),
+  ]),
+
+  // 계절 의상: 목도리·패딩 조끼·우비입니다.
+  charSeasonScarf('char_season_scarf', CosmeticSlot.charSeason, '겨울 목도리', 250, [
+    Color(0xFFE11D48),
+    Color(0xFFFFFFFF),
+  ]),
+  charSeasonPadding(
+    'char_season_padding',
+    CosmeticSlot.charSeason,
+    '패딩 조끼',
+    300,
+    [Color(0xFF1E3A8A)],
+  ),
+  charSeasonRaincoat(
+    'char_season_raincoat',
+    CosmeticSlot.charSeason,
+    '노란 우비',
+    250,
+    [Color(0xFFFACC15)],
+  ),
+
+  // 반려동물: 캐릭터 곁에 서 있습니다.
+  charPetChick('char_pet_chick', CosmeticSlot.charPet, '병아리', 300, [
+    Color(0xFFFFD43B),
+    Color(0xFFF59E0B),
+  ]),
+  charPetDog('char_pet_dog', CosmeticSlot.charPet, '강아지', 400, [
+    Color(0xFFC98B4E),
+    Color(0xFF7A4A24),
+  ]),
+  charPetCat('char_pet_cat', CosmeticSlot.charPet, '고양이', 400, [
+    Color(0xFF9CA3AF),
+    Color(0xFF4B5563),
+  ]),
+  charPetBunny('char_pet_bunny', CosmeticSlot.charPet, '토끼', 450, [
+    Color(0xFFFFFFFF),
+    Color(0xFFF4A6B8),
   ]),
 
   // 레벨 보상: 상점에서 살 수 없고, 레벨에 도달하면 자동으로 선물로 받습니다.

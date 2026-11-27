@@ -71,7 +71,12 @@ void main() {
     for (final slot in characterSlots) {
       expect(find.byKey(ValueKey('dress-tab-${slot.code}')), findsOneWidget);
     }
-    // 첫 탭(모자)에는 산 모자 두 개만 나옵니다.
+    // 모자 탭에는 산 모자 두 개만 나옵니다(첫 탭은 헤어스타일).
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('dress-tab-char_head')),
+    );
+    await tester.tap(find.byKey(const ValueKey('dress-tab-char_head')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('dress-char_cap_blue')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('dress-char_headband_red')),
@@ -89,15 +94,24 @@ void main() {
     expect(_painter(tester, index: 1).outfit.hat, isNotNull);
 
     // 선글라스 탭: 산 것이 없으면 안내가 나옵니다.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('dress-tab-char_eyes')),
+    );
     await tester.tap(find.byKey(const ValueKey('dress-tab-char_eyes')));
     await tester.pumpAndSettle();
     expect(find.textContaining('아직 산 선글라스 아이템이 없어요'), findsOneWidget);
 
     // 운동화 탭에서 신고, 모자 탭에서 '없음'으로 벗습니다.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('dress-tab-char_shoes')),
+    );
     await tester.tap(find.byKey(const ValueKey('dress-tab-char_shoes')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('dress-char_shoes_red')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('dress-tab-char_head')),
+    );
     await tester.tap(find.byKey(const ValueKey('dress-tab-char_head')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('dress-none-char_head')));

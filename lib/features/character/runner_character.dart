@@ -4,6 +4,17 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
+part 'runner_character_extras.dart';
+
+/// 머리 모양입니다(단발·포니테일·양갈래·똥머리·뽀글머리).
+enum HairStyle { bob, ponytail, pigtails, bun, curly }
+
+/// 표정입니다. 선글라스를 쓰면 눈은 가려집니다.
+enum CharacterFace { normal, wink, heart, star, happy }
+
+/// 곁에 서 있는 반려동물입니다.
+enum CharacterPet { chick, dog, cat, bunny }
+
 /// 캐릭터가 입은 꾸미기입니다. 칸마다 색(없으면 맨몸)을 줍니다.
 @immutable
 class CharacterOutfit {
@@ -19,7 +30,31 @@ class CharacterOutfit {
     this.shoeAccent,
     this.visor = false,
     this.hatTrim,
+    this.hairStyle,
+    this.hairColor,
+    this.face = CharacterFace.normal,
+    this.pet,
+    this.petColor,
+    this.petAccent,
+    this.scarf,
+    this.scarfTrim,
+    this.vest,
   });
+
+  /// 머리 모양과 색입니다. 모양이 없으면 머리카락을 그리지 않고, 색이 없으면 짙은 갈색입니다.
+  final HairStyle? hairStyle;
+  final Color? hairColor;
+  final CharacterFace face;
+
+  /// 곁에 선 반려동물과 몸·포인트 색입니다.
+  final CharacterPet? pet;
+  final Color? petColor;
+  final Color? petAccent;
+
+  /// 목도리 색과 줄무늬 색, 패딩 조끼 색입니다(계절 의상).
+  final Color? scarf;
+  final Color? scarfTrim;
+  final Color? vest;
 
   /// 모자 색입니다. [visor]면 윗부분이 뚫린 썬캡, [headband]면 머리띠로 그립니다.
   final Color? hat;
@@ -45,6 +80,15 @@ class CharacterOutfit {
       other is CharacterOutfit &&
       other.hat == hat &&
       other.hatTrim == hatTrim &&
+      other.hairStyle == hairStyle &&
+      other.hairColor == hairColor &&
+      other.face == face &&
+      other.pet == pet &&
+      other.petColor == petColor &&
+      other.petAccent == petAccent &&
+      other.scarf == scarf &&
+      other.scarfTrim == scarfTrim &&
+      other.vest == vest &&
       other.headband == headband &&
       other.visor == visor &&
       other.glasses == glasses &&
@@ -56,9 +100,18 @@ class CharacterOutfit {
       other.shoeAccent == shoeAccent;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     hat,
     hatTrim,
+    hairStyle,
+    hairColor,
+    face,
+    pet,
+    petColor,
+    petAccent,
+    scarf,
+    scarfTrim,
+    vest,
     headband,
     visor,
     glasses,
@@ -68,7 +121,7 @@ class CharacterOutfit {
     sleeves,
     shoes,
     shoeAccent,
-  );
+  ]);
 }
 
 /// 위에서 살짝 내려다본 흰색 3D 러너입니다. [yaw](라디안)만큼 돌려 모든 방향에서 그립니다.
@@ -210,8 +263,14 @@ class RunnerCharacterPainter extends CustomPainter {
       );
     }
 
+    // 계절 의상(패딩 조끼·목도리)은 몸 위에, 반려동물은 곁에 둡니다.
+    final headY = 1.33 + up * 1.4;
+    _addSeasonWear(parts, view, o, up);
+    _addPet(parts, view, o);
+    _addHairVolume(parts, view, o, headY);
+
     // 큰 머리(몸보다 큼).
-    final head = _V(0, 1.33 + up * 1.4, 0.0);
+    final head = _V(0, headY, 0.0);
     const headR = 0.56;
     parts.add(_Head(view, head, headR, o, up));
 
@@ -309,6 +368,7 @@ class _Blob extends _Part {
     this.color,
     this.gloss, [
     this.bias = 0,
+    this.warmShade = false,
   ]) : turned = view.turn(center);
 
   final _View view;
@@ -319,6 +379,9 @@ class _Blob extends _Part {
 
   /// 같은 깊이일 때 앞에 그릴 순서입니다(상의가 반바지 위로).
   final double bias;
+
+  /// 그늘을 회색빛이 아니라 같은 색의 어두운 톤으로 칠합니다(머리카락처럼 색이 중요한 것).
+  final bool warmShade;
   final _V turned;
 
   @override
@@ -332,8 +395,12 @@ class _Blob extends _Part {
     final height = ry * 2 * view.scale;
     final at = view.screen(turned);
     final rect = Rect.fromCenter(center: at, width: width, height: height);
-    final shade = Color.lerp(color, const Color(0xFF8C9BB3), 0.38)!;
-    final deep = Color.lerp(color, const Color(0xFF6B7A94), 0.55)!;
+    final shade = warmShade
+        ? Color.lerp(color, Colors.black, 0.22)!
+        : Color.lerp(color, const Color(0xFF8C9BB3), 0.38)!;
+    final deep = warmShade
+        ? Color.lerp(color, Colors.black, 0.42)!
+        : Color.lerp(color, const Color(0xFF6B7A94), 0.55)!;
     canvas.drawOval(
       rect,
       Paint()
@@ -449,6 +516,9 @@ class _Head extends _Part {
     final o = outfit;
     final unit = view.scale * r;
 
+    // 머리카락 덮개는 얼굴 그림 아래에 깔고(앞머리가 이마만 덮음), 모자는 그 위에 씁니다.
+    paintHair(canvas, at, radius);
+
     // 얼굴: 볼 → 눈 → 코 → 입. 옆으로 돌수록 납작해지고 뒤로 가면 사라집니다.
     void oval(double lon, double lat, double w, double h, Color color) {
       final (facing, p) = _feature(lon, lat);
@@ -469,6 +539,12 @@ class _Head extends _Part {
     }
     if (o.glasses == null) {
       for (final side in [-1.0, 1.0]) {
+        // 표정이 있으면 그 눈을 그립니다(윙크는 한쪽 눈만).
+        if (o.face != CharacterFace.normal &&
+            !(o.face == CharacterFace.wink && side < 0)) {
+          paintExpressionEye(canvas, side, unit);
+          continue;
+        }
         // 크고 동그란 눈과 반짝임 두 개(게임 캐릭터처럼 또랑또랑하게).
         oval(0.3 * side, -0.1, 0.22, 0.31, const Color(0xFF1F2836));
         final (facing, p) = _feature(0.3 * side - 0.055, -0.02);

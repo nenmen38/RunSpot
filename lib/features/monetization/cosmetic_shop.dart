@@ -220,7 +220,8 @@ class CosmeticShop extends StatelessWidget {
             (slot) => slot != CosmeticSlot.shareCard,
           )) ...[
             // 캐릭터 꾸미기는 하나의 큰 묶음 아래 칸별로 보여줍니다.
-            if (slot == CosmeticSlot.charHead) ...[
+            if (slot ==
+                CosmeticSlot.values.firstWhere((s) => s.isCharacter)) ...[
               const SizedBox(height: 28),
               Row(
                 children: [
