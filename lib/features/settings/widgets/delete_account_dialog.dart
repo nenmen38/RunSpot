@@ -51,7 +51,8 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '탈퇴하면 계정과 프로필, 러닝 기록·경로, 친구, 업적·경험치, '
+            '탈퇴하면 계정과 프로필·프로필 사진, 러닝 기록·경로, 친구, '
+            '1:1·단체 대화, 크루 활동, 업적·경험치, 코인·꾸미기·캐릭터 아이템, '
             '게시글·댓글·좋아요·사진이 모두 삭제되며 되돌릴 수 없어요.',
           ),
           const SizedBox(height: 12),

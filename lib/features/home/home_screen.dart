@@ -719,25 +719,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             if (!state.locating)
-                              IconButton(
-                                tooltip: '다시 시도 또는 기기 설정',
-                                icon: const Icon(Icons.refresh),
-                                onPressed: () {
-                                  final problem =
-                                      state.locationFailure?.problem;
-                                  if (problem == LocationProblem.disabled ||
-                                      problem ==
-                                          LocationProblem.deniedForever) {
-                                    unawaited(
+                              // 권한을 아주 거절했거나 위치 서비스가 꺼졌으면 설정을 열고,
+                              // 설정에서 돌아오면 위치를 다시 확인합니다. 그 밖에는 다시 시도합니다.
+                              switch (state.locationFailure?.problem) {
+                                final problem?
+                                    when problem == LocationProblem.disabled ||
+                                        problem ==
+                                            LocationProblem.deniedForever =>
+                                  TextButton.icon(
+                                    onPressed: () => unawaited(
                                       state.locationService.openSettings(
-                                        problem!,
+                                        problem,
                                       ),
-                                    );
-                                  } else {
-                                    unawaited(state.start());
-                                  }
-                                },
-                              ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.settings_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('설정 열기'),
+                                  ),
+                                _ => TextButton.icon(
+                                  onPressed: () => unawaited(state.start()),
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('다시 시도'),
+                                ),
+                              },
                           ],
                         ),
                       ),

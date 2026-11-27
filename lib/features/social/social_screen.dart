@@ -386,15 +386,19 @@ class _SocialScreenState extends State<SocialScreen>
                   ),
                 ),
               Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('요청'),
-                    if (_friends.received.isNotEmpty) ...[
-                      const SizedBox(width: 4),
-                      Badge(label: Text('${_friends.received.length}')),
+                // 아주 큰 글씨에서도 탭 폭을 넘지 않도록 필요하면 줄여서 보여 줍니다.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('요청'),
+                      if (_friends.received.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Badge(label: Text('${_friends.received.length}')),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
               const Tab(text: '검색'),

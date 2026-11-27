@@ -364,7 +364,15 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       children: [
         Row(
           children: [
-            Text('아이템', style: text.titleLarge),
+            // 아주 큰 글씨에서도 코인 잔액과 겹치지 않게 제목이 줄어듭니다.
+            Flexible(
+              child: Text(
+                '아이템',
+                style: text.titleLarge,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             if (widget.wallet == null || (_paymentsEnabled && _previewOnly)) ...[
               const SizedBox(width: 8),
               const StoreTag('미리보기'),

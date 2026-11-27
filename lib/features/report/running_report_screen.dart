@@ -328,11 +328,21 @@ class _RunningReportScreenState extends State<RunningReportScreen> {
             Expanded(
               // SNS에 올리기 좋은 4:5 비율로 이미지를 만듭니다.
               child: Center(
-                child: AspectRatio(
-                  aspectRatio: 4 / 5,
+                // 공유 이미지는 글씨 크기와 관계없이 같은 디자인(320×400)으로 그리고
+                // 화면에서는 칸에 맞춰 줄여서 보여 줍니다.
+                child: FittedBox(
                   child: RepaintBoundary(
                     key: _shareCard,
-                    child: _SummaryCard(report: report, outfit: widget.outfit),
+                    child: MediaQuery.withNoTextScaling(
+                      child: SizedBox(
+                        width: 320,
+                        height: 400,
+                        child: _SummaryCard(
+                          report: report,
+                          outfit: widget.outfit,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -411,75 +421,97 @@ class _ReportCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              eyebrow,
-              style: const TextStyle(
-                color: Color(0xD9FFFFFF),
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if (title case final title?) ...[
-              const SizedBox(height: 8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final texts = <Widget>[
               Text(
-                title,
+                eyebrow,
                 style: const TextStyle(
-                  color: white,
-                  fontSize: 26,
-                  height: 1.25,
-                  fontWeight: FontWeight.w900,
+                  color: Color(0xD9FFFFFF),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ],
-            if (big case final big?) ...[
-              const SizedBox(height: 6),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  big,
+              if (title case final title?) ...[
+                const SizedBox(height: 8),
+                Text(
+                  title,
                   style: const TextStyle(
                     color: white,
-                    fontSize: 54,
-                    height: 1.1,
+                    fontSize: 26,
+                    height: 1.25,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            ],
-            if (body case final body? when body.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                body,
-                style: const TextStyle(
-                  color: Color(0xF2FFFFFF),
-                  fontSize: 16,
-                  height: 1.5,
-                  fontWeight: FontWeight.w600,
+              ],
+              if (big case final big?) ...[
+                const SizedBox(height: 6),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    big,
+                    style: const TextStyle(
+                      color: white,
+                      fontSize: 54,
+                      height: 1.1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Expanded(
-              child:
-                  child ??
-                  (outfit == null
-                      ? const SizedBox.shrink()
-                      : ExcludeSemantics(
-                          child: CustomPaint(
-                            size: Size.infinite,
-                            painter: RunnerCharacterPainter(
-                              yaw: -0.35,
-                              outfit: outfit!,
-                              cheer: cheer,
-                            ),
+              ],
+              if (body case final body? when body.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    color: Color(0xF2FFFFFF),
+                    fontSize: 16,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ];
+            final art =
+                child ??
+                (outfit == null
+                    ? const SizedBox.shrink()
+                    : ExcludeSemantics(
+                        child: CustomPaint(
+                          size: Size.infinite,
+                          painter: RunnerCharacterPainter(
+                            yaw: -0.35,
+                            outfit: outfit!,
+                            cheer: cheer,
                           ),
-                        )),
-            ),
-          ],
+                        ),
+                      ));
+            // 아주 큰 글씨나 좁은 화면에서는 글을 위아래로 넘겨 보고 그림은 고정 높이로 둡니다.
+            final roomy =
+                MediaQuery.textScalerOf(context).scale(16) <= 24 &&
+                constraints.maxHeight >= 420;
+            if (!roomy) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...texts,
+                    const SizedBox(height: 12),
+                    SizedBox(height: 220, child: art),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...texts,
+                const SizedBox(height: 12),
+                Expanded(child: art),
+              ],
+            );
+          },
         ),
       ),
     );
