@@ -103,7 +103,7 @@ window.createRunspotMap = () => {
         this.from=xy; return this.angle;
       }};
     const runners = new Map();
-    let lines = [], ends = [];
+    let lines = [], ends = [], guideLines = [], guideGeometry = '';
     const point = xy => new kakao.maps.LatLng(xy[0],xy[1]);
     const level = zoom => Math.max(1,Math.min(14,Math.round(20-zoom)));
     function overlay(xy, element, zIndex) {
@@ -443,6 +443,16 @@ window.createRunspotMap = () => {
         // 오라가 이어진 친구는 그리기 루프가 위치를 부드럽게 옮깁니다.
         if(!aura.fused(marker.id)||!entry.glided){entry.overlay.setPosition(point(marker.point));}
         entry.glided=aura.fused(marker.id);
+      }
+      // 따라 달릴 코스: 경로 아래에 파란 점선으로 그립니다.
+      const nextGuide=JSON.stringify(data.guide||[]);
+      if(nextGuide!==guideGeometry){
+        guideGeometry=nextGuide;
+        for(const line of guideLines) line.setMap(null);
+        guideLines=[];
+        (data.guide||[]).forEach(segment=>{if(!Array.isArray(segment)||segment.length<2)return;
+          guideLines.push(new kakao.maps.Polyline({map,path:segment.map(point),strokeColor:'#3182f6',strokeWeight:6,strokeOpacity:.55,strokeStyle:'shortdash',zIndex:0}));
+        });
       }
       const nextGeometry=JSON.stringify([data.segments,data.colors,data.endpoints]);
       if(nextGeometry!==geometry){

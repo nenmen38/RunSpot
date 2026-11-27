@@ -47,6 +47,7 @@ import '../run_share/models/share_route.dart';
 import '../character/character_outfit.dart';
 import '../character/runner_celebration.dart';
 import '../character/runner_character_card.dart';
+import '../courses/saved_course.dart';
 import '../feedback/review_prompt.dart';
 import '../settings/run_voice_settings.dart';
 import '../social/data/cheer_service.dart';
@@ -234,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.controller.addListener(_changed);
     widget.groupController?.addListener(_groupChanged);
     widget.wallet?.addListener(_groupChanged);
+    CourseGuide.instance.addListener(_groupChanged);
     widget.conditionsController?.setActive(widget.isActive);
     widget.conditionsController?.setLocation(widget.controller.position);
     widget.notificationController?.setActive(widget.isActive);
@@ -517,6 +519,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     widget.controller.setMapVisible(false);
     widget.groupController?.removeListener(_groupChanged);
     widget.wallet?.removeListener(_groupChanged);
+    CourseGuide.instance.removeListener(_groupChanged);
     _map.dispose();
     super.dispose();
   }
@@ -615,6 +618,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 RunMap(
                   controller: _map,
                   bridgeFactory: widget.mapBridgeFactory,
+                  guide: CourseGuide.instance.selected?.segments ?? const [],
                   position: position == null || ownClustered
                       ? null
                       : LatLng(position.latitude, position.longitude),
@@ -951,6 +955,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 state.runSession?.isFinished == true
                                     ? '종료한 러닝을 복구했습니다. 저장을 다시 시도해 주세요.'
                                     : '이전 러닝을 일시 정지 상태로 복구했습니다. 앱이 종료된 동안의 거리와 시간은 포함하지 않습니다.',
+                              ),
+                            // 저장한 내 코스를 지도에 점선으로 띄워 따라 달립니다.
+                            if (state.runHistory.service
+                                case SupabaseRunRecordService(:final client))
+                              CourseGuideButton(
+                                service: SupabaseCourseService(client),
                               ),
                             if (state.runHistory.service
                                 case SupabaseRunRecordService(:final client))

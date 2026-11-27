@@ -59,6 +59,7 @@ class RunMap extends StatefulWidget {
     this.markers = const [],
     this.segments = const [],
     this.segmentColors,
+    this.guide = const [],
     this.endpoints = false,
     this.onReady,
     this.onGesture,
@@ -80,6 +81,9 @@ class RunMap extends StatefulWidget {
 
   /// [segments]와 같은 순서의 선 색(#RRGGBB)입니다. 없으면 기본 초록색입니다.
   final List<String>? segmentColors;
+
+  /// 따라 달릴 내 코스입니다. 경로 아래에 파란 점선으로 그립니다.
+  final List<List<LatLng>> guide;
   final bool endpoints;
   final VoidCallback? onReady;
   final VoidCallback? onGesture;
@@ -205,6 +209,9 @@ class _RunMapState extends State<RunMap> {
         .map((s) => s.map((p) => [p.latitude, p.longitude]).toList())
         .toList(),
     'colors': widget.segmentColors,
+    'guide': widget.guide
+        .map((s) => s.map((p) => [p.latitude, p.longitude]).toList())
+        .toList(),
     // 다크 모드면 지도를 살짝 어둡게 그립니다.
     'dark': AppColors.dark,
     'endpoints': widget.endpoints,

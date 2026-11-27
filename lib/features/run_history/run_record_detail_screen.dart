@@ -1,3 +1,4 @@
+import '../courses/saved_course.dart';
 import '../run_share/data/share_template_store.dart';
 import '../run_share/models/share_highlights.dart';
 import '../monetization/coin_frames.dart';
@@ -255,7 +256,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                       height: 160,
                       child: Center(child: Text('저장된 경로가 없습니다.')),
                     )
-                  else
+                  else ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Panel(
@@ -270,6 +271,23 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                         ),
                       ),
                     ),
+                    // 이 경로를 이름 붙여 저장해 두고 다음에 지도에 띄워 같은 길을 달립니다.
+                    if (!_record.pendingSync)
+                      if (widget.controller.service
+                          case SupabaseRunRecordService(:final client))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: SaveCourseButton(
+                              service: SupabaseCourseService(client),
+                              runId: _record.id,
+                              distanceMeters: _record.distanceMeters,
+                              endedAt: _record.endedAt,
+                            ),
+                          ),
+                        ),
+                  ],
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                     child: RunSplitsPanel(
