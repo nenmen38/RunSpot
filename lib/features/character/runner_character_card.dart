@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../shared/theme/app_colors.dart';
 import '../monetization/coin_frames.dart';
 import '../monetization/cosmetics.dart';
+import 'character_background.dart';
 import 'character_outfit.dart';
 import 'runner_character.dart';
 import 'runner_character_directory.dart';
@@ -58,9 +59,13 @@ class _CharacterView extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(18),
-          child: RunnerCharacterStage(
-            outfit: characterOutfit(worn.values),
-            height: 280,
+          child: ListenableBuilder(
+            listenable: CharacterBackground.instance,
+            builder: (context, _) => RunnerCharacterStage(
+              outfit: characterOutfit(worn.values),
+              height: 280,
+              background: CharacterBackground.instance.provider,
+            ),
           ),
         ),
         const SizedBox(height: 6),
@@ -94,27 +99,19 @@ class _CharacterView extends StatelessWidget {
   }
 }
 
-/// 프로필 편집 버튼 왼쪽의 '꾸미기' 버튼입니다. 누르면 카테고리별 꾸미기 창이 열립니다.
+/// 프로필 머리 줄의 '꾸미기' 아이콘 버튼입니다. 누르면 카테고리별 꾸미기 창이 열립니다.
 class CharacterDressButton extends StatelessWidget {
   const CharacterDressButton({required this.wallet, super.key});
 
   final WalletController wallet;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 2),
-    child: FilledButton.tonalIcon(
-      key: const ValueKey('character-dress-button'),
-      onPressed: () => showCharacterDresser(context, wallet),
-      icon: const Icon(Icons.checkroom, size: 18),
-      label: const Text('꾸미기', style: TextStyle(fontWeight: FontWeight.w800)),
-      style: FilledButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        minimumSize: const Size(0, 36),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    ),
+  Widget build(BuildContext context) => IconButton.filledTonal(
+    key: const ValueKey('character-dress-button'),
+    tooltip: '꾸미기',
+    visualDensity: VisualDensity.compact,
+    onPressed: () => showCharacterDresser(context, wallet),
+    icon: const Icon(Icons.checkroom, size: 20),
   );
 }
 
@@ -193,9 +190,13 @@ class _CharacterDresser extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: RunnerCharacterStage(
-                        outfit: characterOutfit(worn.values),
-                        height: compact ? 170 : 220,
+                      child: ListenableBuilder(
+                        listenable: CharacterBackground.instance,
+                        builder: (context, _) => RunnerCharacterStage(
+                          outfit: characterOutfit(worn.values),
+                          height: compact ? 170 : 220,
+                          background: CharacterBackground.instance.provider,
+                        ),
                       ),
                     ),
                   ),

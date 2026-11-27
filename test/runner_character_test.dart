@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:runquest/features/character/character_background.dart';
 import 'package:runquest/features/character/runner_character.dart';
 import 'package:runquest/features/character/runner_character_card.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
@@ -27,6 +28,7 @@ Widget _app(WalletController wallet) => MaterialApp(
           onEdit: () {},
           editLabel: '프로필 편집',
           extraAction: CharacterDressButton(wallet: wallet),
+          trailingAction: const CharacterBackgroundButton(),
         ),
         RunnerCharacterCard(wallet: wallet),
       ],
@@ -35,7 +37,7 @@ Widget _app(WalletController wallet) => MaterialApp(
 );
 
 void main() {
-  testWidgets('꾸미기 버튼은 프로필 편집 버튼 바로 왼쪽에 있습니다', (tester) async {
+  testWidgets('꾸미기·연필·사진 아이콘이 한 줄에 차례로 놓입니다', (tester) async {
     final wallet = WalletController(FakeWalletService()..coins = 0);
     await wallet.refresh();
     await tester.pumpWidget(_app(wallet));
@@ -47,6 +49,15 @@ void main() {
     expect(dress.right, lessThanOrEqualTo(edit.left + 1));
     expect(edit.left - dress.right, lessThan(12));
     expect((dress.center.dy - edit.center.dy).abs(), lessThan(4));
+    final photo = tester.getRect(
+      find.byKey(const ValueKey('character-background-button')),
+    );
+    expect(photo.left, greaterThanOrEqualTo(edit.right - 1));
+    expect(photo.left - edit.right, lessThan(12));
+    expect((photo.center.dy - edit.center.dy).abs(), lessThan(4));
+    // 꾸미기는 글자 없는 아이콘 버튼입니다.
+    expect(find.text('꾸미기'), findsNothing);
+    expect(find.byTooltip('꾸미기'), findsOneWidget);
     wallet.dispose();
   });
 

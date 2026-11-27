@@ -196,12 +196,48 @@ class RunnerCharacterPainter extends CustomPainter {
     final up = bob;
 
     // 게임 캐릭터처럼 머리가 크고 몸은 동글동글, 팔다리는 짤막합니다.
-    // 다리: 짧고 통통한 기둥. 윗부분은 반바지 색입니다.
+    // 다리: 짧고 통통하게 끝으로 갈수록 살짝 가늘어집니다. 반바지가 있으면 윗부분만 그 색이고,
+    // 없으면 한 줄기로 이어 그려 중간에 이음새가 보이지 않게 합니다.
+    // 몸통보다 조금 먼저 그려서 몸통이 다리 윗부분을 덮습니다(꽂힌 막대처럼 보이지 않게).
     for (final side in [-1.0, 1.0]) {
-      final hip = _V(0.15 * side, 0.44 + up * .5, 0);
-      final ankle = _V(0.16 * side, 0.15, 0.01);
-      _limb(parts, view, hip, ankle, 0.12, 0.11, bottomColor, (t) => t < 0.5);
-      _limb(parts, view, hip, ankle, 0.12, 0.11, _skin, (t) => t >= 0.5);
+      final hip = _V(0.14 * side, 0.48 + up * .5, 0);
+      final ankle = _V(0.16 * side, 0.13, 0.01);
+      if (o.bottom == null) {
+        _limb(
+          parts,
+          view,
+          hip,
+          ankle,
+          0.125,
+          0.1,
+          _skin,
+          (_) => true,
+          bias: -0.1,
+        );
+      } else {
+        _limb(
+          parts,
+          view,
+          hip,
+          ankle,
+          0.125,
+          0.105,
+          bottomColor,
+          (t) => t < 0.52,
+          bias: -0.1,
+        );
+        _limb(
+          parts,
+          view,
+          hip,
+          ankle,
+          0.125,
+          0.1,
+          _skin,
+          (t) => t >= 0.5,
+          bias: -0.1,
+        );
+      }
       // 발(신발): 동그랗고 앞으로 살짝 긴 덩어리와 밑창.
       final shoe = o.shoes ?? _skin;
       blob(_V(0.17 * side, 0.09, 0.05), 0.13, 0.095, 0.17, shoe);
@@ -217,39 +253,62 @@ class RunnerCharacterPainter extends CustomPainter {
       }
     }
 
-    // 몸: 아래는 반바지, 위는 상의를 입은 동글한 콩 모양입니다.
-    blob(_V(0, 0.50 + up, 0), 0.31, 0.16, 0.25, bottomColor);
-    blob(_V(0, 0.70 + up, 0), 0.33, 0.27, 0.27, topColor, bias: 0.01);
+    // 몸: 반바지가 있으면 아래는 반바지·위는 상의의 두 덩어리, 없으면 허리 이음새 없이
+    // 한 덩어리의 둥근 몸(맨몸이면 같은 살색, 상의만 입었으면 엉덩이까지 덮는 긴 옷)입니다.
+    if (o.bottom == null) {
+      blob(_V(0, 0.645 + up, 0), 0.335, 0.35, 0.275, topColor, bias: 0.01);
+    } else {
+      blob(_V(0, 0.50 + up, 0), 0.31, 0.16, 0.25, bottomColor);
+      blob(_V(0, 0.70 + up, 0), 0.33, 0.27, 0.27, topColor, bias: 0.01);
+    }
 
-    // 팔: 짤막한 팔과 동그란 손. 위는 상의 소매, 아래는 팔토시 색입니다.
+    // 팔: 짤막한 팔과 동그란 손. 위는 상의 소매, 아래는 팔토시 색이며, 두 색이 같으면 한 줄기로
+    // 이어 그려 이음새가 없게 합니다. 어깨가 몸통 뒤에서 나와 자연스럽게 이어집니다.
     for (final side in [-1.0, 1.0]) {
-      final shoulder = _V(0.29 * side, 0.84 + up, 0);
+      final shoulder = _V(0.27 * side, 0.82 + up, 0);
       // 만세(cheer)일수록 팔이 V자로 위로 올라갑니다.
       final wrist = _V(
         0.44 * side,
         0.60 + up,
         0.05,
       ).lerp(_V(0.66 * side, 1.02 + up, 0.06), cheer);
-      _limb(
-        parts,
-        view,
-        shoulder,
-        wrist,
-        0.095,
-        0.085,
-        sleeveTop,
-        (t) => t < 0.4,
-      );
-      _limb(
-        parts,
-        view,
-        shoulder,
-        wrist,
-        0.095,
-        0.085,
-        o.sleeves ?? _skin,
-        (t) => t >= 0.4,
-      );
+      final forearm = o.sleeves ?? _skin;
+      if (sleeveTop == forearm) {
+        _limb(
+          parts,
+          view,
+          shoulder,
+          wrist,
+          0.098,
+          0.082,
+          forearm,
+          (_) => true,
+          bias: -0.1,
+        );
+      } else {
+        _limb(
+          parts,
+          view,
+          shoulder,
+          wrist,
+          0.098,
+          0.088,
+          sleeveTop,
+          (t) => t < 0.42,
+          bias: -0.1,
+        );
+        _limb(
+          parts,
+          view,
+          shoulder,
+          wrist,
+          0.098,
+          0.082,
+          forearm,
+          (t) => t >= 0.4,
+          bias: -0.1,
+        );
+      }
       blob(
         _V(
           0.46 * side,
@@ -289,8 +348,9 @@ class RunnerCharacterPainter extends CustomPainter {
     double r0,
     double r1,
     Color color,
-    bool Function(double t) include,
-  ) {
+    bool Function(double t) include, {
+    double bias = 0,
+  }) {
     // 포함 구간(0~1)만 매끈한 원통(캡슐)으로 그립니다.
     double? start, end;
     for (var i = 0; i <= 20; i++) {
@@ -308,6 +368,7 @@ class RunnerCharacterPainter extends CustomPainter {
         r0 + (r1 - r0) * start,
         r0 + (r1 - r0) * end,
         color,
+        bias,
       ),
     );
   }
@@ -421,18 +482,28 @@ class _Blob extends _Part {
 
 /// 팔·다리 같은 둥근 기둥입니다. 빛 쪽은 밝고 반대쪽은 그늘지게 칠합니다.
 class _Capsule extends _Part {
-  _Capsule(this.view, this.a, this.b, this.ra, this.rb, this.color)
-    : ta = view.turn(a),
-      tb = view.turn(b);
+  _Capsule(
+    this.view,
+    this.a,
+    this.b,
+    this.ra,
+    this.rb,
+    this.color, [
+    this.bias = 0,
+  ]) : ta = view.turn(a),
+       tb = view.turn(b);
 
   final _View view;
   final _V a, b;
   final double ra, rb;
   final Color color;
+
+  /// 음수면 몸통보다 먼저 그려져, 몸통이 팔다리의 시작 부분을 덮습니다(몸에서 자연스럽게 나오는 모양).
+  final double bias;
   final _V ta, tb;
 
   @override
-  double get depth => (ta.z + tb.z) / 2;
+  double get depth => (ta.z + tb.z) / 2 + bias;
 
   @override
   void paint(Canvas canvas) {
@@ -804,9 +875,12 @@ class RunnerCharacterStage extends StatefulWidget {
     this.height = 260,
     this.interactive = true,
     this.initialYaw = -0.35,
+    this.background,
     super.key,
   });
 
+  /// 트랙 대신 깔 배경 사진입니다. null이면 기본 트랙입니다.
+  final ImageProvider? background;
   final CharacterOutfit outfit;
   final double height;
   final bool interactive;
@@ -875,7 +949,15 @@ class _RunnerCharacterStageState extends State<RunnerCharacterStage>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          CustomPaint(painter: TrackBackgroundPainter(dark: dark)),
+          if (widget.background case final image?)
+            Image(
+              image: image,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  CustomPaint(painter: TrackBackgroundPainter(dark: dark)),
+            )
+          else
+            CustomPaint(painter: TrackBackgroundPainter(dark: dark)),
           Padding(
             padding: EdgeInsets.only(top: widget.height * 0.06),
             child: AnimatedBuilder(

@@ -18,6 +18,7 @@ class CharacterCardData {
     required this.level,
     required this.outfit,
     this.items = const [],
+    this.background,
   });
 
   /// 지갑에서 입고 있는 캐릭터 아이템을 읽어 만듭니다.
@@ -25,6 +26,7 @@ class CharacterCardData {
     Wallet? wallet, {
     required String nickname,
     required int level,
+    ImageProvider? background,
   }) {
     final worn = wornCharacterItems(wallet).values.toList()
       ..sort((a, b) => a.slot.index.compareTo(b.slot.index));
@@ -33,6 +35,7 @@ class CharacterCardData {
       level: level,
       outfit: characterOutfit(worn),
       items: [for (final item in worn) item.label],
+      background: background,
     );
   }
 
@@ -42,6 +45,9 @@ class CharacterCardData {
 
   /// 입고 있는 아이템 이름입니다(카드에는 앞의 몇 개만 보입니다).
   final List<String> items;
+
+  /// 카드 배경으로 깔 사진입니다. null이면 기본 트랙입니다.
+  final ImageProvider? background;
 
   String get levelLabel => 'Lv.$level ${levelTitle(level)}';
 }
@@ -65,7 +71,15 @@ class CharacterProfileCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const CustomPaint(painter: TrackBackgroundPainter()),
+            if (data.background case final image?)
+              Image(
+                image: image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    const CustomPaint(painter: TrackBackgroundPainter()),
+              )
+            else
+              const CustomPaint(painter: TrackBackgroundPainter()),
             Positioned(
               top: 16,
               left: 0,

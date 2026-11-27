@@ -8,6 +8,10 @@ import '../training/training_screen.dart';
 
 import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:flutter/material.dart';
+
+import '../character/character_background.dart';
+import 'profile_sections.dart';
+
 import 'package:runquest/features/character/character_outfit.dart';
 import 'package:runquest/features/character/character_card_share.dart';
 import 'package:runquest/features/character/character_profile_card.dart';
@@ -98,6 +102,7 @@ class ProfileScreen extends StatelessWidget {
         wallet?.wallet,
         nickname: nickname,
         level: level,
+        background: CharacterBackground.instance.provider,
       ),
       actions: DeviceCharacterCardActions(
         client: client,
@@ -121,20 +126,66 @@ class ProfileScreen extends StatelessWidget {
               final wallet? => CharacterDressButton(wallet: wallet),
               null => null,
             },
+            // 연필 오른쪽의 사진 아이콘: 캐릭터 배경 사진을 바꾸고 보관함을 엽니다.
+            trailingAction: const CharacterBackgroundButton(),
           ),
           // 내 러너 캐릭터: 입은 아이템이 바로 보이고 좌우로 돌려 볼 수 있습니다.
-          const SizedBox(height: 16),
-          RunnerCharacterCard(
-            wallet: wallet,
-            // 카드를 이미지로 저장하거나 채팅·게시판으로 보낼 수 있습니다(서버 연결이 있을 때).
-            onShare: commerceClient == null ? null : () => _shareCard(context),
+          // 줄 전체를 눌러 접고 펼 수 있어요(상태는 기기에 저장).
+          ListenableBuilder(
+            listenable: ProfileSections.instance,
+            builder: (context, _) {
+              final open = ProfileSections.instance.isOpen(ProfileSection.card);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () =>
+                        ProfileSections.instance.toggle(ProfileSection.card),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '프로필 카드',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                          const SectionToggle(
+                            section: ProfileSection.card,
+                            label: '프로필 카드',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Collapsible(
+                    open: open,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 8),
+                        RunnerCharacterCard(
+                          wallet: wallet,
+                          // 카드를 이미지로 저장하거나 채팅·게시판으로 보낼 수 있습니다(서버 연결이 있을 때).
+                          onShare: commerceClient == null
+                              ? null
+                              : () => _shareCard(context),
+                        ),
+                        if (progressService != null) ...[
+                          const SizedBox(height: 16),
+                          Divider(height: 1, color: AppColors.line),
+                          const SizedBox(height: 16),
+                          ProfileLevelCard(service: progressService!),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-          if (progressService != null) ...[
-            const SizedBox(height: 16),
-            Divider(height: 1, color: AppColors.line),
-            const SizedBox(height: 16),
-            ProfileLevelCard(service: progressService!),
-          ],
         ],
       ),
     );

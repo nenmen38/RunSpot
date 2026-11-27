@@ -3,8 +3,10 @@ import 'package:runquest/features/settings/run_auto_pause_settings.dart';
 
 import 'app/bootstrap.dart';
 import 'features/onboarding/app_tour.dart';
+import 'features/profile/profile_sections.dart';
 import 'shared/widgets/brand_intro.dart';
 import 'app/run_quest_app.dart';
+import 'features/character/character_background.dart';
 import 'features/settings/appearance/app_appearance.dart';
 import 'features/settings/body_weight.dart';
 import 'features/settings/location_privacy.dart';
@@ -24,6 +26,8 @@ Future<void> main() async {
       BodyWeight.instance.load(),
       AppTour.instance.load(),
       LocationPrivacy.instance.load(),
+      CharacterBackground.instance.load(),
+      ProfileSections.instance.load(),
     ]);
     runApp(const RunQuestApp());
   } catch (error, stackTrace) {

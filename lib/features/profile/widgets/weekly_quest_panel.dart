@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../shared/widgets/page_layout.dart';
 import '../../../shared/widgets/panel.dart';
 import '../../monetization/coin_frames.dart';
+import '../profile_sections.dart';
 
 class WeeklyQuestPanel extends StatelessWidget {
-  const WeeklyQuestPanel({required this.controller, super.key});
+  const WeeklyQuestPanel({required this.controller, this.sections, super.key});
 
   final WalletController controller;
+
+  /// 펼침 상태 저장소입니다(기본은 기기에 저장).
+  final ProfileSections? sections;
 
   Future<void> _claim(BuildContext context, WeeklyCoinQuest quest) async {
     if (controller.busy) return;
@@ -36,23 +40,51 @@ class WeeklyQuestPanel extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(top: 12),
         child: Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SectionHeader(
-                title: '이번 주 퀘스트',
-                subtitle: '$completed/${quests.length}개 완료 · 최대 $reward 코인',
-                icon: Icons.task_alt_outlined,
-              ),
-              for (final quest in quests) ...[
-                const Divider(height: 24),
-                _QuestRow(
-                  quest: quest,
-                  busy: controller.busy,
-                  onClaim: () => _claim(context, quest),
-                ),
-              ],
-            ],
+          child: ListenableBuilder(
+            listenable: sections ?? ProfileSections.instance,
+            builder: (context, _) {
+              final open = (sections ?? ProfileSections.instance).isOpen(
+                ProfileSection.quest,
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SectionHeader(
+                          title: '이번 주 퀘스트',
+                          subtitle:
+                              '$completed/${quests.length}개 완료 · 최대 $reward 코인',
+                          icon: Icons.task_alt_outlined,
+                        ),
+                      ),
+                      SectionToggle(
+                        section: ProfileSection.quest,
+                        label: '이번 주 퀘스트',
+                        sections: sections,
+                      ),
+                    ],
+                  ),
+                  Collapsible(
+                    open: open,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final quest in quests) ...[
+                          const Divider(height: 24),
+                          _QuestRow(
+                            quest: quest,
+                            busy: controller.busy,
+                            onClaim: () => _claim(context, quest),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       );
