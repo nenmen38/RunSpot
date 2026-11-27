@@ -99,9 +99,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byTooltip('댓글 메뉴'), findsOneWidget);
-    await tester.tap(find.byTooltip('댓글 메뉴'));
+    // 남의 댓글과 내 댓글 모두 '…' 메뉴가 있습니다(첫 번째가 남의 댓글).
+    expect(find.byTooltip('댓글 메뉴'), findsNWidgets(2));
+    await tester.tap(find.byTooltip('댓글 메뉴').first);
     await tester.pumpAndSettle();
+    expect(find.text('삭제'), findsNothing);
     await tester.tap(find.text('신고'));
     await tester.pumpAndSettle();
     expect(find.text('댓글 신고'), findsOneWidget);
@@ -113,6 +115,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.reportedComments, ['other:욕설·비방']);
     expect(find.text('신고가 접수되었습니다.'), findsOneWidget);
+  });
+
+  testWidgets('내 댓글은 … 메뉴에서 삭제를 누르고 확인하면 지워집니다', (tester) async {
+    final service = FakeBoardService()
+      ..commentRows = [commentJson('other'), commentJson('mine', isMine: true)];
+    final controller = BoardController(service);
+    addTearDown(controller.dispose);
+    await controller.refresh();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BoardPostScreen(
+          controller: controller,
+          post: BoardPost.fromJson(postJson('post')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('댓글 메뉴').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('댓글 메뉴').last);
+    await tester.pumpAndSettle();
+    expect(find.text('신고'), findsNothing);
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+    expect(find.text('댓글을 삭제할까요?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '삭제'));
+    await tester.pumpAndSettle();
+    expect(service.deletedComments, ['mine']);
   });
 
   testWidgets('서버가 거절한 댓글은 입력한 내용을 유지합니다', (tester) async {

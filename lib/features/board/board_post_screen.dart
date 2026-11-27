@@ -588,30 +588,31 @@ class _BoardPostScreenState extends State<BoardPostScreen> {
                                 ? null
                                 : () => _startReply(comment),
                           ),
-                        if (!comment.isMine)
-                          PopupMenuButton<String>(
-                            tooltip: '댓글 메뉴',
-                            enabled: !_comments.busy,
-                            icon: Icon(
-                              Icons.more_horiz,
-                              size: 18,
-                              color: BoardStyle.secondary,
-                            ),
-                            onSelected: (_) => _reportComment(comment),
-                            itemBuilder: (_) => [
+                        // '…'을 누르면 남의 댓글은 신고, 내 댓글(또는 운영자)은 삭제가 나옵니다.
+                        PopupMenuButton<String>(
+                          tooltip: '댓글 메뉴',
+                          enabled: !_comments.busy,
+                          icon: Icon(
+                            Icons.more_horiz,
+                            size: 18,
+                            color: BoardStyle.secondary,
+                          ),
+                          onSelected: (value) => value == 'delete'
+                              ? _deleteComment(comment)
+                              : _reportComment(comment),
+                          itemBuilder: (_) => [
+                            if (!comment.isMine)
                               const PopupMenuItem(
                                 value: 'report',
                                 child: Text('신고'),
                               ),
-                            ],
-                          ),
-                        if (comment.isMine || _comments.canModerate)
-                          _CommentAction(
-                            label: '삭제',
-                            onTap: _comments.busy
-                                ? null
-                                : () => _deleteComment(comment),
-                          ),
+                            if (comment.isMine || _comments.canModerate)
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('삭제'),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ],
