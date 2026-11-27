@@ -48,6 +48,7 @@ import '../character/character_outfit.dart';
 import '../character/runner_celebration.dart';
 import '../character/runner_character_card.dart';
 import '../courses/saved_course.dart';
+import '../settings/location_privacy.dart';
 import '../feedback/review_prompt.dart';
 import '../settings/run_voice_settings.dart';
 import '../social/data/cheer_service.dart';
@@ -432,6 +433,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               templateStore: ShareTemplateStore(service.ownerId),
               record: currentRecord(),
               wallet: widget.wallet,
+              hideMeters: LocationPrivacy.instance.radiusMeters,
               isCurrentOwner: () => service.isCurrentOwner,
               loadRoute: () async => summary.route,
               ownerChanges: client?.auth.onAuthStateChange,

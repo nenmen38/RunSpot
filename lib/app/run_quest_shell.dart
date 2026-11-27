@@ -6,6 +6,7 @@ import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
 import '../features/character/runner_character_directory.dart';
+import '../features/settings/location_privacy.dart';
 import '../l10n/l10n.dart';
 import '../features/feedback/review_prompt.dart';
 import '../features/home/home_widget_sync.dart';
@@ -266,6 +267,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
           voiceEnabled: () => RunVoiceSettings.instance.enabled,
         ),
         autoPauseEnabled: () => RunAutoPauseSettings.instance.enabled,
+        // 러닝 시작 지점(집) 근처에서는 내 위치를 친구에게 보내지 않습니다.
+        hideRadiusMeters: () => LocationPrivacy.instance.radiusMeters,
         runHistory: RunHistoryController(
           records,
           outbox: SqliteRunOutbox(

@@ -37,11 +37,15 @@ class RunShareScreen extends StatefulWidget {
     this.averageHeartRate,
     this.loadCadence,
     this.wallet,
+    this.hideMeters = 0,
     this.loadHighlights,
     this.templateStore,
     super.key,
   });
   final WalletController? wallet;
+
+  /// 카드의 경로에서 출발·도착 주변을 가릴 반경(m)입니다. 0이면 가리지 않습니다.
+  final int hideMeters;
   final ShareTemplateStore? templateStore;
   final Future<ShareHighlightChoices> Function()? loadHighlights;
   final RunRecord record;
@@ -331,7 +335,11 @@ class _RunShareScreenState extends State<RunShareScreen> {
           if (!context.mounted || consent != true || !widget.isCurrentOwner()) {
             return null;
           }
-          return _route ?? ShareRoute.shape(await widget.loadRoute());
+          return _route ??
+              ShareRoute.shape(
+                await widget.loadRoute(),
+                hideMeters: widget.hideMeters,
+              );
         },
         loadCadence:
             widget.loadCadence ??
@@ -569,10 +577,17 @@ class _RunShareScreenState extends State<RunShareScreen> {
       _error = null;
     });
     try {
-      _route ??= ShareRoute.shape(await widget.loadRoute());
+      _route ??= ShareRoute.shape(
+        await widget.loadRoute(),
+        hideMeters: widget.hideMeters,
+      );
       if (!mounted || !widget.isCurrentOwner()) return;
       if (_route!.isEmpty) {
-        setState(() => _error = '선으로 표시할 이동 경로가 부족합니다.');
+        setState(
+          () => _error = widget.hideMeters > 0
+              ? '집 근처 ${widget.hideMeters}m를 가리고 나니 표시할 경로가 부족해요. (설정에서 반경을 줄일 수 있어요)'
+              : '선으로 표시할 이동 경로가 부족합니다.',
+        );
         return;
       }
       setState(() => _includeRoute = true);
@@ -883,6 +898,9 @@ class _RunShareScreenState extends State<RunShareScreen> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('경로 포함'),
+          subtitle: widget.hideMeters > 0
+              ? Text('집 근처 보호: 출발·도착 ${widget.hideMeters}m 주변은 가려져요')
+              : null,
           value: _includeRoute,
           onChanged: _busy ? null : _selectRoute,
         ),

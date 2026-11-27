@@ -1,3 +1,4 @@
+import 'location_privacy.dart';
 import '../auth/community_policy.dart';
 import '../moderation/moderation_screen.dart';
 import 'run_auto_pause_settings.dart';
@@ -135,6 +136,21 @@ class SettingsScreen extends StatelessWidget {
             AppTour.instance.restart();
             Navigator.of(context).popUntil((route) => route.isFirst);
           },
+        ),
+        ListenableBuilder(
+          listenable: LocationPrivacy.instance,
+          builder: (context, _) => ListTile(
+            key: const ValueKey('location-privacy-setting'),
+            leading: const Icon(Icons.home_outlined),
+            title: const Text('집·직장 근처 위치 숨기기'),
+            subtitle: Text(
+              '${LocationPrivacy.instance.summary} · 시작 지점 주변은 다른 사람에게 안 보여요',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(builder: (_) => const LocationPrivacyScreen()),
+            ),
+          ),
         ),
         ListenableBuilder(
           listenable: RunAutoPauseSettings.instance,

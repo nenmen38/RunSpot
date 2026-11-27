@@ -5,6 +5,7 @@ import 'dart:async';
 import '../diagnostics/error_reporter.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../run_history/run_history_controller.dart';
@@ -27,7 +28,12 @@ class LiveMapController extends ChangeNotifier {
     this.checkpointStore,
     this.runGuide,
     this.autoPauseEnabled,
+    this.hideRadiusMeters,
   });
+
+  /// 러닝 시작 지점에서 이 거리(m) 안에서는 내 위치를 다른 사람에게 보내지 않습니다(집·직장 보호).
+  /// 없거나 0이면 항상 보냅니다.
+  final int Function()? hideRadiusMeters;
 
   /// 10초 이상 멈추면 자동 일시정지할지 매번 확인합니다. 없으면 자동 일시정지를 쓰지 않습니다.
   final bool Function()? autoPauseEnabled;
@@ -769,14 +775,20 @@ class LiveMapController extends ChangeNotifier {
         sharingError = '정확한 현재 위치를 확인한 뒤 공유할 수 있습니다.';
         return;
       }
-      await _enqueue(() async {
-        if (canShareLocation && generation == _generation) {
-          await runnerService.publish(fix, paceSecPerKm: _sharedPace);
-        }
-      });
+      // 시작 지점(집) 근처라면 처음에는 위치를 보내지 않고 공유 상태만 켭니다.
+      if (!_insidePrivateZone(fix)) {
+        await _enqueue(() async {
+          if (canShareLocation && generation == _generation) {
+            await runnerService.publish(fix, paceSecPerKm: _sharedPace);
+          }
+        });
+      } else {
+        _hiddenNearStart = true;
+      }
       if (!canShareLocation || generation != _generation) return;
       sharing = true;
-      _lastPublished = DateTime.now();
+      // 숨기는 중이면 반경을 벗어나는 첫 위치를 바로 보낼 수 있게 시각을 남기지 않습니다.
+      _lastPublished = _hiddenNearStart ? null : DateTime.now();
       await _syncNearby();
       await refresh();
     } catch (error, stack) {
@@ -804,15 +816,58 @@ class LiveMapController extends ChangeNotifier {
     }
   }
 
+  bool _hiddenNearStart = false;
+
+  /// 지금 위치가 러닝 시작 지점의 보호 반경 안인지입니다.
+  bool _insidePrivateZone(LocationFix fix) {
+    final radius = hideRadiusMeters?.call() ?? 0;
+    final session = runSession;
+    if (radius <= 0 || session == null) return false;
+    final first = session.routeSegments
+        .where((segment) => segment.isNotEmpty)
+        .firstOrNull
+        ?.first;
+    if (first == null) return false;
+    return const Distance()(
+          LatLng(first.latitude, first.longitude),
+          LatLng(fix.latitude, fix.longitude),
+        ) <
+        radius;
+  }
+
+  /// 보호 반경 안에 들어오면 이미 올려 둔 내 위치를 지우고, 벗어나면 다시 보냅니다.
+  /// 공유 설정(sharing)은 그대로 두므로 반경을 벗어나면 저절로 이어서 공유됩니다.
+  Future<bool> _hideIfNearStart(LocationFix fix, int generation) async {
+    if (!_insidePrivateZone(fix)) {
+      _hiddenNearStart = false;
+      return false;
+    }
+    if (!_hiddenNearStart) {
+      _hiddenNearStart = true;
+      try {
+        await _enqueue(() async {
+          if (generation == _generation) await runnerService.stopSharing();
+        });
+      } catch (_) {
+        // 지우지 못해도 다음 주기에 다시 시도합니다.
+        _hiddenNearStart = false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _publish() async {
     final fix = position;
     final generation = _generation;
-    if (!canShareLocation ||
-        !sharing ||
-        fix == null ||
-        !fix.isUsable ||
-        (_lastPublished != null &&
-            DateTime.now().difference(_lastPublished!) < _publishInterval)) {
+    if (!canShareLocation || !sharing || fix == null || !fix.isUsable) return;
+    // 시작 지점 근처에 들어오는 순간은 보내는 주기와 관계없이 바로 위치를 지웁니다.
+    if (_insidePrivateZone(fix)) {
+      await _hideIfNearStart(fix, generation);
+      return;
+    }
+    _hiddenNearStart = false;
+    if (_lastPublished != null &&
+        DateTime.now().difference(_lastPublished!) < _publishInterval) {
       return;
     }
     _lastPublished = DateTime.now();

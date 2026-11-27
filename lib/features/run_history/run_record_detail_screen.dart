@@ -1,4 +1,5 @@
 import '../courses/saved_course.dart';
+import '../settings/location_privacy.dart';
 import '../run_share/data/share_template_store.dart';
 import '../run_share/models/share_highlights.dart';
 import '../monetization/coin_frames.dart';
@@ -176,6 +177,7 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                           ),
                           record: _record,
                           wallet: widget.wallet,
+                          hideMeters: LocationPrivacy.instance.radiusMeters,
                           averageHeartRate:
                               _selectedHealthSource?.averageHeartRate,
                           isCurrentOwner: () =>
@@ -318,7 +320,9 @@ class _RunRecordDetailScreenState extends State<RunRecordDetailScreen> {
                         record: widget.record,
                         service: widget.feedbackService!,
                         readHeartSource:
-                            const bool.fromEnvironment('RUN_FEEDBACK_HEART_SHARING')
+                            const bool.fromEnvironment(
+                              'RUN_FEEDBACK_HEART_SHARING',
+                            )
                             ? () => _selectedHealthSource
                             : null,
                       ),

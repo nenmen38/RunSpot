@@ -11,9 +11,13 @@ class ShareRoute {
   final List<List<Offset>> segments;
   bool get isEmpty => segments.isEmpty;
 
-  factory ShareRoute.shape(RunRoute route) {
+  /// [hideMeters]가 0보다 크면 출발점과 도착점에서 그 거리 안의 경로를 잘라 냅니다
+  /// (집·직장 근처를 카드에 드러내지 않기 위해서입니다).
+  factory ShareRoute.shape(RunRoute route, {int hideMeters = 0}) {
     if (route.isEmpty) return ShareRoute._([]);
     const distance = Distance();
+    final start = route.segments.first.first;
+    final end = route.segments.last.last;
     final safe = <List<LatLng>>[];
     for (final segment in route.segments) {
       var current = <LatLng>[];
@@ -23,6 +27,13 @@ class ShareRoute {
       }
 
       for (final point in segment) {
+        if (hideMeters > 0 &&
+            (distance(start, point) < hideMeters ||
+                distance(end, point) < hideMeters)) {
+          // 가릴 구간은 건너뛰며, 지나간 자리는 선으로 잇지 않습니다.
+          finish();
+          continue;
+        }
         // 일시 정지와 긴 위치 단절은 선으로 연결하지 않습니다.
         if (current.isNotEmpty && distance(current.last, point) > 50) finish();
         current.add(point);

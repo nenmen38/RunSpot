@@ -259,6 +259,53 @@ void main() {
     expect(service.actions, ['publish', 'stop', 'publish']);
   });
 
+  test('러닝 시작 지점 근처에서는 내 위치를 보내지 않고 멀어지면 보냅니다', () async {
+    final hidden = LiveMapController(
+      locationService: location,
+      runnerService: service,
+      runHistory: history,
+      hideRadiusMeters: () => 300,
+    );
+    addTearDown(hidden.dispose);
+    await hidden.start();
+    await hidden.startRun();
+    // 시작 지점(집)에서 공유를 켜도 위치는 올라가지 않지만 공유 상태는 켜집니다.
+    await hidden.setSharing(true);
+    expect(hidden.sharing, isTrue);
+    expect(service.actions, isEmpty);
+
+    // 약 100m(위도 0.0009도) 떨어져도 아직 보호 반경 안입니다.
+    location.updates.add(testFix(latitude: 37.5665 + 0.0009));
+    await Future<void>.delayed(Duration.zero);
+    await hidden.refresh();
+    expect(service.actions.where((a) => a == 'publish'), isEmpty);
+
+    // 약 450m(위도 0.004도) 떨어지면 보냅니다.
+    location.updates.add(testFix(latitude: 37.5665 + 0.004));
+    await Future<void>.delayed(Duration.zero);
+    expect(service.actions, contains('publish'));
+
+    // 다시 시작 지점 근처로 돌아오면 올려 둔 위치를 지웁니다.
+    location.updates.add(testFix(latitude: 37.5665 + 0.0005));
+    await Future<void>.delayed(Duration.zero);
+    expect(service.actions.last, 'stop');
+    expect(hidden.sharing, isTrue);
+  });
+
+  test('보호 반경이 0이면 시작 지점에서도 바로 보냅니다', () async {
+    final open = LiveMapController(
+      locationService: location,
+      runnerService: service,
+      runHistory: history,
+      hideRadiusMeters: () => 0,
+    );
+    addTearDown(open.dispose);
+    await open.start();
+    await open.startRun();
+    await open.setSharing(true);
+    expect(service.actions, ['publish']);
+  });
+
   test('공유 준비 중 일시 정지하면 위치를 전송하지 않습니다', () async {
     await controller.startRun();
     final sharing = controller.setSharing(true);

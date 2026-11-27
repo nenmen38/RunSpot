@@ -7,6 +7,7 @@ import 'shared/widgets/brand_intro.dart';
 import 'app/run_quest_app.dart';
 import 'features/settings/appearance/app_appearance.dart';
 import 'features/settings/body_weight.dart';
+import 'features/settings/location_privacy.dart';
 import 'features/settings/run_voice_settings.dart';
 
 Future<void> main() async {
@@ -22,6 +23,7 @@ Future<void> main() async {
       BrandIntro.preload(),
       BodyWeight.instance.load(),
       AppTour.instance.load(),
+      LocationPrivacy.instance.load(),
     ]);
     runApp(const RunQuestApp());
   } catch (error, stackTrace) {
