@@ -6,7 +6,10 @@ import '../training/training_screen.dart';
 
 import 'package:runquest/features/profile/data/personal_records_service.dart';
 import 'package:flutter/material.dart';
+import 'package:runquest/features/character/character_outfit.dart';
 import 'package:runquest/features/character/runner_character_card.dart';
+import 'package:runquest/features/report/running_report.dart';
+import 'package:runquest/features/report/running_report_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../monetization/partner_offers.dart';
@@ -131,6 +134,8 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              _ReportLink(client: client, wallet: wallet),
             ],
             if (mapController case final controller?) ...[
               const SizedBox(height: 12),
@@ -224,4 +229,32 @@ class _ProfileLink extends StatelessWidget {
       onTap: onTap,
     ),
   );
+}
+
+/// '러닝 리포트' 진입점입니다. 12월·1월에는 연말 결산이 도착했다고 알려 줍니다.
+class _ReportLink extends StatelessWidget {
+  const _ReportLink({required this.client, this.wallet});
+
+  final SupabaseClient client;
+  final WalletController? wallet;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final yearEnd = now.month == 12 || now.month == 1;
+    final year = now.month == 1 ? now.year - 1 : now.year;
+    return _ProfileLink(
+      icon: yearEnd ? Icons.celebration_outlined : Icons.auto_graph,
+      title: yearEnd ? '$year 연말 결산이 도착했어요 🎉' : '러닝 리포트',
+      subtitle: '이번 달과 올해 달린 기록을 한눈에',
+      onTap: () => Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => RunningReportScreen(
+            service: SupabaseRunningReportService(client),
+            outfit: characterOutfit(wornCharacterItems(wallet?.wallet).values),
+          ),
+        ),
+      ),
+    );
+  }
 }
