@@ -36,6 +36,12 @@ storeFile=C:\\keys\\runspot-upload.jks
 flutter build appbundle --release --dart-define-from-file=config/release.local.json
 ```
 
+앱 크기 확인(선택): 구글 플레이는 번들에서 기기별로 필요한 부분만 내려보내므로 실제 내려받는 크기는 번들보다 작습니다. 무엇이 큰지 보려면 아래처럼 64비트 폰용 APK를 분석합니다. 결과 파일(`build/flutter_size_*`)은 `flutter pub global run devtools`의 앱 크기 도구에서 열어 볼 수 있습니다.
+```powershell
+flutter build apk --release --analyze-size --target-platform android-arm64 --dart-define-from-file=config/release.local.json
+```
+출시 빌드는 Flutter가 기본으로 코드·리소스 축소(R8)와 아이콘 글꼴 줄이기를 합니다. 더 줄이려면 `--obfuscate --split-debug-info=build/symbols`를 붙일 수 있지만, 이때는 Crashlytics에 기호 파일을 따로 올려야 오류 위치가 보입니다.
+
 ### 3. 정책 문서
 - `docs/privacy-policy-draft.md`는 코드 기준으로 작성한 **초안**입니다. 운영자 정보·보관 기간을 채우고 법률 검토를 받은 뒤 웹에 게시하고 주소를 `PRIVACY_POLICY_URL`에 넣습니다.
 - 위치 정보를 다루므로 위치정보법상 **위치기반서비스사업 신고** 대상인지, 위치정보 이용약관·동의가 필요한지 확인합니다.

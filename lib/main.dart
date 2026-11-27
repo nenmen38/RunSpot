@@ -11,14 +11,18 @@ import 'features/settings/run_voice_settings.dart';
 
 Future<void> main() async {
   try {
-    await initializeApp();
-    // 다크 모드·글자 크기 설정을 먼저 불러와 첫 화면부터 반영합니다.
-    await AppAppearance.instance.load();
-    await RunVoiceSettings.instance.load();
-    await RunAutoPauseSettings.instance.load();
-    await BrandIntro.preload();
-    await BodyWeight.instance.load();
-    await AppTour.instance.load();
+    WidgetsFlutterBinding.ensureInitialized();
+    // 서로 관계없는 준비를 한꺼번에 해서 첫 화면을 빨리 띄웁니다.
+    // 다크 모드·글자 크기 설정도 여기서 불러와 첫 화면부터 반영합니다.
+    await Future.wait([
+      initializeApp(),
+      AppAppearance.instance.load(),
+      RunVoiceSettings.instance.load(),
+      RunAutoPauseSettings.instance.load(),
+      BrandIntro.preload(),
+      BodyWeight.instance.load(),
+      AppTour.instance.load(),
+    ]);
     runApp(const RunQuestApp());
   } catch (error, stackTrace) {
     FlutterError.reportError(

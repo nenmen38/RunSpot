@@ -29,7 +29,8 @@ class AppStartupException implements Exception {
 
 Future<void> initializeApp() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await discardInterruptedSharePhoto();
+  // 사진 선택기 정리는 다른 준비와 함께 진행합니다.
+  final photoCleanup = discardInterruptedSharePhoto();
   final localConfig = await _loadFallbackConfig();
   final supabaseUrl = _requiredSupabaseUrl(
     _supabaseUrl,
@@ -41,17 +42,23 @@ Future<void> initializeApp() async {
   );
 
   PasswordService.configure(supabaseUrl, supabasePublishableKey);
-  await KakaoSignInService.configure(
-    const String.fromEnvironment('KAKAO_NATIVE_KEY').isNotEmpty
-        ? const String.fromEnvironment('KAKAO_NATIVE_KEY')
-        : localConfig['KAKAO_NATIVE_KEY'] ?? '',
-  );
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await Supabase.initialize(
-    url: supabaseUrl,
-    publishableKey: supabasePublishableKey,
-  );
-  await ErrorReporter.initialize().catchError((_) {});
+  // 카카오·Firebase·Supabase 준비는 서로 기다릴 필요가 없어 한꺼번에 합니다.
+  // 오류 수집(Crashlytics)은 Firebase가 준비된 뒤에 켭니다.
+  await Future.wait([
+    photoCleanup,
+    KakaoSignInService.configure(
+      const String.fromEnvironment('KAKAO_NATIVE_KEY').isNotEmpty
+          ? const String.fromEnvironment('KAKAO_NATIVE_KEY')
+          : localConfig['KAKAO_NATIVE_KEY'] ?? '',
+    ),
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
+        .then((_) => ErrorReporter.initialize().catchError((_) {})),
+    Supabase.initialize(
+      url: supabaseUrl,
+      publishableKey: supabasePublishableKey,
+    ),
+  ]);
+  // 푸시는 Firebase와 로그인 정보가 모두 준비된 뒤에 시작합니다.
   PushService.instance.start();
 }
 
