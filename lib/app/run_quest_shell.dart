@@ -8,6 +8,7 @@ import 'package:app_links/app_links.dart';
 import '../features/character/runner_character_directory.dart';
 import '../features/feedback/review_prompt.dart';
 import '../features/home/home_widget_sync.dart';
+import '../features/social/data/cheer_service.dart';
 import '../features/profile/running_streak.dart';
 import '../features/home/widgets/run_controls.dart';
 import '../shared/network/network_status.dart';
@@ -139,6 +140,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
   WatchBridge? _watch;
   StreamSubscription<Uri>? _inviteLinks;
   HomeWidgetSync? _homeWidget;
+  CheerService? _cheers;
   Uri? _lastInvite;
   void _openInvite(Uri uri) {
     // 홈 화면 위젯: runspot://run/start 는 러닝 시작, runspot://home 은 홈 열기입니다.
@@ -238,6 +240,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
         SupabaseRunnerCharacterSource(client),
       );
       _friends = SupabaseFriendService(client);
+      _cheers = SupabaseCheerService(client);
       _achievements = SupabaseAchievementService(client);
       final reviews = SupabaseReviewService(client);
       _reviews = reviews;
@@ -579,6 +582,7 @@ class _RunQuestShellState extends State<RunQuestShell> {
               friendService: widget.friendService ?? _friends,
               notificationController: _notifications,
               wallet: _wallet,
+              cheerService: _cheers,
               onOpenPost: _openPost,
               isActive: _tab == 0,
               mapBridgeFactory: widget.mapBridgeFactory,

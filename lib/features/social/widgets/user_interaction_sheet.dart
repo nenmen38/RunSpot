@@ -16,6 +16,7 @@ Future<bool> showUserInteraction(
   FriendEntry? knownFriend,
   VoidCallback? onRunInvite,
   VoidCallback? onProfile,
+  VoidCallback? onCheer,
 }) async =>
     await showModalBottomSheet<bool>(
       context: context,
@@ -28,6 +29,7 @@ Future<bool> showUserInteraction(
         knownFriend: knownFriend,
         onRunInvite: onRunInvite,
         onProfile: onProfile,
+        onCheer: onCheer,
       ),
     ) ??
     false;
@@ -41,6 +43,7 @@ class _UserMenu extends StatefulWidget {
     this.knownFriend,
     this.onRunInvite,
     this.onProfile,
+    this.onCheer,
   });
   final String userId;
   final String nickname;
@@ -49,6 +52,9 @@ class _UserMenu extends StatefulWidget {
   final FriendEntry? knownFriend;
   final VoidCallback? onRunInvite;
   final VoidCallback? onProfile;
+
+  /// 달리고 있는 친구에게 응원을 보냅니다(지도에서 연 경우).
+  final VoidCallback? onCheer;
   @override
   State<_UserMenu> createState() => _UserMenuState();
 }
@@ -108,7 +114,11 @@ class _UserMenuState extends State<_UserMenu> {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ReportableAvatarHeader(userId: widget.userId, nickname: widget.nickname, size: 40),
+              child: ReportableAvatarHeader(
+                userId: widget.userId,
+                nickname: widget.nickname,
+                size: 40,
+              ),
             ),
             if (_error != null)
               Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
@@ -137,6 +147,19 @@ class _UserMenuState extends State<_UserMenu> {
                             widget.userId,
                             widget.nickname,
                           );
+                        },
+                ),
+              if (widget.onCheer case final cheer?)
+                ListTile(
+                  key: const ValueKey('send-cheer'),
+                  leading: const Icon(Icons.celebration_outlined),
+                  title: const Text('응원 보내기 👏'),
+                  subtitle: const Text('달리는 친구에게 음성으로 전해져요'),
+                  onTap: _busy
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          cheer();
                         },
                 ),
               if (widget.onRunInvite case final invite?)

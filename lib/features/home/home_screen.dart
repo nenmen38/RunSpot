@@ -48,6 +48,8 @@ import '../character/character_outfit.dart';
 import '../character/runner_celebration.dart';
 import '../character/runner_character_card.dart';
 import '../feedback/review_prompt.dart';
+import '../settings/run_voice_settings.dart';
+import '../social/data/cheer_service.dart';
 
 /// 함께 달리기를 신청한 사람이 테두리를 착용하지 않았을 때 쓰는 무리 오라 색입니다.
 const defaultCrewColor = '#8B5CF6';
@@ -65,6 +67,7 @@ class HomeScreen extends StatefulWidget {
     this.notificationController,
     this.onOpenPost,
     this.wallet,
+    this.cheerService,
     this.isActive = true,
     super.key,
   });
@@ -85,6 +88,9 @@ class HomeScreen extends StatefulWidget {
 
   /// 착용한 테두리를 고른 색으로 내 위치 원에 표시합니다.
   final WalletController? wallet;
+
+  /// 러닝 중 친구 응원을 보내고 받습니다.
+  final CheerService? cheerService;
   final bool isActive;
 
   @override
@@ -173,6 +179,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       onRunInvite: widget.groupController == null
           ? null
           : () => _inviteRunner(runner),
+      // 달리고 있는 친구에게는 응원을 보낼 수 있습니다.
+      onCheer: widget.cheerService == null || !runner.isFriend
+          ? null
+          : () => unawaited(_sendCheer(runner)),
     );
     if (mounted && blocked) {
       setState(() => _selectedId = null);
@@ -183,9 +193,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return blocked;
   }
 
+  CheerListener? _cheers;
+
+  Future<void> _sendCheer(LiveRunner runner) async {
+    Object? failure;
+    try {
+      await widget.cheerService!.send(runner.id);
+      unawaited(HapticFeedback.lightImpact());
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(cheerResultMessage(failure, runner.nickname))),
+    );
+  }
+
+  /// 달리는 중에 친구 응원이 오면 진동과 함께 화면에 띄우고 음성 안내가 켜져 있으면 읽어 줍니다.
+  void _heardCheer(String nickname) {
+    if (!mounted) return;
+    unawaited(HapticFeedback.mediumImpact());
+    if (RunVoiceSettings.instance.enabled) {
+      unawaited(
+        widget.controller.runGuide?.output.speak('$nickname님이 응원을 보냈어요. 힘내세요!'),
+      );
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('👏 $nickname님이 응원을 보냈어요!')));
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.cheerService case final service?) {
+      _cheers = CheerListener(service: service, onCheer: _heardCheer)
+        ..setRunning(widget.controller.runSession?.isRunning == true);
+    }
     _hasRun = widget.controller.runSession != null;
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_changed);
@@ -250,6 +293,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _changed() {
     if (!mounted) return;
+    _cheers?.setRunning(widget.controller.runSession?.isRunning == true);
     final hasRun = widget.controller.runSession != null;
     if (hasRun != _hasRun) {
       _hasRun = hasRun;
@@ -464,6 +508,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _cheers?.dispose();
     _mapReturnTimer?.cancel();
     widget.conditionsController?.setActive(false);
     widget.notificationController?.setActive(false);

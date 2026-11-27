@@ -62,6 +62,7 @@
 45. `migrations/20261127040711_running_streak_and_comeback.sql`: `my_running_streak()`로 주간 목표(목표가 없으면 주 1회 이상 달리기)를 몇 주 연속 지켰는지 알려 줍니다. 매일 저녁 7시(한국 시간)에 마지막 러닝 뒤 3·7·14일째인 사람에게 '러닝 응원' 휴대폰 알림을 보내며(`enqueue_comeback_pushes`, pg_cron), 설정의 '러닝 응원'으로 끌 수 있습니다. 서버 함수 `operations-worker`를 다시 배포해야 합니다.
 46. `migrations/20261127041226_level_reward_cosmetics.sql`: 캐릭터 성장 보상으로 레벨 5·10·20에 도달하면 골드 헤어밴드·무지개 러닝화·챔피언 골드 싱글렛을 0코인으로 자동 지급합니다(`grant_level_cosmetics`, 레벨 코인 트리거에서 호출, 기존 사용자에게도 지급). 코인으로는 살 수 없고, 0코인 지급은 구매 내역에서 빠집니다.
 47. `migrations/20261127052316_monthly_challenges.sql`: 개인 월간 챌린지(이번 달 50km·주말 4번·10일 달리기)를 `my_challenges(requested_month)`로 계산하고 달성한 것을 `challenge_completions`에 기록합니다. 12월에 세 가지를 모두 마치면 '산타 러닝캡'(char_cap_santa, 구매 불가)을 선물합니다.
+48. `migrations/20261127052913_run_cheers.sql`: 러닝 중 친구 응원입니다. `send_cheer(target)`은 친구이고 상대가 2분 안에 위치를 보낸(달리는 중) 경우만, 같은 친구에게 1분에 한 번 보낼 수 있습니다. 받는 사람 앱은 달리는 동안 `take_my_cheers()`로 10분 안의 응원을 가져가 음성으로 읽어 주며, 차단한 사람의 응원은 빠지고 하루 지난 기록은 지웁니다.
 
 이전 업적 정의는 데이터 호환을 위해 보존합니다. 현재 앱은 첫 이동 러닝·누적 10회·누적 50km 업적만 표시합니다.
 테스트 사용자, 가짜 러닝 기록, 관리자 계정은 초기 데이터에 포함하지 않습니다.
