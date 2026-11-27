@@ -6,6 +6,7 @@ import 'package:runquest/features/titles/badge_directory.dart';
 import 'package:app_links/app_links.dart';
 
 import '../features/character/runner_character_directory.dart';
+import '../features/feedback/review_prompt.dart';
 import '../features/home/home_widget_sync.dart';
 import '../features/home/widgets/run_controls.dart';
 import '../shared/network/network_status.dart';
@@ -220,6 +221,8 @@ class _RunQuestShellState extends State<RunQuestShell> {
       final client = Supabase.instance.client;
       // 인터넷 연결 상태를 지켜보며 끊기면 맨 위에 오프라인 띠를 보여 줍니다.
       unawaited(NetworkStatus.instance.start());
+      // 평가 요청은 앱을 쓴 지 며칠 지난 뒤에만 하도록 처음 쓴 날을 기억합니다.
+      unawaited(ReviewPrompt.instance.remember());
       WeeklyGoal.instance.bind(client);
       _blocks = SupabaseBlockService(client);
       _chat = ChatSync(FriendChatService(client))..start();

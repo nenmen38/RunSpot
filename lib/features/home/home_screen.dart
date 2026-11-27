@@ -47,6 +47,7 @@ import '../run_share/models/share_route.dart';
 import '../character/character_outfit.dart';
 import '../character/runner_celebration.dart';
 import '../character/runner_character_card.dart';
+import '../feedback/review_prompt.dart';
 
 /// 함께 달리기를 신청한 사람이 테두리를 착용하지 않았을 때 쓰는 무리 오라 색입니다.
 const defaultCrewColor = '#8B5CF6';
@@ -358,6 +359,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       );
       if (!mounted || !history.service.isCurrentOwner) return;
+      // 최고 기록·레벨 업을 본 뒤 완료 화면을 닫으면 가끔 평가를 부탁합니다.
+      if (action == null) {
+        unawaited(
+          ReviewPrompt.instance.askIfHappy(
+            completedRuns: history.visibleRecords.length,
+          ),
+        );
+      }
       if (action == RunCompletionAction.hide) {
         try {
           await history.setHidden(currentRecord(), true);

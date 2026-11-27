@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../feedback/review_prompt.dart';
 import '../../character/runner_celebration.dart';
 import '../../character/runner_character.dart';
 import '../data/progress_service.dart';
@@ -77,6 +78,8 @@ class _RunRewardSectionState extends State<RunRewardSection> {
         _reward = reward;
         _loaded = true;
       });
+      // 레벨이 오른 날은 평가를 부탁하기 좋은 순간입니다.
+      if (reward?.leveledUp == true) ReviewPrompt.instance.markHappyMoment();
     } catch (_) {
       if (mounted && epoch == _epoch) setState(() => _failed = true);
     } finally {

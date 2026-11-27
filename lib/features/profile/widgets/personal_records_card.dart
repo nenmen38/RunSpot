@@ -4,6 +4,7 @@ import '../../../shared/formatters/run_format.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/account_query_panel.dart';
 import '../../../shared/widgets/panel.dart';
+import '../../feedback/review_prompt.dart';
 import '../data/personal_records_service.dart';
 
 /// 프로필의 개인 최고 기록(1km·5km·10km)입니다. 최근 7일 안에 세운 기록에는 '신기록'을 붙입니다.
@@ -162,6 +163,8 @@ class _NewRecordBannerState extends State<NewRecordBanner> {
             if (record.runId == widget.runId) record.kilometers,
         ],
       );
+      // 개인 최고 기록을 세운 날은 평가를 부탁하기 좋은 순간입니다.
+      if (_distances.isNotEmpty) ReviewPrompt.instance.markHappyMoment();
     } catch (_) {
       // 최고 기록을 확인하지 못해도 완료 화면은 그대로 보여줍니다.
     }
