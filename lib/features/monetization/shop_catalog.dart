@@ -88,7 +88,7 @@ class _ShopCatalogState extends State<ShopCatalog> {
             style: text.bodySmall,
           ),
           const SizedBox(height: 8),
-          _ChipRow(
+          CategoryChipRow(
             keyPrefix: 'shop-group',
             values: CharacterShopGroup.values,
             selected: _group,
@@ -152,7 +152,7 @@ class _ShopCatalogState extends State<ShopCatalog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ChipRow(
+        CategoryChipRow(
           keyPrefix: 'shop-category',
           values: ShopCategory.values,
           selected: _category,
@@ -167,9 +167,10 @@ class _ShopCatalogState extends State<ShopCatalog> {
   }
 }
 
-/// 옆으로 밀리는 선택 칩 한 줄입니다.
-class _ChipRow<T> extends StatelessWidget {
-  const _ChipRow({
+/// 옆으로 밀리는 선택 칩 한 줄입니다(상점·보관함의 분류).
+class CategoryChipRow<T> extends StatelessWidget {
+  const CategoryChipRow({
+    super.key,
     required this.keyPrefix,
     required this.values,
     required this.selected,

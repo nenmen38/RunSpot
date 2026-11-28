@@ -7,13 +7,12 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'inventory_catalog.dart';
 import 'item_inventory.dart';
 import '../crew/crew_controller.dart';
 import '../crew/widgets/crew_widgets.dart';
-import 'cosmetic_shop.dart';
 import 'coin_frames.dart';
 import 'store_catalog.dart';
-import 'share_card_shop.dart';
 import 'shop_catalog.dart';
 import '../run_history/run_history_controller.dart';
 
@@ -71,6 +70,9 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
   /// 아이템 페이지에서 보는 칸입니다. 0은 보관함, 1은 상점입니다.
   int _section = 0;
   ShopCategory _shopCategory = ShopCategory.character;
+
+  /// 보관함 분류입니다. 아직 고르지 않았으면 가진 아이템이 있는 첫 분류를 보여 줍니다.
+  ShopCategory? _inventoryCategory;
 
   bool get _isStore => widget.child == null;
   bool get _previewOnly => _key.isEmpty || widget.client == null;
@@ -320,37 +322,35 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
         },
       ],
     );
+    final legacy = [
+      for (final item in Cosmetic.values)
+        if (_owned.contains(item))
+          InventoryItem(item, equipped: _selected.contains(item)),
+    ];
+    void openShop(ShopCategory category) => setState(() {
+      _section = 1;
+      _shopCategory = category;
+    });
     final inventory = ItemInventory(
-      items: [
-        for (final item in Cosmetic.values)
-          if (_owned.contains(item))
-            InventoryItem(item, equipped: _selected.contains(item)),
-      ],
+      // 예전 프로필 꾸미기 아이템은 '칭호·채팅' 분류에서만 보여 줍니다.
+      items: widget.wallet == null || _inventoryCategory == ShopCategory.profile
+          ? legacy
+          : const [],
       onChanged: _equip,
       busy: _busy,
       message: _message,
       header: switch (widget.wallet) {
-        final wallet? => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            FrameInventory(
-              controller: wallet,
-              // 테두리 보관함의 '상점 보기'는 테두리가 있는 '지도' 분류로 엽니다.
-              onShop: () => setState(() {
-                _section = 1;
-                _shopCategory = ShopCategory.map;
-              }),
-              onMessage: _showMessage,
-              onUseCrewTicket: widget.crew == null ? null : _useCrewTicket,
-            ),
-            CosmeticInventory(controller: wallet, onMessage: _showMessage),
-            ShareCardShop(
-              wallet: wallet,
-              history: widget.history,
-              onMessage: _showMessage,
-              ownedOnly: true,
-            ),
-          ],
+        // 상점과 같은 분류 칩으로 나눠, 고른 분류의 가진 아이템만 보여 줍니다.
+        final wallet? => InventoryCatalog(
+          wallet: wallet,
+          category: _inventoryCategory,
+          onCategory: (category) =>
+              setState(() => _inventoryCategory = category),
+          onShop: openShop,
+          onMessage: _showMessage,
+          history: widget.history,
+          onUseCrewTicket: widget.crew == null ? null : _useCrewTicket,
+          hasLegacyItems: legacy.isNotEmpty,
         ),
         null => null,
       },

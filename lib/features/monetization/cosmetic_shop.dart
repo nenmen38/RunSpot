@@ -290,11 +290,16 @@ class CosmeticInventory extends StatelessWidget {
   const CosmeticInventory({
     required this.controller,
     required this.onMessage,
+    this.slots,
     super.key,
   });
 
   final WalletController controller;
   final ValueChanged<String> onMessage;
+
+  /// 있으면 이 칸들만 보여 줍니다(보관함 분류, 캐릭터 칸 포함).
+  /// 없으면 캐릭터를 뺀 모든 칸을 보여 줍니다(캐릭터는 프로필의 꾸미기에서 입힘).
+  final List<CosmeticSlot>? slots;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -302,8 +307,14 @@ class CosmeticInventory extends StatelessWidget {
     builder: (context, _) {
       final text = Theme.of(context).textTheme;
       final wallet = controller.wallet;
+      final shown =
+          slots ??
+          [
+            for (final slot in CosmeticSlot.values)
+              if (slot != CosmeticSlot.shareCard && !slot.isCharacter) slot,
+          ];
       if (wallet == null ||
-          !wallet.cosmetics.any((item) => !item.slot.isCharacter)) {
+          !wallet.cosmetics.any((item) => shown.contains(item.slot))) {
         return const SizedBox.shrink();
       }
       Future<void> run(Future<String?> action) async {
@@ -318,10 +329,7 @@ class CosmeticInventory extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 캐릭터 꾸미기는 프로필의 내 러너에서 입히므로 여기서는 뺍니다.
-          for (final slot in CosmeticSlot.values.where(
-            (slot) => slot != CosmeticSlot.shareCard && !slot.isCharacter,
-          ))
+          for (final slot in shown)
             if (wallet.cosmetics.any((item) => item.slot == slot)) ...[
               const SizedBox(height: 20),
               Text(

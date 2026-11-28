@@ -145,8 +145,16 @@ void main() {
     await wallet.refresh();
     await tester.pumpWidget(itemPage(wallet));
     await tester.pumpAndSettle();
-    expect(find.textContaining('아직 테두리가 없어요'), findsOneWidget);
+    // 보관함도 상점처럼 분류로 나뉩니다. 비어 있으면 캐릭터 분류부터 보여 줍니다.
+    expect(
+      find.byKey(const ValueKey('inventory-empty-character')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('inventory-category-map')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('아직 테두리나 경로 색이 없어요'), findsOneWidget);
 
+    // '상점 보기'는 상점의 같은 분류(지도: 테두리·경로 색)를 엽니다.
     await tester.tap(find.text('상점 보기'));
     await tester.pumpAndSettle();
     expect(

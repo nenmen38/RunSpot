@@ -730,8 +730,14 @@ class FrameInventory extends StatelessWidget {
     required this.onShop,
     required this.onMessage,
     this.onUseCrewTicket,
+    this.showFrames = true,
+    this.showCrewTicket = true,
     super.key,
   });
+
+  /// 보관함 분류에 맞춰 내 테두리 / 크루 생성권만 따로 보여 줄 수 있습니다.
+  final bool showFrames;
+  final bool showCrewTicket;
 
   final WalletController controller;
   final VoidCallback onShop;
@@ -753,7 +759,7 @@ class FrameInventory extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (wallet != null && wallet.crewTickets > 0) ...[
+          if (showCrewTicket && wallet != null && wallet.crewTickets > 0) ...[
             Text(
               '크루',
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -770,77 +776,79 @@ class FrameInventory extends StatelessWidget {
             ),
             const SizedBox(height: 20),
           ],
-          Text(
-            '내 테두리',
-            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text('착용하면 러닝 지도에서 내 위치 원에 표시돼요.', style: text.bodySmall),
-          const SizedBox(height: 10),
-          if (controller.loading && wallet == null)
-            const LinearProgressIndicator(),
-          if (controller.error case final message? when wallet == null)
-            // 인터넷이 끊겨 못 불러왔으면 연결되는 대로 다시 불러옵니다.
-            ReconnectListener(
-              onReconnect: controller.refresh,
-              child: Row(
-                children: [
-                  Expanded(child: InlineError(message: message)),
-                  TextButton(
-                    onPressed: controller.refresh,
-                    child: const Text('다시 시도'),
-                  ),
-                ],
-              ),
+          if (showFrames) ...[
+            Text(
+              '내 테두리',
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
-          if (wallet != null && wallet.owned.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.blueSoft,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text('아직 테두리가 없어요.\n상점에서 코인으로 살 수 있어요.'),
-                  ),
-                  TextButton(onPressed: onShop, child: const Text('상점 보기')),
-                ],
-              ),
-            ),
-          if (wallet != null)
-            for (final kind in FrameKind.values)
-              if (wallet.owned.contains(kind))
-                _OwnedFrame(
-                  kind: kind,
-                  color: controller.color,
-                  equipped: wallet.equipped == kind,
-                  busy: controller.busy,
-                  onWear: () => run(controller.wear(kind)),
-                  onRemove: () => run(controller.wear(null)),
-                ),
-          // 테두리를 착용했을 때만 색을 고를 수 있고, 해제하면 색 선택도 숨깁니다.
-          if (wallet != null && wallet.equipped != null) ...[
             const SizedBox(height: 4),
-            Text('테두리 색', style: text.labelLarge),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final color in framePalette)
-                  _Swatch(
-                    color: color,
-                    selected: colorHex(color) == wallet.color,
-                    onTap: controller.busy
-                        ? null
-                        : () => run(controller.paint(color)),
+            Text('착용하면 러닝 지도에서 내 위치 원에 표시돼요.', style: text.bodySmall),
+            const SizedBox(height: 10),
+            if (controller.loading && wallet == null)
+              const LinearProgressIndicator(),
+            if (controller.error case final message? when wallet == null)
+              // 인터넷이 끊겨 못 불러왔으면 연결되는 대로 다시 불러옵니다.
+              ReconnectListener(
+                onReconnect: controller.refresh,
+                child: Row(
+                  children: [
+                    Expanded(child: InlineError(message: message)),
+                    TextButton(
+                      onPressed: controller.refresh,
+                      child: const Text('다시 시도'),
+                    ),
+                  ],
+                ),
+              ),
+            if (wallet != null && wallet.owned.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.blueSoft,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text('아직 테두리가 없어요.\n상점에서 코인으로 살 수 있어요.'),
+                    ),
+                    TextButton(onPressed: onShop, child: const Text('상점 보기')),
+                  ],
+                ),
+              ),
+            if (wallet != null)
+              for (final kind in FrameKind.values)
+                if (wallet.owned.contains(kind))
+                  _OwnedFrame(
+                    kind: kind,
+                    color: controller.color,
+                    equipped: wallet.equipped == kind,
+                    busy: controller.busy,
+                    onWear: () => run(controller.wear(kind)),
+                    onRemove: () => run(controller.wear(null)),
                   ),
-              ],
-            ),
+            // 테두리를 착용했을 때만 색을 고를 수 있고, 해제하면 색 선택도 숨깁니다.
+            if (wallet != null && wallet.equipped != null) ...[
+              const SizedBox(height: 4),
+              Text('테두리 색', style: text.labelLarge),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final color in framePalette)
+                    _Swatch(
+                      color: color,
+                      selected: colorHex(color) == wallet.color,
+                      onTap: controller.busy
+                          ? null
+                          : () => run(controller.paint(color)),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 24),
           ],
-          const SizedBox(height: 24),
         ],
       );
     },
