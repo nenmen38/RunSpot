@@ -14,6 +14,7 @@ import 'cosmetic_shop.dart';
 import 'coin_frames.dart';
 import 'store_catalog.dart';
 import 'share_card_shop.dart';
+import 'shop_catalog.dart';
 import '../run_history/run_history_controller.dart';
 
 class ProfileCosmetics extends StatefulWidget {
@@ -69,6 +70,7 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
 
   /// 아이템 페이지에서 보는 칸입니다. 0은 보관함, 1은 상점입니다.
   int _section = 0;
+  ShopCategory _shopCategory = ShopCategory.character;
 
   bool get _isStore => widget.child == null;
   bool get _previewOnly => _key.isEmpty || widget.client == null;
@@ -303,23 +305,13 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         switch (widget.wallet) {
-          final wallet? => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FrameShop(controller: wallet, onMessage: _showMessage),
-              ShareCardShop(
-                wallet: wallet,
-                history: widget.history,
-                onMessage: _showMessage,
-              ),
-              CosmeticShop(controller: wallet, onMessage: _showMessage),
-              if (widget.crew case final crew?)
-                CrewExpansionShop(
-                  controller: wallet,
-                  crew: crew,
-                  onMessage: _showMessage,
-                ),
-            ],
+          // 분류 칩으로 한 분류씩 보여 줘 길게 스크롤하지 않아도 됩니다.
+          final wallet? => ShopCatalog(
+            wallet: wallet,
+            history: widget.history,
+            crew: widget.crew,
+            initialCategory: _shopCategory,
+            onMessage: _showMessage,
           ),
           null => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
@@ -343,7 +335,11 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
           children: [
             FrameInventory(
               controller: wallet,
-              onShop: () => setState(() => _section = 1),
+              // 테두리 보관함의 '상점 보기'는 테두리가 있는 '지도' 분류로 엽니다.
+              onShop: () => setState(() {
+                _section = 1;
+                _shopCategory = ShopCategory.map;
+              }),
               onMessage: _showMessage,
               onUseCrewTicket: widget.crew == null ? null : _useCrewTicket,
             ),
@@ -373,7 +369,8 @@ class _ProfileCosmeticsState extends State<ProfileCosmetics> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (widget.wallet == null || (_paymentsEnabled && _previewOnly)) ...[
+            if (widget.wallet == null ||
+                (_paymentsEnabled && _previewOnly)) ...[
               const SizedBox(width: 8),
               const StoreTag('미리보기'),
             ],

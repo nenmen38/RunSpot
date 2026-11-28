@@ -175,6 +175,16 @@ enum CosmeticItem {
   charHairCurly('char_hair_curly', CosmeticSlot.charHair, '뽀글머리', 250, [
     Color(0xFF5B3A29),
   ]),
+  // 남자 헤어스타일.
+  charHairShort('char_hair_short', CosmeticSlot.charHair, '짧은 머리', 200, [
+    Color(0xFF5B3A29),
+  ]),
+  charHairDandy('char_hair_dandy', CosmeticSlot.charHair, '댄디컷', 200, [
+    Color(0xFF5B3A29),
+  ]),
+  charHairSpiky('char_hair_spiky', CosmeticSlot.charHair, '삐죽머리', 250, [
+    Color(0xFF5B3A29),
+  ]),
 
   // 머리색: 헤어스타일을 입고 있을 때 그 색으로 바뀝니다.
   charHairBlack('char_haircolor_black', CosmeticSlot.charHairColor, '흑발', 100, [

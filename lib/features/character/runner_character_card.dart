@@ -140,14 +140,17 @@ class _CharacterView extends StatelessWidget {
   }
 }
 
-/// 캐릭터 그림 위에 띄우는 반투명 원형 아이콘 버튼 모양입니다(어떤 배경 사진 위에서도 보이도록).
+/// 캐릭터 그림 위에 띄우는 버튼 모양입니다: 동그란 바탕·테두리 없이 반투명한 흰 아이콘만 보입니다.
 final characterOverlayButtonStyle = IconButton.styleFrom(
-  backgroundColor: Colors.black.withValues(alpha: 0.32),
-  foregroundColor: Colors.white,
+  foregroundColor: Colors.white.withValues(alpha: 0.85),
   hoverColor: Colors.white.withValues(alpha: 0.12),
   highlightColor: Colors.white.withValues(alpha: 0.2),
-  side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
 );
+
+/// 밝은 배경 사진 위에서도 보이도록 아이콘에 옅은 그림자를 둡니다.
+const characterOverlayIconShadows = [
+  Shadow(color: Color(0x73000000), blurRadius: 6),
+];
 
 /// 프로필 카드 그림 위의 반투명 '꾸미기'(옷걸이) 버튼입니다. 누르면 카테고리별 꾸미기 창이 열립니다.
 class CharacterDressButton extends StatelessWidget {
@@ -161,7 +164,11 @@ class CharacterDressButton extends StatelessWidget {
     tooltip: '꾸미기',
     style: characterOverlayButtonStyle,
     onPressed: () => showCharacterDresser(context, wallet),
-    icon: const Icon(Icons.checkroom, size: 20),
+    icon: const Icon(
+      Icons.checkroom,
+      size: 24,
+      shadows: characterOverlayIconShadows,
+    ),
   );
 }
 

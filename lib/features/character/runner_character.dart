@@ -6,8 +6,8 @@ import 'package:flutter/physics.dart';
 
 part 'runner_character_extras.dart';
 
-/// 머리 모양입니다(단발·포니테일·양갈래·똥머리·뽀글머리).
-enum HairStyle { bob, ponytail, pigtails, bun, curly }
+/// 머리 모양입니다. 여자: 단발·포니테일·양갈래·똥머리·뽀글머리 / 남자: 짧은 머리·댄디컷·삐죽머리.
+enum HairStyle { bob, ponytail, pigtails, bun, curly, short, dandy, spiky }
 
 /// 표정입니다. 선글라스를 쓰면 눈은 가려집니다.
 enum CharacterFace { normal, wink, heart, star, happy }

@@ -58,14 +58,15 @@ void main() {
     // 이름 줄에는 연필만 남습니다.
     final edit = tester.getRect(find.byTooltip('프로필 편집'));
     expect(edit.bottom, lessThanOrEqualTo(stage.top));
-    // 반투명 배경입니다.
+    // 동그란 바탕·테두리 없이 반투명 아이콘만 있습니다.
     final style = tester
         .widget<IconButton>(
           find.byKey(const ValueKey('character-dress-button')),
         )
         .style!;
-    final color = style.backgroundColor!.resolve({})!;
-    expect(color.a, inExclusiveRange(0.1, 0.6));
+    expect(style.backgroundColor?.resolve({}), anyOf(isNull, Colors.transparent));
+    expect(style.side?.resolve({}), isNull);
+    expect(style.foregroundColor!.resolve({})!.a, inExclusiveRange(0.5, 1));
     expect(find.text('꾸미기'), findsNothing);
     expect(find.byTooltip('꾸미기'), findsOneWidget);
     expect(find.byTooltip('배경 사진'), findsOneWidget);

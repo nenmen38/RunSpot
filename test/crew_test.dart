@@ -76,8 +76,12 @@ void main() {
 
     await tester.tap(find.text('상점'));
     await tester.pumpAndSettle();
+    // 상점은 분류별로 나뉘어 있어 '크루'를 눌러야 생성권이 보입니다.
+    await tester.tap(find.byKey(const ValueKey('shop-category-crew')));
+    await tester.pumpAndSettle();
     final ticket = find.byKey(const ValueKey('shop-crew-ticket'));
-    await tester.scrollUntilVisible(ticket, 200);
+    await tester.ensureVisible(ticket);
+    await tester.pumpAndSettle();
     expect(
       find.descendant(of: ticket, matching: find.textContaining('640코인')),
       findsOneWidget,

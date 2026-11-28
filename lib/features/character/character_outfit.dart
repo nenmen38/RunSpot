@@ -25,6 +25,9 @@ CharacterOutfit characterOutfit(Iterable<CosmeticItem?> worn) {
           CosmeticItem.charHairPonytail => HairStyle.ponytail,
           CosmeticItem.charHairPigtails => HairStyle.pigtails,
           CosmeticItem.charHairBun => HairStyle.bun,
+          CosmeticItem.charHairShort => HairStyle.short,
+          CosmeticItem.charHairDandy => HairStyle.dandy,
+          CosmeticItem.charHairSpiky => HairStyle.spiky,
           _ => HairStyle.curly,
         };
       case CosmeticSlot.charHairColor:

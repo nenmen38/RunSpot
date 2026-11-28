@@ -160,7 +160,11 @@ class CharacterBackgroundButton extends StatelessWidget {
       context,
       background: background ?? CharacterBackground.instance,
     ),
-    icon: const Icon(Icons.photo_library_outlined, size: 20),
+    icon: const Icon(
+      Icons.photo_library_outlined,
+      size: 24,
+      shadows: characterOverlayIconShadows,
+    ),
   );
 }
 

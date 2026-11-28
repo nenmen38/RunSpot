@@ -18,6 +18,53 @@ RunnerCharacterPainter _painter(WidgetTester tester, {int index = 0}) =>
         as RunnerCharacterPainter;
 
 void main() {
+  test('남자 헤어스타일 3종은 각자의 머리 모양으로 입혀집니다', () {
+    expect(
+      characterOutfit([CosmeticItem.charHairShort]).hairStyle,
+      HairStyle.short,
+    );
+    expect(
+      characterOutfit([CosmeticItem.charHairDandy]).hairStyle,
+      HairStyle.dandy,
+    );
+    expect(
+      characterOutfit([CosmeticItem.charHairSpiky]).hairStyle,
+      HairStyle.spiky,
+    );
+    expect(CosmeticItem.charHairSpiky.defaultPrice, 250);
+    // 머리색을 함께 입으면 남자 머리에도 그 색이 입혀집니다.
+    final outfit = characterOutfit([
+      CosmeticItem.charHairBlonde,
+      CosmeticItem.charHairDandy,
+    ]);
+    expect(outfit.hairStyle, HairStyle.dandy);
+    expect(outfit.hairColor, CosmeticItem.charHairBlonde.colors.first);
+  });
+
+  testWidgets('모든 헤어스타일은 여러 방향에서 오류 없이 그려집니다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Wrap(
+          children: [
+            for (final style in HairStyle.values)
+              for (final yaw in const [0.0, -1.6, 3.1])
+                SizedBox(
+                  width: 80,
+                  height: 100,
+                  child: CustomPaint(
+                    painter: RunnerCharacterPainter(
+                      yaw: yaw,
+                      outfit: CharacterOutfit(hairStyle: style),
+                    ),
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   test('새 아이템은 칸과 가격이 정해져 있고 상점에서 살 수 있습니다', () {
     final fresh = CosmeticItem.values.where(
       (item) => const {
@@ -28,7 +75,8 @@ void main() {
         CosmeticSlot.charSeason,
       }.contains(item.slot),
     );
-    expect(fresh.length, 21);
+    // 처음 21종 + 남자 헤어스타일 3종.
+    expect(fresh.length, 24);
     expect(fresh.every((item) => item.defaultPrice >= 100), isTrue);
     expect(CosmeticItem.charPetBunny.defaultPrice, 450);
     expect(CosmeticItem.charHairCurly.defaultPrice, 250);

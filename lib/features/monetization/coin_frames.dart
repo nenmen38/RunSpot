@@ -1070,11 +1070,17 @@ class FrameShop extends StatelessWidget {
   const FrameShop({
     required this.controller,
     required this.onMessage,
+    this.showFrames = true,
+    this.showCrewTicket = true,
     super.key,
   });
 
   final WalletController controller;
   final ValueChanged<String> onMessage;
+
+  /// 상점 카테고리에 맞춰 코인 테두리 / 크루 생성권만 따로 보여 줄 수 있습니다.
+  final bool showFrames;
+  final bool showCrewTicket;
 
   Future<void> _buy(BuildContext context, FrameKind kind, int price) async {
     final wallet = controller.wallet;
@@ -1115,123 +1121,130 @@ class FrameShop extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            '코인 테두리',
-            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          for (final kind in FrameKind.values)
-            Builder(
-              builder: (context) {
-                final price = wallet?.prices[kind] ?? kind.defaultPrice;
-                final owned = wallet?.owned.contains(kind) ?? false;
-                return Container(
-                  key: ValueKey('shop-${kind.code}'),
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.line),
-                  ),
-                  child: Row(
-                    children: [
-                      ExcludeSemantics(
-                        child: FrameBadge(kind: kind, color: controller.color),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              kind.label,
-                              style: text.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(kind.description, style: text.bodySmall),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${formatNumber(price)}코인',
-                              style: text.labelLarge?.copyWith(
-                                color: AppColors.blueText,
-                              ),
-                            ),
-                          ],
+          if (showFrames) ...[
+            Text(
+              '코인 테두리',
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            for (final kind in FrameKind.values)
+              Builder(
+                builder: (context) {
+                  final price = wallet?.prices[kind] ?? kind.defaultPrice;
+                  final owned = wallet?.owned.contains(kind) ?? false;
+                  return Container(
+                    key: ValueKey('shop-${kind.code}'),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.line),
+                    ),
+                    child: Row(
+                      children: [
+                        ExcludeSemantics(
+                          child: FrameBadge(
+                            kind: kind,
+                            color: controller.color,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      ShopItemActions(
-                        onPreview: () => showDialog<void>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text(kind.label),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                FrameBadge(
-                                  kind: kind,
-                                  color: controller.color,
-                                  size: 88,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                kind.label,
+                                style: text.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
                                 ),
-                                const SizedBox(height: 12),
-                                const Text('지도에서 내 위치에 표시되는 모습'),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('닫기'),
+                              ),
+                              Text(kind.description, style: text.bodySmall),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${formatNumber(price)}코인',
+                                style: text.labelLarge?.copyWith(
+                                  color: AppColors.blueText,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        purchase: owned
-                            ? const FilledButton(
-                                onPressed: null,
-                                child: Text('보유 중'),
-                              )
-                            : FilledButton(
-                                onPressed: wallet == null || controller.busy
-                                    ? null
-                                    : () => _buy(context, kind, price),
-                                child: const Text('구매'),
+                        const SizedBox(width: 8),
+                        ShopItemActions(
+                          onPreview: () => showDialog<void>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(kind.label),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FrameBadge(
+                                    kind: kind,
+                                    color: controller.color,
+                                    size: 88,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text('지도에서 내 위치에 표시되는 모습'),
+                                ],
                               ),
-                      ),
-                    ],
-                  ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('닫기'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          purchase: owned
+                              ? const FilledButton(
+                                  onPressed: null,
+                                  child: Text('보유 중'),
+                                )
+                              : FilledButton(
+                                  onPressed: wallet == null || controller.busy
+                                      ? null
+                                      : () => _buy(context, kind, price),
+                                  child: const Text('구매'),
+                                ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+          if (showCrewTicket) ...[
+            const SizedBox(height: 10),
+            Text(
+              '크루',
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            Builder(
+              builder: (context) {
+                final price =
+                    wallet?.crewTicketPrice ?? Wallet.crewTicketDefaultPrice;
+                // 쓰지 않은 생성권이 있으면 먼저 쓰도록 더 사지 않습니다.
+                final blocked = wallet != null && wallet.crewTickets > 0;
+                return _CrewTicketCard(
+                  key: const ValueKey('shop-crew-ticket'),
+                  subtitle: price == 0
+                      ? '첫 크루를 무료로 만들고 친구를 초대해요.'
+                      : '나만의 크루를 만들고 친구를 초대해요.\n${formatNumber(price)}코인',
+                  action: blocked
+                      ? FilledButton(onPressed: null, child: const Text('보유 중'))
+                      : FilledButton(
+                          onPressed: wallet == null || controller.busy
+                              ? null
+                              : () => _buyTicket(context, price),
+                          child: Text(price == 0 ? '무료 받기' : '구매'),
+                        ),
                 );
               },
             ),
-          const SizedBox(height: 10),
-          Text(
-            '크루',
-            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          Builder(
-            builder: (context) {
-              final price =
-                  wallet?.crewTicketPrice ?? Wallet.crewTicketDefaultPrice;
-              // 쓰지 않은 생성권이 있으면 먼저 쓰도록 더 사지 않습니다.
-              final blocked = wallet != null && wallet.crewTickets > 0;
-              return _CrewTicketCard(
-                key: const ValueKey('shop-crew-ticket'),
-                subtitle: price == 0
-                    ? '첫 크루를 무료로 만들고 친구를 초대해요.'
-                    : '나만의 크루를 만들고 친구를 초대해요.\n${formatNumber(price)}코인',
-                action: blocked
-                    ? FilledButton(onPressed: null, child: const Text('보유 중'))
-                    : FilledButton(
-                        onPressed: wallet == null || controller.busy
-                            ? null
-                            : () => _buyTicket(context, price),
-                        child: Text(price == 0 ? '무료 받기' : '구매'),
-                      ),
-              );
-            },
-          ),
+          ],
           const SizedBox(height: 16),
         ],
       );

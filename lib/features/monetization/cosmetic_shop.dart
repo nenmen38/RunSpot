@@ -157,11 +157,15 @@ class CosmeticShop extends StatelessWidget {
   const CosmeticShop({
     required this.controller,
     required this.onMessage,
+    this.slots,
     super.key,
   });
 
   final WalletController controller;
   final ValueChanged<String> onMessage;
+
+  /// 있으면 이 칸들만 보여 줍니다(상점 카테고리). 없으면 모든 칸을 차례로 보여 줍니다.
+  final List<CosmeticSlot>? slots;
 
   Future<void> _buy(BuildContext context, CosmeticItem item) async {
     final wallet = controller.wallet;
@@ -216,12 +220,15 @@ class CosmeticShop extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final slot in CosmeticSlot.values.where(
-            (slot) => slot != CosmeticSlot.shareCard,
-          )) ...[
+          for (final slot
+              in slots ??
+                  CosmeticSlot.values.where(
+                    (slot) => slot != CosmeticSlot.shareCard,
+                  )) ...[
             // 캐릭터 꾸미기는 하나의 큰 묶음 아래 칸별로 보여줍니다.
-            if (slot ==
-                CosmeticSlot.values.firstWhere((s) => s.isCharacter)) ...[
+            if (slots == null &&
+                slot ==
+                    CosmeticSlot.values.firstWhere((s) => s.isCharacter)) ...[
               const SizedBox(height: 28),
               Row(
                 children: [
@@ -239,7 +246,7 @@ class CosmeticShop extends StatelessWidget {
                 style: text.bodySmall,
               ),
             ],
-            SizedBox(height: slot.isCharacter ? 14 : 20),
+            SizedBox(height: slots != null ? 12 : (slot.isCharacter ? 14 : 20)),
             Text(
               slot.label,
               style: (slot.isCharacter ? text.titleSmall : text.titleMedium)
