@@ -22,9 +22,17 @@ Map<CosmeticSlot, CosmeticItem> wornCharacterItems(Wallet? wallet) => {
 
 /// 프로필의 '내 러너' 칸입니다. 입은 아이템이 바로 보이고, 좌우로 밀어 모든 방향에서 볼 수 있습니다.
 class RunnerCharacterCard extends StatelessWidget {
-  const RunnerCharacterCard({this.wallet, this.onShare, super.key});
+  const RunnerCharacterCard({
+    this.wallet,
+    this.onShare,
+    this.showActions = false,
+    super.key,
+  });
 
   final WalletController? wallet;
+
+  /// 켜면 캐릭터 그림 오른쪽 위에 반투명 '꾸미기'(옷걸이)·'배경 사진' 버튼을 띄웁니다.
+  final bool showActions;
 
   /// 있으면 캐릭터 아래에 '프로필 카드 공유' 버튼을 보여 줍니다.
   final VoidCallback? onShare;
@@ -33,23 +41,36 @@ class RunnerCharacterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = wallet;
     if (controller == null) {
-      return _CharacterView(worn: const {}, onShare: onShare);
+      return _CharacterView(
+        worn: const {},
+        onShare: onShare,
+        showActions: showActions,
+      );
     }
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) => _CharacterView(
         worn: wornCharacterItems(controller.wallet),
         onShare: onShare,
+        wallet: controller,
+        showActions: showActions,
       ),
     );
   }
 }
 
 class _CharacterView extends StatelessWidget {
-  const _CharacterView({required this.worn, this.onShare});
+  const _CharacterView({
+    required this.worn,
+    this.onShare,
+    this.wallet,
+    this.showActions = false,
+  });
 
   final Map<CosmeticSlot, CosmeticItem> worn;
   final VoidCallback? onShare;
+  final WalletController? wallet;
+  final bool showActions;
 
   @override
   Widget build(BuildContext context) {
@@ -57,16 +78,36 @@ class _CharacterView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: ListenableBuilder(
-            listenable: CharacterBackground.instance,
-            builder: (context, _) => RunnerCharacterStage(
-              outfit: characterOutfit(worn.values),
-              height: 280,
-              background: CharacterBackground.instance.provider,
+        Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: ListenableBuilder(
+                listenable: CharacterBackground.instance,
+                builder: (context, _) => RunnerCharacterStage(
+                  outfit: characterOutfit(worn.values),
+                  height: 280,
+                  background: CharacterBackground.instance.provider,
+                ),
+              ),
             ),
-          ),
+            // 그림 위 오른쪽 위에 반투명 버튼: 꾸미기(옷걸이)와 배경 사진.
+            if (showActions)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (wallet case final wallet?) ...[
+                      CharacterDressButton(wallet: wallet),
+                      const SizedBox(width: 6),
+                    ],
+                    const CharacterBackgroundButton(),
+                  ],
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 6),
         Row(
@@ -99,17 +140,26 @@ class _CharacterView extends StatelessWidget {
   }
 }
 
-/// 프로필 머리 줄의 '꾸미기' 아이콘 버튼입니다. 누르면 카테고리별 꾸미기 창이 열립니다.
+/// 캐릭터 그림 위에 띄우는 반투명 원형 아이콘 버튼 모양입니다(어떤 배경 사진 위에서도 보이도록).
+final characterOverlayButtonStyle = IconButton.styleFrom(
+  backgroundColor: Colors.black.withValues(alpha: 0.32),
+  foregroundColor: Colors.white,
+  hoverColor: Colors.white.withValues(alpha: 0.12),
+  highlightColor: Colors.white.withValues(alpha: 0.2),
+  side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+);
+
+/// 프로필 카드 그림 위의 반투명 '꾸미기'(옷걸이) 버튼입니다. 누르면 카테고리별 꾸미기 창이 열립니다.
 class CharacterDressButton extends StatelessWidget {
   const CharacterDressButton({required this.wallet, super.key});
 
   final WalletController wallet;
 
   @override
-  Widget build(BuildContext context) => IconButton.filledTonal(
+  Widget build(BuildContext context) => IconButton(
     key: const ValueKey('character-dress-button'),
     tooltip: '꾸미기',
-    visualDensity: VisualDensity.compact,
+    style: characterOverlayButtonStyle,
     onPressed: () => showCharacterDresser(context, wallet),
     icon: const Icon(Icons.checkroom, size: 20),
   );

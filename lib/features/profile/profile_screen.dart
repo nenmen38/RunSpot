@@ -118,17 +118,7 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PrivacyControls(
-            sharingController: mapController,
-            identityOnly: true,
-            // 프로필 편집 버튼 왼쪽의 '꾸미기': 누르면 카테고리별로 캐릭터 아이템을 고릅니다.
-            extraAction: switch (wallet) {
-              final wallet? => CharacterDressButton(wallet: wallet),
-              null => null,
-            },
-            // 연필 오른쪽의 사진 아이콘: 캐릭터 배경 사진을 바꾸고 보관함을 엽니다.
-            trailingAction: const CharacterBackgroundButton(),
-          ),
+          PrivacyControls(sharingController: mapController, identityOnly: true),
           // 내 러너 캐릭터: 입은 아이템이 바로 보이고 좌우로 돌려 볼 수 있습니다.
           // 줄 전체를 눌러 접고 펼 수 있어요(상태는 기기에 저장).
           ListenableBuilder(
@@ -168,6 +158,8 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         RunnerCharacterCard(
                           wallet: wallet,
+                          // 그림 오른쪽 위 반투명 버튼: 꾸미기(옷걸이)·배경 사진.
+                          showActions: true,
                           // 카드를 이미지로 저장하거나 채팅·게시판으로 보낼 수 있습니다(서버 연결이 있을 때).
                           onShare: commerceClient == null
                               ? null

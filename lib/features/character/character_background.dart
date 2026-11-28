@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../board/data/board_photo_service.dart';
 import '../settings/appearance/app_appearance.dart';
 import 'runner_character.dart';
+import 'runner_character_card.dart';
 
 /// 내 러너 캐릭터 뒤에 깔 배경 사진 보관함입니다.
 /// 고른 사진은 이 폰에만 저장되고(서버로 올리지 않음) 프로필·꾸미기 창·프로필 카드에 쓰입니다.
@@ -144,17 +145,17 @@ class CharacterBackground extends ChangeNotifier {
   }
 }
 
-/// 프로필 헤더의 사진 아이콘입니다. 누르면 배경 사진 보관함이 열립니다.
+/// 프로필 카드 그림 위의 반투명 사진 아이콘입니다. 누르면 배경 사진 보관함이 열립니다.
 class CharacterBackgroundButton extends StatelessWidget {
   const CharacterBackgroundButton({this.background, super.key});
 
   final CharacterBackground? background;
 
   @override
-  Widget build(BuildContext context) => IconButton.filledTonal(
+  Widget build(BuildContext context) => IconButton(
     key: const ValueKey('character-background-button'),
     tooltip: '배경 사진',
-    visualDensity: VisualDensity.compact,
+    style: characterOverlayButtonStyle,
     onPressed: () => showCharacterBackgroundSheet(
       context,
       background: background ?? CharacterBackground.instance,

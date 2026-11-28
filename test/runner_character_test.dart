@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:runquest/features/character/character_background.dart';
 import 'package:runquest/features/character/runner_character.dart';
 import 'package:runquest/features/character/runner_character_card.dart';
 import 'package:runquest/features/monetization/coin_frames.dart';
@@ -27,37 +26,49 @@ Widget _app(WalletController wallet) => MaterialApp(
           verified: true,
           onEdit: () {},
           editLabel: '프로필 편집',
-          extraAction: CharacterDressButton(wallet: wallet),
-          trailingAction: const CharacterBackgroundButton(),
         ),
-        RunnerCharacterCard(wallet: wallet),
+        RunnerCharacterCard(wallet: wallet, showActions: true),
       ],
     ),
   ),
 );
 
 void main() {
-  testWidgets('꾸미기·연필·사진 아이콘이 한 줄에 차례로 놓입니다', (tester) async {
+  testWidgets('꾸미기·배경 사진 버튼은 프로필 카드 그림 오른쪽 위에 반투명하게 놓입니다', (tester) async {
     final wallet = WalletController(FakeWalletService()..coins = 0);
     await wallet.refresh();
     await tester.pumpWidget(_app(wallet));
     await tester.pumpAndSettle();
+    final stage = tester.getRect(find.byType(RunnerCharacterStage));
     final dress = tester.getRect(
       find.byKey(const ValueKey('character-dress-button')),
     );
-    final edit = tester.getRect(find.byTooltip('프로필 편집'));
-    expect(dress.right, lessThanOrEqualTo(edit.left + 1));
-    expect(edit.left - dress.right, lessThan(12));
-    expect((dress.center.dy - edit.center.dy).abs(), lessThan(4));
     final photo = tester.getRect(
       find.byKey(const ValueKey('character-background-button')),
     );
-    expect(photo.left, greaterThanOrEqualTo(edit.right - 1));
-    expect(photo.left - edit.right, lessThan(12));
-    expect((photo.center.dy - edit.center.dy).abs(), lessThan(4));
-    // 꾸미기는 글자 없는 아이콘 버튼입니다.
+    // 둘 다 캐릭터 그림 안, 오른쪽 위 구석에 나란히(옷걸이 → 사진) 있습니다.
+    for (final button in [dress, photo]) {
+      expect(stage.contains(button.topLeft), isTrue);
+      expect(stage.contains(button.bottomRight - const Offset(1, 1)), isTrue);
+      expect(button.top - stage.top, lessThan(16));
+    }
+    expect(stage.right - photo.right, lessThan(16));
+    expect(dress.right, lessThanOrEqualTo(photo.left));
+    expect((dress.center.dy - photo.center.dy).abs(), lessThan(1));
+    // 이름 줄에는 연필만 남습니다.
+    final edit = tester.getRect(find.byTooltip('프로필 편집'));
+    expect(edit.bottom, lessThanOrEqualTo(stage.top));
+    // 반투명 배경입니다.
+    final style = tester
+        .widget<IconButton>(
+          find.byKey(const ValueKey('character-dress-button')),
+        )
+        .style!;
+    final color = style.backgroundColor!.resolve({})!;
+    expect(color.a, inExclusiveRange(0.1, 0.6));
     expect(find.text('꾸미기'), findsNothing);
     expect(find.byTooltip('꾸미기'), findsOneWidget);
+    expect(find.byTooltip('배경 사진'), findsOneWidget);
     wallet.dispose();
   });
 
